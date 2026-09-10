@@ -1195,7 +1195,7 @@ describe("model-facing tool definitions", () => {
       "for participation questions",
     );
     expect(check_insurance.description).toContain(
-      "A result requiring staff follow-up needs caller permission, then a normal referrals task",
+      "A result requiring staff follow-up needs caller permission, then a normal insurance task",
     );
     expect(check_insurance.description).toContain(
       "transfer only if task creation is unavailable, fails, or the caller declines",
@@ -1271,10 +1271,10 @@ describe("model-facing tool definitions", () => {
     expect(taskParameters.shape.category.description).toContain("medication");
     expect(taskParameters.shape.category.description).toContain("optical");
     expect(taskParameters.shape.category.description).toContain(
-      "referrals including insurance prior authorization",
+      "medication PA/denial/status even when an insurer calls",
     );
     expect(taskParameters.shape.message.description).toContain(
-      "for prior authorization include patient, plan, visit type, and request",
+      "for authorization include the medication or service, plan and caller-reported status/reference",
     );
     expect(taskParameters.shape.urgency.description).toContain(
       "high_priority for time-sensitive non-clinical work",
@@ -1298,7 +1298,7 @@ describe("model-facing tool definitions", () => {
         summary: "Caller has a billing question.",
         message: "The caller wants billing to review a recent bill.",
       }).success,
-    ).toBe(true);
+    ).toBe(false);
     expect(
       create_staff_task.parameters.safeParse({
         category: "medication",
@@ -1638,5 +1638,26 @@ describe("model-facing tool definitions", () => {
       parameters.safeParse({ firstName: " ", lastName: null, dob: null })
         .success,
     ).toBe(false);
+  });
+});
+
+describe("Abita records and task intake policy", () => {
+  it("supplies records intake and patient-email limits only to Abita office prompts", () => {
+    const prompt = buildPrompt(SPRING_HILL_OFFICE_PHONE);
+    for (const instruction of [
+      "patient, medical office, or attorney office",
+      "only a visit summary may be emailed",
+      "full visit notes are excluded",
+      "both the records request and patient authorization",
+      "caller-reported",
+      "Missing details",
+      "786-446-8333",
+      "separate Task",
+      "approved self-pay",
+    ])
+      expect(prompt).toContain(instruction);
+    const demo = buildPrompt(RHEUMATOLOGY_DEMO_TRUNK_PHONE);
+    expect(demo).not.toContain("only a visit summary may be emailed");
+    expect(demo).not.toContain("786-446-8333");
   });
 });

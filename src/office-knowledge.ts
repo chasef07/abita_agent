@@ -1107,7 +1107,7 @@ function officeReplyGuidance(topic: OfficeKnowledgeTopic): string[] {
       ];
     case "insurance_referrals":
       return [
-        "Plan acceptance does not prove benefits, copays, deductibles, active coverage, or authorization. Use check_insurance for participation; offer staff follow-up in the existing referrals category for unresolved benefit or authorization questions with caller agreement. Keep clinical referral requests separate.",
+        "Plan acceptance does not prove benefits, copays, deductibles, active coverage, or authorization. Use check_insurance for participation; For unresolved benefits, referral requirements or visit/procedure/surgery/test authorization, offer an insurance task with caller agreement. Medication PA, denial or status belongs to medication, even when an insurer or pharmacy calls. Actual referral/imaging-order coordination belongs to referrals; records-release authorization belongs to documentation. Use context; briefly clarify an unknown authorization subject. If still unknown, use other and list the missing subject. Do not claim caller-reported status is verified.",
       ];
     case "appointment_expectations":
       return [

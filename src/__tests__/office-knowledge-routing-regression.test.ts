@@ -217,3 +217,19 @@ describe("answerable office requests", () => {
     expect(result.sections.join("\n")).not.toContain("$250");
   });
 });
+
+// The reference participates in the real model turn; it must not override task taxonomy.
+describe("task responsibility guidance", () => {
+  it("distinguishes service authorization from medication PA and records release", () => {
+    const resolution = resolveOfficeKnowledge(
+      "spring-hill",
+      "I need prior authorization status.",
+    );
+    const text = officeKnowledgeReference("spring-hill", resolution);
+    expect(text).toContain("insurance");
+    expect(text).toContain("medication");
+    expect(text).toContain("documentation");
+    expect(text).toContain("clarify");
+    expect(text).not.toContain("existing referrals category");
+  });
+});

@@ -13,8 +13,18 @@ import {
   domainOutcomeReceipts,
   staffTaskReceipts,
 } from "../state/observability.js";
+import {
+  beginNewPatientRegistration,
+  beginPatientCreation,
+  commitPatientCreation,
+} from "../identity/patient-identity.js";
+import { createResolvePatientTool } from "../tools/resolve-patient.js";
+import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
 import { check_insurance, create_staff_task } from "../tools/index.js";
-import { getAcuityProductStaffTasksUrl } from "../tools/create-staff-task.js";
+import {
+  createStaffTaskTool,
+  getAcuityProductStaffTasksUrl,
+} from "../tools/create-staff-task.js";
 import { createConfirmedPatientState } from "./support/call-state.js";
 
 const PRODUCT_TASK_URL = "https://acuity-product.example/v1/tasks";
@@ -74,6 +84,379 @@ describe("create_staff_task", () => {
     vi.unstubAllGlobals();
   });
 
+  it("accepts exactly the nine shared categories and rejects billing", () => {
+    const input = {
+      urgency: "normal",
+      summary: "Follow-up",
+      message: "Staff review requested.",
+    };
+    for (const category of [
+      "appointments",
+      "documentation",
+      "medication",
+      "optical",
+      "referrals",
+      "other",
+      "insurance",
+      "pre_op",
+      "post_op",
+    ]) {
+      expect(
+        create_staff_task.parameters.safeParse({ ...input, category }).success,
+        category,
+      ).toBe(true);
+    }
+    expect(
+      create_staff_task.parameters.safeParse({ ...input, category: "billing" })
+        .success,
+    ).toBe(false);
+  });
+
+  it("retains the intended unmatched patient without attaching the previous chart or deduplicating another patient", async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json({
+        status: "created",
+        taskId: `task-${fetchMock.mock.calls.length}`,
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const state = createState();
+    const options = {
+      ctx: createToolContext(state) as never,
+      toolCallId: "identity-intake",
+    } as never;
+    const resolve = createResolvePatientTool(
+      new InMemoryOwnedMiddleware({
+        resolvePatient: [{ status: "not_found" }, { status: "not_found" }],
+      }),
+    );
+    const input = {
+      category: "documentation" as const,
+      urgency: "normal" as const,
+      summary: "Visit summary",
+      message: "Patient requests a visit summary for staff review.",
+    };
+    for (const firstName of ["Alex", "Morgan"]) {
+      await resolve.execute(
+        { firstName, lastName: "Example", dob: "02/03/1990" },
+        options,
+      );
+      await create_staff_task.execute(input, options);
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const bodies = fetchMock.mock.calls.map((call) =>
+      JSON.parse(call[1].body as string),
+    );
+    expect(bodies.map((body) => body.patient)).toEqual([
+      { name: "Alex Example", dob: "02/03/1990" },
+      { name: "Morgan Example", dob: "02/03/1990" },
+    ]);
+    expect(bodies[0].idempotencyKey).not.toBe(bodies[1].idempotencyKey);
+    expect(bodies.map((body) => body.callId)).toEqual([
+      "call-test",
+      "call-test",
+    ]);
+    expect(state.identity.activePatient?.patientId).toBe("patient-1");
+  });
+
+  it("rejects over-limit intake without sending or truncating any details, then accepts a lossless revision", async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json({ status: "created", taskId: "complete-intake" }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const options = {
+      ctx: createToolContext(createState()) as never,
+      toolCallId: "long-intake",
+    } as never;
+    const input = {
+      category: "documentation" as const,
+      urgency: "normal" as const,
+      summary: "Attorney records request",
+      message: "x".repeat(2501),
+    };
+    await expect(create_staff_task.execute(input, options)).rejects.toThrow(
+      "No request was sent",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    const message =
+      "Requester: attorney office, Example Legal. Requested: full records. Delivery: fax, +12025550199. Records request faxed: caller reports yes, September 1. Patient authorization faxed: no. Not ready for fulfillment; both documents must be faxed first. Missing: patient DOB, authorization fax date.";
+    await create_staff_task.execute({ ...input, message }, options);
+    expect(JSON.parse(fetchMock.mock.calls[0]![1].body as string).message).toBe(
+      message,
+    );
+  });
+
+  it("can capture the real tool payload through an inert transport without reaching global fetch", async () => {
+    const network = vi.fn(() => {
+      throw new Error("Network forbidden");
+    });
+    vi.stubGlobal("fetch", network);
+    const capture = vi.fn(async () =>
+      Response.json({ status: "created", taskId: "synthetic-capture" }),
+    );
+    const task = createStaffTaskTool(capture);
+    const result = await task.execute(
+      {
+        category: "pre_op",
+        urgency: "normal",
+        summary: "Clearance coordination",
+        message:
+          "Caller requests pre-op clearance coordination for cataract surgery next month. Missing details: surgery date.",
+      },
+      {
+        ctx: createToolContext(createState()) as never,
+        toolCallId: "capture",
+      } as never,
+    );
+    expect(result).toContain("review");
+    expect(network).not.toHaveBeenCalled();
+    expect(JSON.parse(capture.mock.calls[0]![1].body as string)).toMatchObject({
+      category: "pre_op",
+      callId: "call-test",
+      source: "agent",
+    });
+  });
+
+  it("preserves an incomplete new-patient registration without inventing a chart", async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json({ status: "created", taskId: "registration-follow-up" }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const state = createState();
+    beginNewPatientRegistration(state, {
+      firstName: "Morgan",
+      lastName: "Example",
+    });
+    await create_staff_task.execute(
+      {
+        category: "documentation",
+        urgency: "normal",
+        summary: "Records follow-up",
+        message: "Caller requests records. Missing details: DOB.",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "registration-task",
+      } as never,
+    );
+    expect(
+      JSON.parse(fetchMock.mock.calls[0]![1].body as string).patient,
+    ).toEqual({ name: "Morgan Example" });
+  });
+
+  it("keeps verified chart identity when the same preloaded patient is resolved twice", async () => {
+    const transport = vi.fn(async () =>
+      Response.json({ status: "created", taskId: "verified-again" }),
+    );
+    vi.stubGlobal("fetch", transport);
+    const state = createState({
+      preCallCandidates: [
+        {
+          status: "verified",
+          ref: "alex",
+          patientId: "synthetic-alex",
+          firstName: "Alex",
+          lastName: "Example",
+          dob: "02/03/1990",
+          appointments: [],
+          appointmentsStatus: "none",
+        },
+      ],
+    });
+    const options = {
+      ctx: createToolContext(state) as never,
+      toolCallId: "same-patient",
+    } as never;
+    const resolve = createResolvePatientTool(new InMemoryOwnedMiddleware());
+    for (let i = 0; i < 2; i++)
+      await resolve.execute(
+        { firstName: "Alex", lastName: null, dob: null },
+        options,
+      );
+    await create_staff_task.execute(
+      {
+        category: "optical",
+        urgency: "normal",
+        summary: "Glasses copy",
+        message: "Patient requests a glasses prescription copy.",
+      },
+      options,
+    );
+    expect(
+      JSON.parse(transport.mock.calls[0]![1].body as string).patient,
+    ).toEqual({
+      id: "synthetic-alex",
+      name: "Alex Example",
+      dob: "02/03/1990",
+    });
+  });
+
+  it.each(["full lookup", "candidate hydration", "registration"])(
+    "keeps the newer incomplete Task patient when an older %s completes",
+    async (mode) => {
+      const transport = vi.fn(async () =>
+        Response.json({ status: "created", taskId: "newer-patient" }),
+      );
+      vi.stubGlobal("fetch", transport);
+      const state = createState();
+      const options = {
+        ctx: createToolContext(state) as never,
+        toolCallId: "pending-patient",
+      } as never;
+      const receipt = {
+        status: "verified" as const,
+        patientId: "synthetic-alex",
+        name: "Alex Example",
+        dob: "02/03/1990",
+        phone: "+12025550147",
+        appointments: [],
+        appointmentsStatus: "none" as const,
+        appointmentsMessage: null,
+        message: null,
+        insuranceCarrier: null,
+        insPlanId: null,
+        respPartyId: null,
+        routing: null,
+        allowedProviders: [],
+        routingAmbiguous: false,
+        preauthRequired: false,
+      };
+      let finish!: (value: typeof receipt) => void;
+      const pending = new Promise<typeof receipt>((resolve) => {
+        finish = resolve;
+      });
+      const resolve = createResolvePatientTool(
+        new InMemoryOwnedMiddleware({ resolvePatient: [pending] }),
+      );
+      if (mode === "candidate hydration")
+        state.identity.privateCandidates = [
+          {
+            status: "candidate",
+            ref: "alex",
+            patientId: "synthetic-alex",
+            firstName: "Alex",
+            lastName: "Example",
+            dob: "02/03/1990",
+            appointments: [],
+          },
+        ];
+      let older: Promise<unknown> | undefined;
+      let registration: ReturnType<typeof beginPatientCreation> = null;
+      if (mode === "registration") {
+        beginNewPatientRegistration(state, {
+          firstName: "Alex",
+          lastName: "Example",
+          dob: "02/03/1990",
+        });
+        registration = beginPatientCreation(state);
+      } else {
+        older = resolve.execute(
+          { firstName: "Alex", lastName: "Example", dob: "02/03/1990" },
+          options,
+        );
+        await Promise.resolve();
+        await Promise.resolve();
+      }
+      await resolve.execute(
+        { firstName: "Morgan", lastName: null, dob: null },
+        options,
+      );
+      if (registration)
+        commitPatientCreation(state, registration, {
+          ...receipt,
+          status: "created",
+        });
+      else {
+        finish(receipt);
+        await older;
+      }
+      await create_staff_task.execute(
+        {
+          category: "documentation",
+          urgency: "normal",
+          summary: "Records request",
+          message: "Morgan requests records. Missing details: surname and DOB.",
+        },
+        options,
+      );
+      expect(
+        JSON.parse(transport.mock.calls[0]![1].body as string).patient,
+      ).toEqual({ name: "Morgan" });
+    },
+  );
+
+  it.each([false, true])(
+    "keeps a newly reconfirmed active patient when an older lookup completes (preloaded=%s)",
+    async (preloaded) => {
+      const transport = vi.fn(async () =>
+        Response.json({ status: "created", taskId: "reconfirmed" }),
+      );
+      vi.stubGlobal("fetch", transport);
+      const state = createState();
+      if (preloaded)
+        state.identity.privateCandidates = [
+          {
+            status: "verified",
+            ref: "jane",
+            patientId: "patient-1",
+            firstName: "Jane",
+            lastName: "Doe",
+            dob: "01/01/1980",
+            appointments: [],
+            appointmentsStatus: "none",
+          },
+        ];
+      let finish!: (result: unknown) => void;
+      const pending = new Promise((resolve) => {
+        finish = resolve;
+      });
+      const middleware = new InMemoryOwnedMiddleware({
+        resolvePatient: [pending],
+      });
+      const resolve = createResolvePatientTool(middleware);
+      const options = {
+        ctx: createToolContext(state) as never,
+        toolCallId: "reconfirm",
+      } as never;
+      const oldLookup = resolve.execute(
+        { firstName: "Alex", lastName: "Example", dob: "02/03/1990" },
+        options,
+      );
+      await vi.waitFor(() =>
+        expect(middleware.requests.resolvePatient).toHaveLength(1),
+      );
+      await resolve.execute(
+        { firstName: "Jane", lastName: null, dob: null },
+        options,
+      );
+      finish({
+        status: "verified",
+        patientId: "synthetic-alex",
+        name: "Alex Example",
+        dob: "02/03/1990",
+        phone: null,
+        appointments: [],
+        appointmentsStatus: "none",
+        insuranceCarrier: null,
+        allowedProviders: [],
+        routing: null,
+      });
+      await oldLookup;
+      await create_staff_task.execute(
+        {
+          category: "optical",
+          urgency: "normal",
+          summary: "Glasses copy",
+          message: "Jane requests a glasses prescription copy.",
+        },
+        options,
+      );
+      expect(
+        JSON.parse(transport.mock.calls[0]![1].body as string).patient,
+      ).toEqual({ id: "patient-1", name: "Jane Doe", dob: "01/01/1980" });
+    },
+  );
+
   it("derives the Product task URL from the shared Product handoff URL", () => {
     expect(
       getAcuityProductStaffTasksUrl({
@@ -93,7 +476,7 @@ describe("create_staff_task", () => {
       Response.json({
         status: "created",
         taskId: "task-1",
-        category: "billing",
+        category: "insurance",
         urgency: "high_priority",
       }),
     );
@@ -107,10 +490,11 @@ describe("create_staff_task", () => {
 
     const result = await create_staff_task.execute(
       {
-        category: "billing",
+        category: "insurance",
         urgency: "high_priority",
-        summary: "Caller has a billing question.",
-        message: "Caller received a bill and wants the team to review it.",
+        summary: "Caller has a coverage question.",
+        message:
+          "Caller needs staff to review an unresolved coverage question.",
       },
       {
         ctx: ctx as never,
@@ -140,13 +524,13 @@ describe("create_staff_task", () => {
     expect(body).toMatchObject({
       callId: "call-test",
       callerPhone: "+17275551212",
-      category: "billing",
+      category: "insurance",
       inboundOfficePhone: SWEETWATER_TRUNK_PHONES[1],
-      message: "Caller received a bill and wants the team to review it.",
+      message: "Caller needs staff to review an unresolved coverage question.",
       officeKey: "sweetwater",
       officePhone: SWEETWATER_OFFICE_PHONE,
       source: "agent",
-      summary: "Caller has a billing question.",
+      summary: "Caller has a coverage question.",
       urgency: "high_priority",
     });
     expect(body.idempotencyKey).toMatch(/^staff_task_[a-f0-9]{64}$/);
@@ -163,7 +547,7 @@ describe("create_staff_task", () => {
       },
     ]);
     expect(JSON.stringify(staffTaskReceipts(state))).not.toContain(
-      "Caller received a bill",
+      "Caller needs staff",
     );
   });
 
@@ -172,7 +556,7 @@ describe("create_staff_task", () => {
       Response.json({
         status: "created",
         taskId: "prior-auth-task-1",
-        category: "referrals",
+        category: "insurance",
         urgency: "normal",
       }),
     );
@@ -200,7 +584,7 @@ describe("create_staff_task", () => {
 
     const taskResult = await create_staff_task.execute(
       {
-        category: "referrals",
+        category: "insurance",
         urgency: "normal",
         summary:
           "Prior authorization for United Healthcare Individual Exchange Network.",
@@ -218,7 +602,7 @@ describe("create_staff_task", () => {
       fetchMock.mock.calls[0]?.[1]?.body as string,
     ) as Record<string, unknown>;
     expect(body).toMatchObject({
-      category: "referrals",
+      category: "insurance",
       message:
         "Jane Doe needs prior authorization from United Healthcare Individual Exchange Network for a medical eye visit before scheduling.",
       patient: {

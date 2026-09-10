@@ -38,6 +38,7 @@ type VoiceAgentOptions = {
   officeKnowledgeResolver?: typeof resolveOfficeKnowledge;
   onAssistantText?: (text: string, complete: boolean) => void;
   suppressGreeting?: boolean;
+  staffTaskFetch?: typeof fetch;
   turnClock?: SchedulingClock;
   voiceLanguageRuntime?: VoiceLanguageRuntime;
 };
@@ -53,6 +54,7 @@ export function createVoiceAgent(
   const registeredTools = buildToolsForTrunk(
     options.ownedMiddleware,
     trunkPhone,
+    options.staffTaskFetch,
   );
   const turnClock = options.turnClock ?? systemSchedulingClock;
   let modelInputSnapshot:

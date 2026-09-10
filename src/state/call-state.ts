@@ -294,14 +294,19 @@ export type AvailabilityReadAnalytics =
       createdAt?: string;
     };
 
-export type StaffTaskCategory =
-  | "billing"
-  | "appointments"
-  | "documentation"
-  | "optical"
-  | "medication"
-  | "referrals"
-  | "other";
+export const STAFF_TASK_CATEGORIES = [
+  "appointments",
+  "documentation",
+  "medication",
+  "optical",
+  "referrals",
+  "other",
+  "insurance",
+  "pre_op",
+  "post_op",
+] as const;
+
+export type StaffTaskCategory = (typeof STAFF_TASK_CATEGORIES)[number];
 
 export type StaffTaskUrgency = "high_priority" | "normal" | "non_urgent";
 
@@ -398,6 +403,8 @@ interface IdentitySessionState {
   activePatient: ActivePatient | null;
   registration: RegistrationDraft | null;
   unregisteredPatientReceipt: UnregisteredPatientReceipt | null;
+  // Caller-reported task context; never an Identity Promotion or verified chart.
+  unresolvedTaskPatient: { name?: string; dob?: string } | null;
   operationVersion: number;
   transitionVersion: number;
   receipts: PatientIdentityTransitionAnalytics[];
@@ -515,6 +522,7 @@ export function createCanonicalCallState(
       activePatient: input.activePatient ?? null,
       registration: null,
       unregisteredPatientReceipt: null,
+      unresolvedTaskPatient: null,
       completedBookingsByPatientId: {},
       operationVersion: 0,
       transitionVersion: 0,

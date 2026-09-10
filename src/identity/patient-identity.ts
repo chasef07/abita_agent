@@ -90,12 +90,15 @@ export type PatientCreationOperation = {
   readonly [patientCreationOperationBrand]: true;
 };
 
+type TaskPatientContext = CallState["identity"]["unresolvedTaskPatient"];
+
 type PatientCreationOperationState = {
   callState: CallState;
   eligibilityCheck: InsuranceEligibilityCheck | null;
   operationVersion: number;
   registration: PatientLookupIdentity;
   transitionVersion: number;
+  taskPatientContext: TaskPatientContext;
 };
 
 export type PatientCreationCommit =
@@ -126,12 +129,35 @@ const patientCreationOperations = new WeakMap<
   PatientCreationOperationState
 >();
 
+function clearTaskPatientContext(
+  state: CallState,
+  expected: TaskPatientContext,
+): void {
+  // An older chart operation may complete after a newer partial identity request.
+  // Preserve that caller-reported target without changing Identity Promotion rules.
+  if (state.identity.unresolvedTaskPatient === expected) {
+    state.identity.unresolvedTaskPatient = null;
+  }
+}
+
+function callerReportedTaskPatient(identity: ResolvePatientIdentityInput) {
+  const name = [identity.firstName, identity.lastName]
+    .filter(Boolean)
+    .join(" ");
+  return {
+    ...(name ? { name } : {}),
+    ...(identity.dob ? { dob: identity.dob } : {}),
+  };
+}
+
 export async function resolveExistingPatient(
   state: CallState,
   input: ResolvePatientIdentityInput,
   lookup: PatientResolveLookup,
 ): Promise<PatientIdentityResolution> {
   const identity = normalizeIdentity(input);
+  const taskPatientContext = callerReportedTaskPatient(identity);
+  state.identity.unresolvedTaskPatient = taskPatientContext;
   if (identity.dob && !isValidPatientDOB(identity.dob)) {
     return recordResolutionOutcome(state, {
       outcome: "needs_identity",
@@ -140,7 +166,12 @@ export async function resolveExistingPatient(
     });
   }
   const preloaded = await resolvePrivateCandidate(state, identity, lookup);
-  if (preloaded) return recordResolutionOutcome(state, preloaded);
+  if (preloaded) {
+    if (preloaded.outcome === "verified" || preloaded.outcome === "switched") {
+      clearTaskPatientContext(state, taskPatientContext);
+    }
+    return recordResolutionOutcome(state, preloaded);
+  }
 
   const active = state.identity.activePatient;
   if (
@@ -149,7 +180,8 @@ export async function resolveExistingPatient(
     !identityTargetsDifferentPatient(active, identity) &&
     active.appointmentsStatus !== "error"
   ) {
-    state.identity.unregisteredPatientReceipt = null;
+    advanceTransition(state, "synchronous");
+    clearTaskPatientContext(state, taskPatientContext);
     return recordResolutionOutcome(state, {
       outcome: "verified",
       reply: `${active.name?.trim() || "The patient"} is already the active patient.`,
@@ -200,6 +232,7 @@ export async function resolveExistingPatient(
       activationFromResolvedPatient(result, "existing"),
       "resolve_patient",
       "operation",
+      taskPatientContext,
     );
     return recordResolutionOutcome(state, {
       outcome: hadActivePatient && changed ? "switched" : "verified",
@@ -243,6 +276,9 @@ export function beginNewPatientRegistration(
       ...state.identity.registration,
       ...draft,
     };
+    state.identity.unresolvedTaskPatient = callerReportedTaskPatient(
+      state.identity.registration,
+    );
     return;
   }
 
@@ -257,6 +293,7 @@ export function beginNewPatientRegistration(
   setInsuranceOnFile(state, null);
   state.identity.activePatient = null;
   state.identity.registration = draft;
+  state.identity.unresolvedTaskPatient = callerReportedTaskPatient(draft);
   recordPatientIdentityTransition(state, {
     outcome: "new",
     source: "create_patient",
@@ -277,6 +314,7 @@ export function beginPatientCreation(
     operationVersion: beginPatientIdentityOperation(state),
     registration: { ...registration },
     transitionVersion: state.identity.transitionVersion,
+    taskPatientContext: state.identity.unresolvedTaskPatient,
   });
   return operation;
 }
@@ -309,6 +347,7 @@ export function commitPatientCreation(
       operationState.registration,
       operationState.eligibilityCheck,
       result,
+      operationState.taskPatientContext,
     )
   ) {
     return { outcome: "invalid_receipt", result };
@@ -321,6 +360,7 @@ function activatePatientFromReceipt(
   registration: PatientLookupIdentity,
   checkedInsurance: InsuranceEligibilityCheck | null,
   receipt: SuccessfulPatientCreationReceipt,
+  taskPatientContext: TaskPatientContext,
 ): boolean {
   if (receipt.status !== "created" && receipt.status !== "partial")
     return false;
@@ -355,6 +395,7 @@ function activatePatientFromReceipt(
     },
     "create_patient",
     "operation",
+    taskPatientContext,
   );
   if (receipt.status === "partial") {
     setInsuranceOnFile(state, null);
@@ -457,6 +498,14 @@ function patientIdentityTransitionIsCurrent(
 }
 
 export function patientModelProjection(state: CallState): string {
+  const activeContext = activePatientModelProjection(state);
+  const requested = state.identity.unresolvedTaskPatient;
+  return requested
+    ? `${activeContext} Staff Task patient is caller-reported: ${JSON.stringify(requested)}. No chart is verified for this request. Earlier active-chart details belong to earlier work; preserve missing details for staff review.`
+    : activeContext;
+}
+
+function activePatientModelProjection(state: CallState): string {
   const patient = state.identity.activePatient;
   if (!patient) {
     if (state.identity.registration) {
@@ -515,7 +564,13 @@ export function activatePatient(
   patient: PatientActivation,
   source: "resolve_patient" | "create_patient",
 ): boolean {
-  return promotePatient(state, patient, source, "synchronous");
+  return promotePatient(
+    state,
+    patient,
+    source,
+    "synchronous",
+    state.identity.unresolvedTaskPatient,
+  );
 }
 
 function promotePatient(
@@ -523,11 +578,13 @@ function promotePatient(
   patient: PatientActivation,
   source: "resolve_patient" | "create_patient",
   transition: "operation" | "synchronous",
+  taskPatientContext: TaskPatientContext,
 ): boolean {
   const previous = state.identity.activePatient;
   const changed = !samePatient(previous, patient);
   advanceTransition(state, transition);
   if (changed) resetPatientScopedWork(state);
+  clearTaskPatientContext(state, taskPatientContext);
   state.identity.activePatient = {
     kind: patient.kind,
     patientId: patient.patientId,
@@ -630,6 +687,7 @@ async function activateCandidate(
       isActiveCandidate &&
       state.identity.activePatient?.appointmentsStatus !== "error"
     ) {
+      advanceTransition(state, "synchronous");
       return {
         outcome: "verified",
         reply: `${state.identity.activePatient?.name?.trim() || "The patient"} is already the active patient.`,
@@ -644,6 +702,7 @@ async function activateCandidate(
       activationFromCandidate(candidate),
       "resolve_patient",
       "synchronous",
+      state.identity.unresolvedTaskPatient,
     );
     return {
       outcome: hadActivePatient && changed ? "switched" : "verified",
@@ -685,6 +744,7 @@ async function performCandidateHydration(
   candidate: PreCallPatientCandidate,
   lookup: PatientResolveLookup,
 ): Promise<PatientIdentityResolution> {
+  const taskPatientContext = state.identity.unresolvedTaskPatient;
   const operationVersion = beginPatientIdentityOperation(state);
   const result = await lookup(
     getOfficeProfileByPhone(state.runtime.trunkPhone).amdOfficePhone,
@@ -736,6 +796,7 @@ async function performCandidateHydration(
     activationFromResolvedPatient(result, "existing"),
     "resolve_patient",
     "operation",
+    taskPatientContext,
   );
   state.runtime.preCallLookup.hydrationOutcome = "verified";
   return {
