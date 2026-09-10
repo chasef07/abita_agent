@@ -8,16 +8,13 @@ import {
   type CallerAppointment,
   type StoredAvailabilitySlot,
 } from "../state/call-state.js";
-import {
-  currentWorkflowVisitType,
-  latestAvailabilityRouting,
-} from "./state.js";
-import type { BookingResult } from "./middleware.js";
+import { latestAvailabilityRouting } from "./state.js";
+import type { BookAppointmentResult } from "../clients/owned-middleware.js";
 
 export function bookedSlotAppointmentAnalytics(
   state: CallState,
   selectedSlot: StoredAvailabilitySlot,
-  result: BookingResult,
+  result: BookAppointmentResult,
 ): AppointmentAnalytics {
   const booking =
     result.status === "booked" || result.status === "partial" ? result : null;
@@ -52,7 +49,7 @@ export function cancelledAppointmentAnalytics(
 }
 
 export function appointmentActionStatusForBookingResult(
-  result: BookingResult,
+  result: BookAppointmentResult,
 ): AppointmentActionStatus {
   return result.status === "partial" ? "partial" : "success";
 }
@@ -61,7 +58,7 @@ function careLaneForBookedSlot(
   state: CallState,
   selectedSlot: StoredAvailabilitySlot,
 ): string | undefined {
-  const visitType = currentWorkflowVisitType(state);
+  const visitType = state.workflow.visitType;
   if (visitType === "medical") return "medical_md";
   if (visitType === "routine_vision") return "routine_od";
 

@@ -68,13 +68,12 @@ export async function startSimulation(ctx: JobContext): Promise<void> {
   });
   const state = createCanonicalCallState({
     officeKey: office.key,
-    amdOfficePhone: office.amdOfficePhone,
     trunkPhone,
     sipRoomName: ctx.room.name ?? "",
     sipParticipantIdentity: "simulation-caller",
     callId: sim.simulationJobId,
     callerPhone: "+12025550147",
-    preCallLookup: { status: "not_attempted", durationMs: null },
+    preCallLookup: { status: "not_attempted" },
     insuranceCarrier: null,
     checkedInsurancePlan: null,
     checkedInsuranceCoverageType: null,

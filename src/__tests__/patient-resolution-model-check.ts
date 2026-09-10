@@ -3,16 +3,17 @@
 // Pass scenario IDs as arguments to run a focused subset.
 import { llm, initializeLogger } from "@livekit/agents";
 import { buildPrompt } from "../prompt.js";
+import { preCallLookupHint } from "../runtime/precall-bootstrap.js";
 import { createLlmPair } from "../model-config.js";
 import { buildToolsForTrunk } from "../runtime/tool-registry.js";
 import { createResolvePatientTool } from "../tools/resolve-patient.js";
-import { patientModelProjection } from "../identity/patient-identity.js";
 import {
   HOLLYWOOD_OFFICE_PHONE,
   SPRING_HILL_OFFICE_PHONE,
   getOfficeProfileByPhone,
 } from "../customers/abita/profile.js";
 import { createTestCallState } from "./support/call-state.js";
+import { createToolContext } from "./support/tool-context.js";
 import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
 
 type Scenario = {
@@ -22,12 +23,42 @@ type Scenario = {
   firstName?: string;
   askFirstName?: boolean;
   officePhone?: string;
-  lastName?: string;
-  confirmationYear?: string;
-  mayAsk?: boolean;
+  promoted?: boolean;
+  activeSameName?: boolean;
+  confirmedDob?: boolean;
+  dob?: string;
+  askDob?: boolean;
 };
 
 const scenarios: Scenario[] = [
+  {
+    id: "same_name_patient_switch",
+    names: ["John"],
+    user: "Now I need an appointment for my son. His first name is also John, but he's a different patient.",
+    activeSameName: true,
+    askDob: true,
+  },
+  {
+    id: "promoted_booking",
+    names: ["John"],
+    user: "John. It's for me.",
+    firstName: "John",
+    promoted: true,
+  },
+  {
+    id: "promoted_parent_booking",
+    names: ["John"],
+    user: "It's for my son John.",
+    firstName: "John",
+    promoted: true,
+  },
+  {
+    id: "dob_already_confirmed",
+    names: [],
+    user: "Yes, that's correct.",
+    firstName: "John",
+    confirmedDob: true,
+  },
   {
     id: "phone_matches_first_name_supplied",
     names: ["Jane", "John", "Maria", "Alex", "Sam"],
@@ -71,32 +102,27 @@ const scenarios: Scenario[] = [
     names: [],
     user: "I am an existing patient. My name is John Smith and I need to reschedule.",
     firstName: "John",
-    lastName: "Smith",
-    mayAsk: true,
   },
   {
-    id: "dob_unconfirmed",
+    id: "dob_supplied_without_confirmation",
     names: [],
     user: "My name is John Smith, born March 12, 1980. I need to reschedule.",
     firstName: "John",
-    lastName: "Smith",
-    confirmationYear: "1980",
+    dob: "03/12/1980",
   },
   {
     id: "phone_match_supplied_dob",
     names: ["John"],
     user: "I need to reschedule. My name is John Smith, born March 12, 1980.",
     firstName: "John",
-    lastName: "Smith",
-    confirmationYear: "1980",
+    dob: "03/12/1980",
   },
   {
     id: "phone_match_conflicting_dob",
     names: ["John"],
     user: "I need to reschedule. My name is John Smith, born March 12, 1990.",
     firstName: "John",
-    lastName: "Smith",
-    confirmationYear: "1990",
+    dob: "03/12/1990",
   },
 ];
 
@@ -124,7 +150,6 @@ for (const model of [primary, fallback]) {
       const tools = buildToolsForTrunk(middleware, officePhone);
       const state = createTestCallState({
         officeKey: getOfficeProfileByPhone(officePhone).key,
-        amdOfficePhone: officePhone,
         trunkPhone: officePhone,
         preCallCandidates: scenario.names.map((firstName) => ({
           status: "verified",
@@ -143,7 +168,6 @@ for (const model of [primary, fallback]) {
               : scenario.names.length === 1
                 ? "verified"
                 : "no_match",
-          durationMs: 1,
         },
       });
       const chatCtx = llm.ChatContext.empty();
@@ -152,14 +176,80 @@ for (const model of [primary, fallback]) {
         content: buildPrompt(officePhone),
       });
       chatCtx.addMessage({
-        role: "system",
-        content: patientModelProjection(state),
-      });
-      chatCtx.addMessage({
         role: "assistant",
         content: "Thank you for calling Abita Eye Group. How can I help?",
       });
+      if (scenario.activeSameName) {
+        const args = { firstName: "John", dob: null };
+        chatCtx.addMessage({
+          role: "user",
+          content: "This is John. I need an appointment.",
+        });
+        const reply = await createResolvePatientTool(middleware).execute(args, {
+          ctx: createToolContext(state),
+          toolCallId: "prior-patient",
+        } as never);
+        chatCtx.insert([
+          llm.FunctionCall.create({
+            callId: "prior-patient",
+            name: "resolve_patient",
+            args: JSON.stringify(args),
+          }),
+          llm.FunctionCallOutput.create({
+            callId: "prior-patient",
+            name: "resolve_patient",
+            output: reply,
+            isError: false,
+          }),
+        ]);
+        chatCtx.addMessage({
+          role: "assistant",
+          content: "I found your patient record, John Smith.",
+        });
+      }
+      if (scenario.promoted) {
+        chatCtx.addMessage({
+          role: "user",
+          content: "I'd like an appointment for a scratch in my left eye.",
+        });
+        chatCtx.addMessage({
+          role: "assistant",
+          content: "What's the patient's first name?",
+        });
+      }
+      if (scenario.confirmedDob) {
+        chatCtx.addMessage({
+          role: "user",
+          content: "I'm John, born March 12, 1980. I need to reschedule.",
+        });
+        chatCtx.addMessage({
+          role: "assistant",
+          content: "That's March 12, 1980?",
+        });
+      }
       chatCtx.addMessage({ role: "user", content: scenario.user });
+      if (scenario.promoted) {
+        const args = { firstName: scenario.firstName!, dob: null };
+        const reply = await createResolvePatientTool(middleware).execute(args, {
+          ctx: createToolContext(state),
+          toolCallId: "synthetic-promotion",
+        } as never);
+        chatCtx.insert([
+          llm.FunctionCall.create({
+            callId: "synthetic-promotion",
+            name: "resolve_patient",
+            args: JSON.stringify(args),
+          }),
+          llm.FunctionCallOutput.create({
+            callId: "synthetic-promotion",
+            name: "resolve_patient",
+            output: reply,
+            isError: false,
+          }),
+        ]);
+      }
+      const hint = preCallLookupHint(state);
+      if (hint) chatCtx.addMessage({ role: "system", content: hint });
       try {
         const response = await model
           .chat({
@@ -175,22 +265,33 @@ for (const model of [primary, fallback]) {
           : null;
         const asks =
           response.toolCalls.length === 0 && response.text.includes("?");
-        const passed = scenario.askFirstName
-          ? asks &&
-            /first name/i.test(response.text) &&
-            !/last name|full name|surname|date of birth|\bDOB\b/i.test(
+        const passed = scenario.promoted
+          ? /found/i.test(response.text) &&
+            /John/i.test(response.text) &&
+            !/last name|full name|surname|date of birth|born|\bDOB\b/i.test(
               response.text,
-            )
-          : scenario.confirmationYear
-            ? asks && response.text.includes(scenario.confirmationYear)
-            : (scenario.mayAsk && asks) ||
-              (response.toolCalls.length === 1 &&
+            ) &&
+            response.toolCalls.every((call) => call.name !== "resolve_patient")
+          : scenario.askFirstName
+            ? asks &&
+              /first name/i.test(response.text) &&
+              !/last name|full name|surname|date of birth|\bDOB\b/i.test(
+                response.text,
+              )
+            : scenario.askDob
+              ? asks &&
+                /date of birth|\bDOB\b|born/i.test(response.text) &&
+                !/last name|surname/i.test(response.text)
+              : response.toolCalls.length === 1 &&
                 call?.name === "resolve_patient" &&
                 identity?.success === true &&
                 identity.data.firstName === scenario.firstName &&
-                (identity.data.lastName?.trim() || undefined) ===
-                  scenario.lastName &&
-                !identity.data.dob?.trim());
+                !response.text.includes("?") &&
+                (scenario.confirmedDob
+                  ? identity.data.dob === "03/12/1980"
+                  : scenario.dob
+                    ? identity.data.dob === scenario.dob
+                    : !identity.data.dob?.trim());
         if (!passed) failures += 1;
         console.log(
           JSON.stringify({

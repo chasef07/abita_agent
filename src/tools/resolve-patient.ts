@@ -1,4 +1,4 @@
-import { tool, type ToolOptions } from "@livekit/agents";
+import { tool, ToolError, type ToolOptions } from "@livekit/agents";
 import { z } from "zod";
 import type { OwnedMiddleware } from "../clients/owned-middleware.js";
 import {
@@ -6,7 +6,6 @@ import {
   type PatientIdentityResolution,
   type PatientResolveLookup,
 } from "../identity/patient-identity.js";
-import { throwOwnedMiddlewareFailure } from "../runtime/middleware-tool-failure.js";
 import { domainOutcomesForTool } from "../state/observability.js";
 import { getState } from "./session.js";
 
@@ -20,18 +19,11 @@ const resolvePatientParameters = z
       .describe(
         "Caller-provided first name of the patient receiving care; null if unknown.",
       ),
-    lastName: z
-      .string()
-      .trim()
-      .nullable()
-      .describe("Caller-provided patient surname; null if unknown."),
     dob: z
       .string()
       .trim()
       .nullable()
-      .describe(
-        "Caller-provided date of birth in MM/DD/YYYY, after read-back confirmation; null if not supplied.",
-      ),
+      .describe("Caller-provided DOB in MM/DD/YYYY; null if unknown."),
   })
   .strict();
 
@@ -44,12 +36,10 @@ export function createResolvePatientTool(middleware: OwnedMiddleware) {
     name: "resolve_patient",
     onDuplicate: "reject",
     description:
-      "Activate or look up an existing patient, or switch patients. " +
-      "Try their supplied first name before collecting more identity. " +
-      "Use only caller-provided identity; leave unknown fields null. " +
-      'For John alone use {"firstName":"John","lastName":null,"dob":null}. ' +
-      "Include supplied details, confirming any supplied DOB before calling. Follow the result's next step. " +
-      "Use add_patient for new-patient chart creation.",
+      "Call immediately with the patient's supplied firstName. Include supplied DOB without confirmation; otherwise pass dob:null and follow the returned next step. " +
+      "Require DOB for same-name patient switches. " +
+      "If unresolved, add DOB and retry; if still unresolved, clarify DOB and first-name spelling and retry before offering staff. " +
+      "After success, say the acknowledgment, never internal appointment references. Use caller-provided identity only. Use add_patient for registration.",
     parameters: resolvePatientParameters,
     execute: async (
       identity: ResolvePatientArgs,
@@ -64,7 +54,6 @@ export function createResolvePatientTool(middleware: OwnedMiddleware) {
       );
       const suppliedIdentity = {
         firstName: identity.firstName ?? undefined,
-        lastName: identity.lastName ?? undefined,
         dob: identity.dob ?? undefined,
       };
       let resolution: PatientIdentityResolution;
@@ -82,8 +71,14 @@ export function createResolvePatientTool(middleware: OwnedMiddleware) {
         throw error;
       }
       outcomes.record(patientResolutionDomainOutcome(resolution.outcome));
-      if (resolution.outcome === "lookup_failed" && resolution.failure) {
-        throwOwnedMiddlewareFailure(resolution.failure, resolution.reply);
+      if (resolution.outcome === "lookup_failed") {
+        throw new ToolError(resolution.reply);
+      }
+      if (
+        state.identity.activePatient?.dob?.trim() &&
+        (resolution.outcome === "verified" || resolution.outcome === "switched")
+      ) {
+        return `${resolution.reply}\nDOB is on file. Do not ask for DOB.`;
       }
       return resolution.reply;
     },

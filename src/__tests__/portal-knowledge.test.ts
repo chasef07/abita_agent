@@ -176,9 +176,7 @@ describe("Portal office knowledge tool", () => {
       expect(answer.outcome).toBe("temporary_failure");
       expect(answer.passages).toEqual([]);
       expect(JSON.stringify(answer)).not.toContain("4:30");
-      expect(JSON.stringify(state.runtime.knowledgeRetrievals)).not.toContain(
-        "hours?",
-      );
+      expect(JSON.stringify(answer)).not.toContain("hours?");
     },
   );
 
@@ -306,8 +304,9 @@ describe("Portal office knowledge tool", () => {
       }
       expect(fetch.mock.calls[0]![1].signal.aborted).toBe(true);
       finish(Response.json(result));
-      expect(JSON.parse(await pending).outcome).toBe("temporary_failure");
-      expect(state.runtime.knowledgeRetrievals[0]!.sectionCount).toBe(0);
+      const answer = JSON.parse(await pending);
+      expect(answer.outcome).toBe("temporary_failure");
+      expect(answer.passages).toEqual([]);
     },
   );
 

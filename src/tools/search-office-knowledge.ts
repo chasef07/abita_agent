@@ -4,7 +4,6 @@ import {
   activeOfficeKey,
   officeContextSignal,
 } from "../state/call-lifecycle.js";
-import { recordOfficeKnowledgeRetrieval } from "../state/observability.js";
 import { getProductTenantConfig } from "../runtime/portal-auth.js";
 import { getState } from "./session.js";
 
@@ -57,8 +56,6 @@ export function createSearchOfficeKnowledgeTool() {
     ): Promise<string> => {
       const state = getState(ctx);
       const officeKey = activeOfficeKey(state);
-      const startedAt = performance.now();
-      let result: z.infer<typeof searchResponse> = unavailable;
       const signal = AbortSignal.any([
         abortSignal,
         officeContextSignal(state),
@@ -105,29 +102,10 @@ export function createSearchOfficeKnowledgeTool() {
         signal.throwIfAborted();
         if (activeOfficeKey(state) !== officeKey)
           throw new Error("Office changed");
-        result = parsed;
+        return JSON.stringify({ ...parsed, officeKey });
       } catch {
-        result = unavailable;
-      } finally {
-        recordOfficeKnowledgeRetrieval(state, {
-          elapsedMs: Math.round(performance.now() - startedAt),
-          officeKey,
-          outcome:
-            result.outcome === "found"
-              ? "matched"
-              : result.outcome === "no_relevant_information"
-                ? "unavailable"
-                : "failure",
-          sectionCount: result.passages.length,
-          ...(result.revisionId
-            ? {
-                revisionId: result.revisionId,
-                sectionIds: result.passages.map((p) => p.sectionId),
-              }
-            : {}),
-        });
+        return JSON.stringify({ ...unavailable, officeKey });
       }
-      return JSON.stringify({ ...result, officeKey });
     },
   });
 }

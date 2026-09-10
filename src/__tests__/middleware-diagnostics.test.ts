@@ -70,7 +70,7 @@ it("preserves both read attempts through tool normalization, trace and persisted
           office,
           identity: { phone: "synthetic-private-patient" },
         });
-        expect(result).toEqual({ status: "error", reason: "request_rejected" });
+        expect(result).toEqual({ status: "error", reason: "middleware_error" });
         recordDomainOutcome(state, {
           callId: "tool-1",
           toolName: "resolve_patient",
@@ -108,8 +108,8 @@ it("preserves both read attempts through tool normalization, trace and persisted
       {
         requestId: sentIDs[1],
         attempt: 2,
-        failureReason: "request_rejected",
-        retryable: false,
+        failureReason: "middleware_error",
+        retryable: true,
       },
     ],
   });

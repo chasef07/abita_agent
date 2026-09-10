@@ -292,6 +292,8 @@ describe("tool-first prompt gating", () => {
       const officePrompt = buildPrompt(phone);
 
       expect(officePrompt).toContain("# Tool Use");
+      expect(officePrompt).not.toContain("We are closed on weekends.");
+      expect(officePrompt).not.toContain("Labor Day");
     }
   });
 
@@ -366,9 +368,7 @@ describe("tool-first prompt gating", () => {
         "call resolve_patient with the intended patient's caller-provided identity",
       );
       expect(prompt).toContain("Use null for unknown fields");
-      expect(prompt).toContain(
-        "read it back and wait for confirmation before resolving",
-      );
+      expect(prompt).not.toContain("wait for confirmation before resolving");
       expect(prompt).not.toContain("<caller_identity_hint>");
       expect(prompt).not.toContain("middleware_error");
       expect(prompt).not.toContain("+17275551212");
@@ -1331,18 +1331,16 @@ describe("model-facing tool definitions", () => {
   });
 
   it("keeps resolve_patient scoped to patient identity loading", () => {
-    expect(resolve_patient.description).toContain(
-      "Activate or look up an existing patient",
+    expect(resolve_patient.description).not.toMatch(
+      /Phone lookup|phone candidates/i,
     );
     expect(resolve_patient.description).toContain(
-      "Use only caller-provided identity",
+      "Use caller-provided identity only",
     );
+    expect(resolve_patient.description).toContain("firstName");
+    expect(resolve_patient.description).toContain("dob:null");
     expect(resolve_patient.description).toContain(
-      "Try their supplied first name before collecting more identity",
-    );
-    expect(resolve_patient.description).toContain("leave unknown fields null");
-    expect(resolve_patient.description).toContain(
-      "Use add_patient for new-patient chart creation",
+      "Use add_patient for registration",
     );
     expect(resolve_patient.description).not.toContain("insurance updates");
     expect(resolve_patient.description).not.toContain("private account");
@@ -1351,41 +1349,32 @@ describe("model-facing tool definitions", () => {
       safeParse: (value: unknown) => { success: boolean };
       shape: Record<string, unknown>;
     };
-    expect(Object.keys(parameters.shape)).toEqual([
-      "firstName",
-      "lastName",
-      "dob",
-    ]);
+    expect(Object.keys(parameters.shape)).toEqual(["firstName", "dob"]);
     expect(
       parameters.safeParse({
         firstName: "Jane",
-        lastName: "Doe",
         dob: null,
       }).success,
     ).toBe(true);
     expect(
       parameters.safeParse({
         firstName: "Jane",
-        lastName: "Doe",
         dob: "01/01/1980",
       }).success,
     ).toBe(true);
-    expect(
-      parameters.safeParse({ firstName: null, lastName: null, dob: null })
-        .success,
-    ).toBe(true);
+    expect(parameters.safeParse({ firstName: null, dob: null }).success).toBe(
+      true,
+    );
     expect(parameters.safeParse({}).success).toBe(false);
     expect(
       parameters.safeParse({
         firstName: null,
-        lastName: null,
         dob: null,
         registrationStatus: "not_registered",
       }).success,
     ).toBe(false);
-    expect(
-      parameters.safeParse({ firstName: " ", lastName: null, dob: null })
-        .success,
-    ).toBe(false);
+    expect(parameters.safeParse({ firstName: " ", dob: null }).success).toBe(
+      false,
+    );
   });
 });

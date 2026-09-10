@@ -5,9 +5,8 @@ import {
 } from "../../state/call-state.js";
 
 const DEFAULT_CALL_STATE_INPUT: InitialCallStateInput = {
-  preCallLookup: { status: "not_attempted", durationMs: null },
+  preCallLookup: { status: "not_attempted" },
   officeKey: "spring-hill",
-  amdOfficePhone: "+17275919997",
   sipRoomName: "test-room",
   sipParticipantIdentity: "sip-caller",
   callId: "call-test",

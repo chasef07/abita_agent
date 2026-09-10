@@ -16,7 +16,7 @@ import {
 import { runtimeCallerPhone } from "../state/call-lifecycle.js";
 import { domainOutcomesForTool } from "../state/observability.js";
 import {
-  applySchedulingLaneToState,
+  setWorkflowVisitType,
   lastInsuranceEligibilityCheck,
 } from "../scheduling/state.js";
 import {
@@ -167,9 +167,7 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
         preserveEligibilityCheck: confirmedUnregisteredPatient,
       });
 
-      const appointmentLane =
-        coverageType === "routine_vision" ? "routine_od" : "medical_md";
-      applySchedulingLaneToState(state, appointmentLane);
+      setWorkflowVisitType(state, coverageType);
       const unsupportedMedicalScheduling = medicalSchedulingUnavailable(state);
       if (unsupportedMedicalScheduling) return unsupportedMedicalScheduling;
       const unsupportedRoutineVisionScheduling =

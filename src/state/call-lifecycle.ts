@@ -29,14 +29,13 @@ export function resetActiveOfficeToTrunk(state: CallState): void {
 
 export function activateOffice(
   state: CallState,
-  office: Pick<OfficeProfile, "amdOfficePhone" | "key">,
+  office: Pick<OfficeProfile, "key">,
 ): void {
   if (state.office.activeKey !== office.key) {
     officeContextControllers.get(state)?.abort();
     officeContextControllers.delete(state);
   }
   state.office.activeKey = office.key;
-  state.office.phoneOverrides[office.key] ??= office.amdOfficePhone;
 }
 
 export function runtimeCallerPhone(state: CallState): string {

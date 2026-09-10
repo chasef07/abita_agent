@@ -1,9 +1,5 @@
-import type {
-  AvailabilityInvalidationReason,
-  CallState,
-} from "../state/call-state.js";
-import { recordAvailabilityReadEvent } from "../state/observability.js";
-import type { AvailabilityResult } from "./middleware.js";
+import type { CallState } from "../state/call-state.js";
+import type { AvailabilityResult } from "../clients/owned-middleware.js";
 import { middlewareFailureIsRetryable } from "../clients/owned-middleware.js";
 
 type AvailabilityCoordinator = {
@@ -35,7 +31,6 @@ export async function coordinatedAvailabilityRead(
   read: () => Promise<AvailabilityResult>,
   options: CoordinatedAvailabilityReadOptions,
 ): Promise<AvailabilityResult> {
-  const startedAt = Date.now();
   const { now, signal } = options;
   signal?.throwIfAborted();
   const coordinator = availabilityCoordinatorFor(state);
@@ -47,30 +42,13 @@ export async function coordinatedAvailabilityRead(
   if (completed) {
     if (now.getTime() >= completed.expiresAt) {
       coordinator.completed.clear();
-      recordAvailabilityReadEvent(state, {
-        operation: "invalidation",
-        reason: "booking_token_expired",
-      });
     } else {
-      recordAvailabilityReadEvent(state, {
-        operation: "completed_cache_hit",
-        durationMs: elapsedMilliseconds(startedAt),
-      });
       return completed.result;
     }
   }
 
   const existing = coordinator.inFlight.get(key);
-  if (existing) {
-    try {
-      return await existing.promise;
-    } finally {
-      recordAvailabilityReadEvent(state, {
-        operation: "in_flight_join",
-        durationMs: elapsedMilliseconds(startedAt),
-      });
-    }
-  }
+  if (existing) return existing.promise;
 
   const pending = Promise.resolve().then(read);
   const inFlight: InFlightAvailabilityRead = { promise: pending };
@@ -90,7 +68,7 @@ export async function coordinatedAvailabilityRead(
   coordinator.inFlight.set(key, inFlight);
   const discard = () => {
     if (coordinator.inFlight.get(key) === inFlight) {
-      invalidateAvailabilityReads(state, "request_cancelled");
+      invalidateAvailabilityReads(state);
     }
   };
   signal?.addEventListener("abort", discard, { once: true });
@@ -103,10 +81,6 @@ export async function coordinatedAvailabilityRead(
     throw error;
   } finally {
     signal?.removeEventListener("abort", discard);
-    recordAvailabilityReadEvent(state, {
-      operation: "middleware_call",
-      durationMs: elapsedMilliseconds(startedAt),
-    });
   }
 }
 
@@ -115,7 +89,7 @@ export function cacheCompletedAvailabilityRead(
   key: string,
   result: AvailabilityResult,
   now: Date,
-): number | undefined {
+): void {
   const coordinator = availabilityCoordinatorFor(state);
   const expiresAt = availabilityResultExpiresAt(result);
   if (
@@ -138,7 +112,6 @@ export function cacheCompletedAvailabilityRead(
     });
   }
   discardInFlightAvailabilityResult(coordinator, key, result);
-  return snapshotExpiresAt;
 }
 
 export function discardAvailabilityRead(
@@ -163,10 +136,6 @@ export function invalidateAvailabilityCacheForExpiredResult(
 
   coordinator.completed.clear();
   coordinator.inFlight.delete(key);
-  recordAvailabilityReadEvent(state, {
-    operation: "invalidation",
-    reason: "booking_token_expired",
-  });
 }
 
 export function availabilityResultHasExpiredBookingTokens(
@@ -195,26 +164,12 @@ export function availabilityReadCanRetry(
   );
 }
 
-export function invalidateAvailabilityReads(
-  state: CallState,
-  reason: AvailabilityInvalidationReason,
-): boolean {
+export function invalidateAvailabilityReads(state: CallState): void {
   const coordinator = availabilityCoordinatorFor(state);
-  const invalidated =
-    coordinator.completed.size > 0 ||
-    coordinator.inFlight.size > 0 ||
-    coordinator.failed.size > 0;
   coordinator.generation += 1;
   coordinator.completed.clear();
   coordinator.inFlight.clear();
   coordinator.failed.clear();
-  if (invalidated) {
-    recordAvailabilityReadEvent(state, {
-      operation: "invalidation",
-      reason,
-    });
-  }
-  return invalidated;
 }
 
 function availabilityCoordinatorFor(state: CallState): AvailabilityCoordinator {
@@ -243,10 +198,6 @@ function discardInFlightAvailabilityResult(
   if (coordinator.inFlight.get(key)?.result === result) {
     coordinator.inFlight.delete(key);
   }
-}
-
-function elapsedMilliseconds(startedAt: number): number {
-  return Math.max(0, Date.now() - startedAt);
 }
 
 function copyAvailabilityResult(

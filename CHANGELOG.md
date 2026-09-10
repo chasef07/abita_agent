@@ -1,5 +1,26 @@
 # Changelog
 
+## [5.1.4](https://github.com/chasef07/abita_agent/compare/5.1.3...5.1.4) (2026-09-10)
+
+
+### Bug Fixes
+
+* tell the model when patient DOB is on file ([#463](https://github.com/chasef07/abita_agent/issues/463)) ([c477590](https://github.com/chasef07/abita_agent/commit/c477590458a5154af74856212c7740178601465c))
+
+## [5.1.3](https://github.com/chasef07/abita_agent/compare/5.1.2...5.1.3) (2026-09-10)
+
+
+### Bug Fixes
+
+* **identity:** simplify patient lookup and skip DOB confirmation ([#459](https://github.com/chasef07/abita_agent/issues/459)) ([04ad1c1](https://github.com/chasef07/abita_agent/commit/04ad1c1c56a3c504b67a6fc1cd0e7fe8c0044338))
+
+## [5.1.2](https://github.com/chasef07/abita_agent/compare/5.1.1...5.1.2) (2026-09-10)
+
+
+### Bug Fixes
+
+* **identity:** simplify phone-first patient resolution ([#456](https://github.com/chasef07/abita_agent/issues/456)) ([8116a4f](https://github.com/chasef07/abita_agent/commit/8116a4f03d4c929c4f71c2b50ad2ba86d49569b6))
+
 ## [5.1.1](https://github.com/chasef07/abita_agent/compare/5.1.0...5.1.1) (2026-09-10)
 
 

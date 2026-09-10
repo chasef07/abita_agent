@@ -24,7 +24,7 @@ import {
   type CallState,
   type CallerAppointment,
   type CompletedRescheduleState,
-  type SchedulingAppointmentLane,
+  type VisitType,
   type StoredAvailabilitySlot,
 } from "../state/call-state.js";
 import {
@@ -35,7 +35,7 @@ import {
   activeRoutingContext,
   clearAvailabilitySelection,
   removeAvailabilitySlot,
-  applySchedulingLaneToState,
+  setWorkflowVisitType,
 } from "./state.js";
 import {
   appointmentActionStatusForBookingResult,
@@ -73,6 +73,7 @@ import {
   selectedSlotForBooking,
   slotUnavailableMessage,
   spokenSlot,
+  type BookingSuccess,
 } from "./booking.js";
 import {
   getAmdOfficeForToolCall,
@@ -82,22 +83,17 @@ import {
   routineVisionSchedulingUnavailable,
   selectAvailabilityOffice,
 } from "./routing.js";
-import {
-  availabilityContextRecovery,
-  ensureAvailabilityContext,
-} from "./context.js";
 import { SchedulingInputRequired } from "./input-required.js";
 import { spokenAppointmentDate } from "./spoken-date.js";
 import { throwOwnedMiddlewareFailure } from "../runtime/middleware-tool-failure.js";
 import type {
-  AvailabilityRequest as MiddlewareAvailabilityRequest,
   AvailabilityResult,
-  BookingResult,
-  BookingSuccess,
-  CancellationRequest,
-  CancellationResult,
-  SchedulingMiddleware,
-} from "./middleware.js";
+  BookAppointmentResult,
+  CancelAppointmentInput,
+  CancelAppointmentResult,
+} from "../clients/owned-middleware.js";
+import type { SchedulingMiddleware } from "./middleware.js";
+
 import {
   addCalendarDays,
   clinicIsoDate,
@@ -105,9 +101,13 @@ import {
   type SchedulingClock,
 } from "./clock.js";
 
+type AvailabilityRequest = Parameters<
+  SchedulingMiddleware["getAvailability"]
+>[0];
+
 export interface AvailabilityLookupArgs {
   startDate?: string;
-  appointmentLane?: SchedulingAppointmentLane;
+  visitType?: VisitType;
   office?: AvailabilityOfficeKey;
 }
 
@@ -144,7 +144,6 @@ export class SchedulingWorkflow {
     });
     if ("blocked" in request) return request.blocked;
 
-    const office = getAmdOfficeForToolCall(state);
     let result: AvailabilityResult;
     for (let attempt = 0; ; attempt += 1) {
       result = await coordinatedAvailabilityRead(
@@ -152,8 +151,7 @@ export class SchedulingWorkflow {
         request.backendKey,
         () =>
           this.middleware.getAvailability({
-            request: request.body,
-            office,
+            ...request.body,
             ...(signal ? { signal } : {}),
           }),
         {
@@ -189,7 +187,7 @@ export class SchedulingWorkflow {
         availabilityReadCanRetry(state, request.backendKey),
       );
       if (response.cacheable) {
-        state.availability.refreshAfter = cacheCompletedAvailabilityRead(
+        cacheCompletedAvailabilityRead(
           state,
           request.backendKey,
           result,
@@ -250,7 +248,7 @@ export class SchedulingWorkflow {
     }
 
     const result = await this.middleware.bookAppointment({
-      request: bookingBody,
+      booking: bookingBody,
       office: getAmdOfficeForToolCall(state),
     });
 
@@ -291,7 +289,7 @@ export class SchedulingWorkflow {
       });
       recordBookedAppointmentInState(state, selectedSlot, result);
       clearAvailabilitySelection(state, {
-        invalidateReads: "booking_succeeded",
+        invalidateReads: true,
       });
       const message = bookedAppointmentMessage(selectedSlot, result);
       recordAppointmentAction(state, callId, {
@@ -310,7 +308,7 @@ export class SchedulingWorkflow {
     }
     if (bookingHadPositiveStatusWithoutAppointmentId(result)) {
       clearAvailabilitySelection(state, {
-        invalidateReads: "booking_authorization_invalidated",
+        invalidateReads: true,
       });
       const message = bookingFailureMessage(result);
       recordAppointmentAction(state, callId, {
@@ -335,9 +333,8 @@ export class SchedulingWorkflow {
     }
 
     if (result.status === "unavailable") {
-      invalidateAvailabilityReads(state, "booking_authorization_invalidated");
+      invalidateAvailabilityReads(state);
       removeAvailabilitySlot(state, selectedSlot.slotId);
-      state.availability.refreshAfter = 0;
       const message = slotUnavailableMessage();
       recordAppointmentAction(state, callId, {
         action: "booked",
@@ -355,7 +352,7 @@ export class SchedulingWorkflow {
     }
     if (result.status === "rejected") {
       clearAvailabilitySelection(state, {
-        invalidateReads: "booking_authorization_invalidated",
+        invalidateReads: true,
       });
     }
 
@@ -428,7 +425,7 @@ export class SchedulingWorkflow {
     const patientName = activePatientName(state);
 
     const result = await this.middleware.cancelAppointment({
-      request: cancellationRequestForAppointment(appointment, patientId),
+      ...cancellationRequestForAppointment(appointment, patientId),
       office: getAmdOfficeForToolCall(state),
     });
 
@@ -494,7 +491,7 @@ export class SchedulingWorkflow {
 
     removeActiveAppointment(state, appointment.id);
     clearAvailabilitySelection(state, {
-      invalidateReads: "cancellation_succeeded",
+      invalidateReads: true,
     });
     const message = `Cancelled the appointment on ${appointment.date} at ${appointment.time}.`;
     recordAppointmentAction(state, callId, {
@@ -598,7 +595,7 @@ export class SchedulingWorkflow {
     });
 
     const bookingResult = await this.middleware.bookAppointment({
-      request: bookingBody,
+      booking: bookingBody,
       office: bookingOffice,
     });
 
@@ -655,7 +652,7 @@ export class SchedulingWorkflow {
         bookingResult,
       );
       clearAvailabilitySelection(state, {
-        invalidateReads: "reschedule_succeeded",
+        invalidateReads: true,
       });
     } else {
       return handleRescheduleBookingFailure(
@@ -668,14 +665,14 @@ export class SchedulingWorkflow {
       );
     }
 
-    let cancelResult: CancellationResult;
+    let cancelResult: CancelAppointmentResult;
     const cancellationRequest = cancellationRequestForAppointment(
       oldAppointment,
       patientId,
     );
     try {
       cancelResult = await this.middleware.cancelAppointment({
-        request: cancellationRequest,
+        ...cancellationRequest,
         office:
           "cancellationToken" in cancellationRequest
             ? bookingOffice
@@ -817,7 +814,7 @@ export class SchedulingWorkflow {
 function cancellationRequestForAppointment(
   appointment: CallerAppointment,
   patientId: string,
-): CancellationRequest {
+): CancelAppointmentInput {
   const cancellationToken = appointment.cancellationToken?.trim();
   return cancellationToken
     ? { cancellationToken }
@@ -840,7 +837,7 @@ function availabilityRequestStillCurrent(
 }
 
 type AvailabilityWorkflowRequest = {
-  body: MiddlewareAvailabilityRequest;
+  body: AvailabilityRequest;
   backendKey: string;
   cacheDay: string;
   routing: string | null;
@@ -875,11 +872,10 @@ function buildAvailabilityLookupRequestForState(
   const officeSelection = selectAvailabilityOffice(state, args.office);
   if (officeSelection) return { blocked: officeSelection };
 
-  if (args.appointmentLane)
-    applySchedulingLaneToState(state, args.appointmentLane);
-  const contextRecovery = availabilityContextRecovery(state);
-  if (contextRecovery) return { blocked: contextRecovery };
-  ensureAvailabilityContext(state, "checking availability");
+  if (args.visitType) setWorkflowVisitType(state, args.visitType);
+  if (!state.workflow.visitType) {
+    return { blocked: "Is this visit for medical care or routine vision?" };
+  }
   const unsupportedMedicalScheduling = medicalSchedulingUnavailable(state);
   if (unsupportedMedicalScheduling)
     return { blocked: unsupportedMedicalScheduling };
@@ -890,7 +886,11 @@ function buildAvailabilityLookupRequestForState(
   const routing = routingForAvailability(state);
   const startDate = args.startDate ?? addCalendarDays(cacheDay, 1);
   state.availability.requestedStartDate = startDate;
-  const body: MiddlewareAvailabilityRequest = { startDate, rangeDays: 14 };
+  const body: AvailabilityRequest = {
+    office: getAmdOfficeForToolCall(state),
+    startDate,
+    rangeDays: 14,
+  };
   const dob = activePatientDob(state);
   if (dob) body.dob = dob;
   if (routing) body.routing = routing;
@@ -911,21 +911,19 @@ function buildAvailabilityLookupRequestForState(
 function availabilityBackendKey(
   state: CallState,
   input: {
-    body: MiddlewareAvailabilityRequest;
+    body: AvailabilityRequest;
     cacheDay: string;
     patientId: string | null;
     routing: string | null;
   },
 ): string {
-  const turn = state.workflow.current;
   return JSON.stringify({
     availabilityGeneration: availabilityReadGeneration(state),
     patientContextGeneration: state.identity.transitionVersion,
     patientId: input.patientId?.trim() || null,
     officeProfile: state.office.activeKey,
     providerOffice: normalizePhoneNumber(getAmdOfficeForToolCall(state)),
-    intent: turn?.intent ?? null,
-    appointmentLane: turn?.appointmentLane ?? null,
+    visitType: state.workflow.visitType,
     cacheDay: input.cacheDay,
     startDate: input.body.startDate,
     dob:
@@ -936,19 +934,7 @@ function availabilityBackendKey(
 }
 
 function ensureNewAppointmentBookingContext(state: CallState): void {
-  const turn = state.workflow.current;
-  if (turn?.intent === "change_appointment") {
-    throw new SchedulingInputRequired(
-      "This is an appointment change, so I need to move the existing appointment instead of booking another one.",
-    );
-  }
-  if (
-    turn?.intent === "schedule" &&
-    (turn.appointmentLane === "medical_md" ||
-      turn.appointmentLane === "routine_od")
-  ) {
-    return;
-  }
+  if (state.workflow.visitType) return;
   throw new SchedulingInputRequired(
     "Is this visit for medical care or routine vision?",
   );
@@ -968,7 +954,7 @@ function completedCancellationReplayMessage(
 function appointmentAnalyticsForCapturedBooking(
   patientName: string | null,
   selectedSlot: StoredAvailabilitySlot,
-  result: BookingResult,
+  result: BookAppointmentResult,
 ): AppointmentAnalytics {
   const booking = bookingSucceeded(result) ? result : null;
   return {
@@ -1043,7 +1029,7 @@ function getAmdOfficeForCancellationAppointment(
   }
   const office = getOfficeProfileByFacility(appointment.facility);
   if (!office) return getAmdOfficeForToolCall(state);
-  return state.office.phoneOverrides?.[office.key] ?? office.amdOfficePhone;
+  return office.amdOfficePhone;
 }
 
 function handleRescheduleBookingFailure(
@@ -1051,12 +1037,12 @@ function handleRescheduleBookingFailure(
   patientId: string,
   selectedSlot: StoredAvailabilitySlot,
   oldAppointment: CallerAppointment,
-  bookingResult: BookingResult,
+  bookingResult: BookAppointmentResult,
   callId: string,
 ): string {
   if (bookingHadPositiveStatusWithoutAppointmentId(bookingResult)) {
     clearAvailabilitySelection(state, {
-      invalidateReads: "booking_authorization_invalidated",
+      invalidateReads: true,
     });
     const message =
       "I couldn't confirm the new booking, so your existing appointment is still scheduled. Let me check availability again.";
@@ -1082,9 +1068,8 @@ function handleRescheduleBookingFailure(
   }
 
   if (bookingResult.status === "unavailable") {
-    invalidateAvailabilityReads(state, "booking_authorization_invalidated");
+    invalidateAvailabilityReads(state);
     removeAvailabilitySlot(state, selectedSlot.slotId);
-    state.availability.refreshAfter = 0;
     const message = `${slotUnavailableMessage()} I did not cancel the existing appointment.`;
     recordRescheduleAction(state, callId, {
       status: "error",
@@ -1105,7 +1090,7 @@ function handleRescheduleBookingFailure(
     bookingResult.reason === "invalid_reschedule_token"
   ) {
     clearAvailabilitySelection(state, {
-      invalidateReads: "booking_authorization_invalidated",
+      invalidateReads: true,
     });
     replaceActiveAppointments(state, [], "error");
     const message =
@@ -1126,7 +1111,7 @@ function handleRescheduleBookingFailure(
   }
   if (bookingResult.status === "rejected") {
     clearAvailabilitySelection(state, {
-      invalidateReads: "booking_authorization_invalidated",
+      invalidateReads: true,
     });
   }
 
@@ -1182,7 +1167,7 @@ function recordRescheduleAction(
     status: "success" | "partial" | "error";
     message: string;
     selectedSlot: StoredAvailabilitySlot;
-    bookingResult: BookingResult;
+    bookingResult: BookAppointmentResult;
     oldAppointment: CallerAppointment;
     patientId: string;
     cancellationResult: Record<string, unknown>;
@@ -1219,7 +1204,7 @@ function recordCapturedRescheduleAction(
     message: string;
     patientName: string | null;
     selectedSlot: StoredAvailabilitySlot;
-    bookingResult: BookingResult;
+    bookingResult: BookAppointmentResult;
     oldAppointment: CallerAppointment;
     patientId: string;
     cancellationResult: Record<string, unknown>;
@@ -1271,7 +1256,7 @@ function replayAppointmentOutcome(
 function rescheduleActionEvidence(
   patientId: string,
   oldAppointment: CallerAppointment,
-  bookingResult: BookingResult,
+  bookingResult: BookAppointmentResult,
   cancellationResult: Record<string, unknown>,
 ): Pick<
   AppointmentActionAnalytics,
@@ -1290,7 +1275,7 @@ function rescheduleActionEvidence(
 
 function bookingActionEvidence(
   patientId: string,
-  result: BookingResult,
+  result: BookAppointmentResult,
 ): Pick<
   AppointmentActionAnalytics,
   "externalPatientId" | "newAppointmentId" | "bookingResult"
@@ -1309,7 +1294,7 @@ function bookingActionEvidence(
 function cancellationActionEvidence(
   patientId: string,
   appointment: CallerAppointment,
-  result: CancellationResult,
+  result: CancelAppointmentResult,
 ): Pick<
   AppointmentActionAnalytics,
   "externalPatientId" | "oldAppointmentId" | "cancellationResult"

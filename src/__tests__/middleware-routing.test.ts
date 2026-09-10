@@ -15,7 +15,7 @@ import {
   validateRuntimeConfig,
 } from "../runtime/portal-auth.js";
 import { HttpCallPortal } from "../runtime/call-closeout.js";
-import { loadPreCallBootstrap } from "../runtime/precall-bootstrap.js";
+import { lookupByPhone } from "../runtime/precall-bootstrap.js";
 import { create_staff_task } from "../tools/create-staff-task.js";
 import { createConfirmedPatientState } from "./support/call-state.js";
 import { createToolContext } from "./support/tool-context.js";
@@ -157,11 +157,7 @@ describe("call-scoped middleware environment", () => {
         }),
         fetch: fetchMock,
       });
-      await loadPreCallBootstrap({
-        middleware,
-        callerPhone: "+15555550100",
-        trunkPhone: office.trunkPhones[0]!,
-      });
+      await lookupByPhone(middleware, "+15555550100", office.trunkPhones[0]!);
       await middleware.getAvailability({ office: office.amdOfficePhone });
       expect(fetchMock).toHaveBeenCalledTimes(2);
       for (const [url, request] of fetchMock.mock.calls as unknown as [
