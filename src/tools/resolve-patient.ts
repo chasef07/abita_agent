@@ -20,17 +20,12 @@ const resolvePatientParameters = z
       .describe(
         "Caller-provided first name of the patient receiving care; null if unknown.",
       ),
-    lastName: z
-      .string()
-      .trim()
-      .nullable()
-      .describe("Caller-provided patient surname; null if unknown."),
     dob: z
       .string()
       .trim()
       .nullable()
       .describe(
-        "Caller-provided date of birth in MM/DD/YYYY, after read-back confirmation; null if not supplied.",
+        "Caller-provided DOB in MM/DD/YYYY; null if unknown. Use it directly without read-back confirmation. Reuse DOB already supplied; the active patient's DOB on file needs no further collection.",
       ),
   })
   .strict();
@@ -45,10 +40,9 @@ export function createResolvePatientTool(middleware: OwnedMiddleware) {
     onDuplicate: "reject",
     description:
       "Activate or look up an existing patient, or switch patients. " +
-      "Try their supplied first name before collecting more identity. " +
+      'Phone lookup found possible patients: call with first name, e.g. {"firstName":"John","dob":null}. Otherwise collect first name and DOB before calling. ' +
       "Use only caller-provided identity; leave unknown fields null. " +
-      'For John alone use {"firstName":"John","lastName":null,"dob":null}. ' +
-      "Include supplied details, confirming any supplied DOB before calling. Follow the result's next step. " +
+      "Use supplied DOB directly without read-back confirmation. Follow the result's next step. " +
       "Use add_patient for new-patient chart creation.",
     parameters: resolvePatientParameters,
     execute: async (
@@ -64,7 +58,6 @@ export function createResolvePatientTool(middleware: OwnedMiddleware) {
       );
       const suppliedIdentity = {
         firstName: identity.firstName ?? undefined,
-        lastName: identity.lastName ?? undefined,
         dob: identity.dob ?? undefined,
       };
       let resolution: PatientIdentityResolution;

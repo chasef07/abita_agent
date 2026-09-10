@@ -13,6 +13,7 @@ import {
   getOfficeProfileByPhone,
 } from "../customers/abita/profile.js";
 import { createTestCallState } from "./support/call-state.js";
+import { createToolContext } from "./support/tool-context.js";
 import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
 
 type Scenario = {
@@ -22,12 +23,34 @@ type Scenario = {
   firstName?: string;
   askFirstName?: boolean;
   officePhone?: string;
-  lastName?: string;
-  confirmationYear?: string;
-  mayAsk?: boolean;
+  promoted?: boolean;
+  confirmedDob?: boolean;
+  dob?: string;
+  askDob?: boolean;
 };
 
 const scenarios: Scenario[] = [
+  {
+    id: "promoted_booking",
+    names: ["John"],
+    user: "John. It's for me.",
+    firstName: "John",
+    promoted: true,
+  },
+  {
+    id: "promoted_parent_booking",
+    names: ["John"],
+    user: "It's for my son John.",
+    firstName: "John",
+    promoted: true,
+  },
+  {
+    id: "dob_already_confirmed",
+    names: [],
+    user: "Yes, that's correct.",
+    firstName: "John",
+    confirmedDob: true,
+  },
   {
     id: "phone_matches_first_name_supplied",
     names: ["Jane", "John", "Maria", "Alex", "Sam"],
@@ -71,32 +94,28 @@ const scenarios: Scenario[] = [
     names: [],
     user: "I am an existing patient. My name is John Smith and I need to reschedule.",
     firstName: "John",
-    lastName: "Smith",
-    mayAsk: true,
+    askDob: true,
   },
   {
-    id: "dob_unconfirmed",
+    id: "dob_supplied_without_confirmation",
     names: [],
     user: "My name is John Smith, born March 12, 1980. I need to reschedule.",
     firstName: "John",
-    lastName: "Smith",
-    confirmationYear: "1980",
+    dob: "03/12/1980",
   },
   {
     id: "phone_match_supplied_dob",
     names: ["John"],
     user: "I need to reschedule. My name is John Smith, born March 12, 1980.",
     firstName: "John",
-    lastName: "Smith",
-    confirmationYear: "1980",
+    dob: "03/12/1980",
   },
   {
     id: "phone_match_conflicting_dob",
     names: ["John"],
     user: "I need to reschedule. My name is John Smith, born March 12, 1990.",
     firstName: "John",
-    lastName: "Smith",
-    confirmationYear: "1990",
+    dob: "03/12/1990",
   },
 ];
 
@@ -151,15 +170,60 @@ for (const model of [primary, fallback]) {
         role: "system",
         content: buildPrompt(officePhone),
       });
-      chatCtx.addMessage({
-        role: "system",
-        content: patientModelProjection(state),
-      });
+      if (!scenario.promoted)
+        chatCtx.addMessage({
+          role: "system",
+          content: patientModelProjection(state),
+        });
       chatCtx.addMessage({
         role: "assistant",
         content: "Thank you for calling Abita Eye Group. How can I help?",
       });
+      if (scenario.promoted) {
+        chatCtx.addMessage({
+          role: "user",
+          content: "I'd like an appointment for a scratch in my left eye.",
+        });
+        chatCtx.addMessage({
+          role: "assistant",
+          content: "What's the patient's first name?",
+        });
+      }
+      if (scenario.confirmedDob) {
+        chatCtx.addMessage({
+          role: "user",
+          content: "I'm John, born March 12, 1980. I need to reschedule.",
+        });
+        chatCtx.addMessage({
+          role: "assistant",
+          content: "That's March 12, 1980?",
+        });
+      }
       chatCtx.addMessage({ role: "user", content: scenario.user });
+      if (scenario.promoted) {
+        const args = { firstName: scenario.firstName!, dob: null };
+        const reply = await createResolvePatientTool(middleware).execute(args, {
+          ctx: createToolContext(state),
+          toolCallId: "synthetic-promotion",
+        } as never);
+        chatCtx.insert([
+          llm.FunctionCall.create({
+            callId: "synthetic-promotion",
+            name: "resolve_patient",
+            args: JSON.stringify(args),
+          }),
+          llm.FunctionCallOutput.create({
+            callId: "synthetic-promotion",
+            name: "resolve_patient",
+            output: reply,
+            isError: false,
+          }),
+        ]);
+        chatCtx.addMessage({
+          role: "system",
+          content: patientModelProjection(state),
+        });
+      }
       try {
         const response = await model
           .chat({
@@ -175,22 +239,33 @@ for (const model of [primary, fallback]) {
           : null;
         const asks =
           response.toolCalls.length === 0 && response.text.includes("?");
-        const passed = scenario.askFirstName
-          ? asks &&
-            /first name/i.test(response.text) &&
-            !/last name|full name|surname|date of birth|\bDOB\b/i.test(
+        const passed = scenario.promoted
+          ? /found/i.test(response.text) &&
+            /John/i.test(response.text) &&
+            !/last name|full name|surname|date of birth|born|\bDOB\b/i.test(
               response.text,
-            )
-          : scenario.confirmationYear
-            ? asks && response.text.includes(scenario.confirmationYear)
-            : (scenario.mayAsk && asks) ||
-              (response.toolCalls.length === 1 &&
+            ) &&
+            response.toolCalls.every((call) => call.name !== "resolve_patient")
+          : scenario.askFirstName
+            ? asks &&
+              /first name/i.test(response.text) &&
+              !/last name|full name|surname|date of birth|\bDOB\b/i.test(
+                response.text,
+              )
+            : scenario.askDob
+              ? asks &&
+                /date of birth|\bDOB\b|born/i.test(response.text) &&
+                !/last name|surname/i.test(response.text)
+              : response.toolCalls.length === 1 &&
                 call?.name === "resolve_patient" &&
                 identity?.success === true &&
                 identity.data.firstName === scenario.firstName &&
-                (identity.data.lastName?.trim() || undefined) ===
-                  scenario.lastName &&
-                !identity.data.dob?.trim());
+                !response.text.includes("?") &&
+                (scenario.confirmedDob
+                  ? identity.data.dob === "03/12/1980"
+                  : scenario.dob
+                    ? identity.data.dob === scenario.dob
+                    : !identity.data.dob?.trim());
         if (!passed) failures += 1;
         console.log(
           JSON.stringify({

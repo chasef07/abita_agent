@@ -47,7 +47,7 @@ export type PatientResolveResult =
 export type PatientIdentity =
   | { phone: string }
   | { patientId: string }
-  | { firstName: string; lastName: string; dob: string };
+  | { firstName: string; lastName?: string; dob: string };
 
 export type AvailabilitySlot = {
   provider: string;

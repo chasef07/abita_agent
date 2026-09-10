@@ -30,7 +30,8 @@ describe("patient identity", () => {
         lookup,
       );
       expect(result.outcome).toBe("needs_identity");
-      expect(result.reply).toContain("wait for confirmation");
+      expect(result.reply).toContain("corrected date");
+      expect(result.reply).not.toContain("confirmation");
       expect(lookup).not.toHaveBeenCalled();
       expect(state.identity.activePatient).toBeNull();
     },
@@ -51,7 +52,7 @@ describe("patient identity", () => {
     );
     expect(ambiguous.outcome).toBe("multiple_matches");
     expect(ambiguous.reply).toContain("date of birth");
-    expect(ambiguous.reply).toContain("confirm");
+    expect(ambiguous.reply).not.toContain("confirm");
     expect(state.identity.activePatient).toBeNull();
     const result = await resolveExistingPatient(
       state,
@@ -165,11 +166,13 @@ describe("patient identity", () => {
       const state = createTestCallState({
         preCallCandidates: [verifiedCandidate("one", "Emmy", "patient-1")],
       });
-      const lookup = vi.fn();
+      const lookup = vi.fn().mockResolvedValue({ status: "not_found" });
       const result = await resolveExistingPatient(state, identity, lookup);
-      expect(result.outcome).toBe("needs_identity");
+      expect(result.outcome).toBe(
+        identity.dob ? "not_found" : "needs_identity",
+      );
       expect(state.identity.activePatient).toBeNull();
-      expect(lookup).not.toHaveBeenCalled();
+      expect(lookup).toHaveBeenCalledTimes(identity.dob ? 1 : 0);
     },
   );
 
@@ -197,11 +200,11 @@ describe("patient identity", () => {
     const state = createTestCallState({
       preCallCandidates: [verifiedCandidate("one", "Jane", "patient-1")],
     });
-    const lookup = vi.fn();
+    const lookup = vi.fn().mockResolvedValue({ status: "not_found" });
     const result = await resolveExistingPatient(state, identity, lookup);
-    expect(result.outcome).toBe("needs_identity");
+    expect(result.outcome).toBe(identity.dob ? "not_found" : "needs_identity");
     expect(state.identity.activePatient).toBeNull();
-    expect(lookup).not.toHaveBeenCalled();
+    expect(lookup).toHaveBeenCalledTimes(identity.dob ? 1 : 0);
   });
 
   it("uses a supplied surname to distinguish patients without demanding DOB", async () => {

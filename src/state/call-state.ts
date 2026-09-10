@@ -324,7 +324,8 @@ export interface RegistrationDraft {
 }
 
 export interface UnregisteredPatientReceipt {
-  identity: Required<RegistrationDraft>;
+  identity: Pick<Required<RegistrationDraft>, "firstName" | "dob"> &
+    Pick<RegistrationDraft, "lastName">;
   lookupOperationVersion: number;
   insuranceCheckVersion: number;
 }

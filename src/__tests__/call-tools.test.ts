@@ -277,7 +277,6 @@ describe("stateful call tools", () => {
   it("keeps private patient references out of the resolve_patient schema", () => {
     expect(Object.keys(resolve_patient.parameters.shape)).toEqual([
       "firstName",
-      "lastName",
       "dob",
     ]);
   });
@@ -538,7 +537,7 @@ describe("stateful call tools", () => {
         } as never,
       );
       const pendingResolution = resolve_patient.execute(
-        { firstName: "John", lastName: "Doe", dob: "02/02/1982" },
+        { firstName: "John", dob: "02/02/1982" },
         {
           ctx: createToolContext(state) as never,
           toolCallId: "tool-2",
@@ -566,7 +565,9 @@ describe("stateful call tools", () => {
         lookup.resolve(lookupResult);
       }
 
-      await expect(pendingResolution).resolves.toContain("I verified John Doe");
+      await expect(pendingResolution).resolves.toContain(
+        "I found you in the system, John Doe",
+      );
       await expect(pendingCreation).resolves.toContain(
         "I created a patient chart for Jane Doe, but insurance was not attached. Office staff needs to finish the registration.",
       );
@@ -616,7 +617,7 @@ describe("stateful call tools", () => {
       toolCallId: "tool-1",
     } as never);
     const resolution = resolve_patient.execute(
-      { firstName: "John", lastName: "Doe", dob: "02/02/1982" },
+      { firstName: "John", dob: "02/02/1982" },
       {
         ctx: createToolContext(state) as never,
         toolCallId: "tool-2",
@@ -1305,14 +1306,13 @@ describe("stateful call tools", () => {
     const result = await resolve_patient.execute(
       {
         firstName: "Jane",
-        lastName: "Doe",
         dob: "01/01/1980",
       },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
     expect(result).toBe(
-      "I verified Jane Doe. We have self pay on file. I found one upcoming appointment, Monday, July 27 at 9:00 AM with Dr. Bach.",
+      "I found you in the system, Jane Doe. We have self pay on file. I found one upcoming appointment, Monday, July 27 at 9:00 AM with Dr. Bach.",
     );
     expect(result).not.toContain("appointmentRef");
     expect(patientModelProjection(state)).toMatch(
@@ -1332,7 +1332,6 @@ describe("stateful call tools", () => {
     expect(middleware.requests.resolvePatient[0]).toMatchObject({
       identity: {
         firstName: "Jane",
-        lastName: "Doe",
         dob: "01/01/1980",
       },
     });
@@ -1385,7 +1384,6 @@ describe("stateful call tools", () => {
     const result = await resolve_patient.execute(
       {
         firstName: "Jane",
-        lastName: "Doe",
         dob: "01/01/1980",
       },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
@@ -1439,7 +1437,6 @@ describe("stateful call tools", () => {
     const result = await resolve_patient.execute(
       {
         firstName: "Jane",
-        lastName: "Doe",
         dob: "01/01/1980",
       },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
@@ -1487,19 +1484,17 @@ describe("stateful call tools", () => {
     const result = await resolve_patient.execute(
       {
         firstName: "John",
-        lastName: "Doe",
         dob: "02/02/1982",
       },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
     expect(result).toBe(
-      "I verified John Doe. We have Aetna on file. I don't see any upcoming appointments.",
+      "I found you in the system, John Doe. We have Aetna on file. I don't see any upcoming appointments.",
     );
     expect(middleware.requests.resolvePatient[0]).toMatchObject({
       identity: {
         firstName: "John",
-        lastName: "Doe",
         dob: "02/02/1982",
       },
       office: "+13523202007",
@@ -1529,14 +1524,13 @@ describe("stateful call tools", () => {
     const result = await resolve_patient.execute(
       {
         firstName: "Chase",
-        lastName: "Test",
         dob: "04/07/2000",
       },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
     expect(result).toBe(
-      "I verified TEST,CHASE. I don't see any upcoming appointments.",
+      "I found you in the system, CHASE TEST. I don't see any upcoming appointments.",
     );
     expect(state.identity.activePatient!.patientId).toBe("patient-1");
     expect(state.identity.activePatient!.kind).toBe("existing");
@@ -1544,37 +1538,30 @@ describe("stateful call tools", () => {
     expect(state.insurance.lastEligibilityCheck).toBeNull();
   });
 
-  it.each(["Garcia", "Lopez", "Garcia Lopez"])(
-    "activates a verified compound-surname receipt using %s",
-    async (lastName) => {
-      const state = createState();
-      setPatientUnknown(state);
-      stubPatient(
-        verifiedPatientResult({
-          name: "GARCIA LOPEZ,ANA",
-          dob: "01/01/1980",
-        }),
-      );
+  it("activates a verified compound-surname receipt using first name and DOB", async () => {
+    const state = createState();
+    setPatientUnknown(state);
+    stubPatient(
+      verifiedPatientResult({
+        name: "GARCIA LOPEZ,ANA",
+        dob: "01/01/1980",
+      }),
+    );
 
-      await resolve_patient.execute(
-        { firstName: "Ana", lastName, dob: "01/01/1980" },
-        {
-          ctx: createToolContext(state) as never,
-          toolCallId: "tool-1",
-        } as never,
-      );
+    await resolve_patient.execute({ firstName: "Ana", dob: "01/01/1980" }, {
+      ctx: createToolContext(state) as never,
+      toolCallId: "tool-1",
+    } as never);
 
-      expect(state.identity.activePatient?.patientId).toBe("patient-1");
-      expect(domainOutcomeReceipts(state)).toMatchObject([
-        { callId: "tool-1", outcome: "patient_verified", status: "success" },
-      ]);
-    },
-  );
+    expect(state.identity.activePatient?.patientId).toBe("patient-1");
+    expect(domainOutcomeReceipts(state)).toMatchObject([
+      { callId: "tool-1", outcome: "patient_verified", status: "success" },
+    ]);
+  });
 
   it.each([
-    { firstName: "Other", lastName: "Garcia", dob: "01/01/1980" },
-    { firstName: "Ana", lastName: "Other", dob: "01/01/1980" },
-    { firstName: "Ana", lastName: "Garcia", dob: "02/02/1980" },
+    { firstName: "Other", dob: "01/01/1980" },
+    { firstName: "Ana", dob: "02/02/1980" },
   ])("rejects a mismatched compound-surname receipt: %j", async (identity) => {
     const state = createState();
     setPatientUnknown(state);
@@ -1605,7 +1592,6 @@ describe("stateful call tools", () => {
     const result = resolve_patient.execute(
       {
         firstName: "Ana",
-        lastName: "Doe",
         dob: "01/01/1980",
       },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
@@ -1635,19 +1621,17 @@ describe("stateful call tools", () => {
     const result = await resolve_patient.execute(
       {
         firstName: "Lisa",
-        lastName: "Arshed",
         dob: "10/03/2020",
       },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
     expect(result).toBe(
-      "I couldn't find a matching patient. Could you confirm the spelling and date of birth, and whether the patient is already registered with us?",
+      "I couldn't find a matching patient. Could you check the first-name spelling and whether the patient is already registered with us? Reuse the supplied date of birth.",
     );
     expect(middleware.requests.resolvePatient[0]).toMatchObject({
       identity: {
         firstName: "Lisa",
-        lastName: "Arshed",
         dob: "10/03/2020",
       },
     });
@@ -1667,7 +1651,6 @@ describe("stateful call tools", () => {
       resolve_patient.execute(
         {
           firstName: "Lisa",
-          lastName: "Arshed",
           dob: "10/03/2020",
         },
         {
@@ -1688,7 +1671,6 @@ describe("stateful call tools", () => {
     const failure = resolve_patient.execute(
       {
         firstName: "Lisa",
-        lastName: "Arshed",
         dob: "10/03/2020",
       },
       {
@@ -1753,12 +1735,11 @@ describe("stateful call tools", () => {
           toolCallId: "tool-1",
         } as never,
       ),
-    ).resolves.toContain("I verified Jane Doe.");
+    ).resolves.toContain("I found you in the system, Jane Doe.");
     expect(middleware.requests.resolvePatient).toEqual([
       expect.objectContaining({
         identity: {
           firstName: "Jane",
-          lastName: "Doe",
           dob: "01/01/1980",
         },
       }),
@@ -1826,19 +1807,17 @@ describe("stateful call tools", () => {
     const result = await resolve_patient.execute(
       {
         firstName: "Ella",
-        lastName: "Arshed",
         dob: "10/03/2020",
       },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
     expect(result).toBe(
-      "I verified ELLA ARSHED. We have Aetna on file. I don't see any upcoming appointments.",
+      "I found you in the system, ELLA ARSHED. We have Aetna on file. I don't see any upcoming appointments.",
     );
     expect(middleware.requests.resolvePatient[0]).toMatchObject({
       identity: {
         firstName: "Ella",
-        lastName: "Arshed",
         dob: "10/03/2020",
       },
     });
@@ -1884,7 +1863,6 @@ describe("stateful call tools", () => {
     const result = await resolve_patient.execute(
       {
         firstName: "Monique",
-        lastName: "Hamilton",
         dob: "12/21/2016",
       },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
@@ -1892,7 +1870,7 @@ describe("stateful call tools", () => {
 
     expect(testMiddleware.operations).toHaveLength(0);
     expect(result).toBe(
-      "I verified MONIQUE HAMILTON. We have HUMANA on file. I don't see any upcoming appointments.",
+      "I found you in the system, MONIQUE HAMILTON. We have HUMANA on file. I don't see any upcoming appointments.",
     );
     expect(state.identity.activePatient!.patientId).toBe("patient-monique");
     expect(state.identity.activePatient!.name).toBe("MONIQUE HAMILTON");
@@ -1965,7 +1943,7 @@ describe("stateful call tools", () => {
 
     expect(testMiddleware.operations).toHaveLength(0);
     expect(result).toBe(
-      "I verified ESA ARSHED. We have Florida Blue Shield on file. I don't see any upcoming appointments.",
+      "I found you in the system, ESA ARSHED. We have Florida Blue Shield on file. I don't see any upcoming appointments.",
     );
     expect(state.identity.activePatient!.patientId).toBe("patient-esa");
   });
@@ -1994,7 +1972,6 @@ describe("stateful call tools", () => {
     ];
     const identity = resolve_patient.parameters.parse({
       firstName: "Amy",
-      lastName: null,
       dob: null,
     });
 
@@ -2017,12 +1994,11 @@ describe("stateful call tools", () => {
     ]);
   });
 
-  it("treats model-emitted empty surname and DOB as unknown", async () => {
+  it("treats model-emitted empty DOB as unknown", async () => {
     const state = createState();
     setSingleArshedPreCallCandidate(state);
     const identity = resolve_patient.parameters.parse({
       firstName: "Esa",
-      lastName: "",
       dob: "",
     });
     await resolve_patient.execute(identity, {
@@ -2033,14 +2009,13 @@ describe("stateful call tools", () => {
     expect(testMiddleware.operations).toHaveLength(0);
   });
 
-  it("does not call middleware until full identity is provided", async () => {
+  it("requests DOB before fallback lookup", async () => {
     const state = createState();
     setPatientUnknown(state);
 
     const result = await resolve_patient.execute(
       {
         firstName: "Jane",
-        lastName: null,
         dob: null,
       },
       {
@@ -2048,7 +2023,7 @@ describe("stateful call tools", () => {
         toolCallId: "tool-1",
       } as never,
     );
-    expect(result).toBe("What is the patient's last name?");
+    expect(result).toContain("What is the patient's date of birth?");
     expect(testMiddleware.operations).toHaveLength(0);
   });
 

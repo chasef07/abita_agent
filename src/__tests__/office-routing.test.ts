@@ -391,7 +391,7 @@ describe("tool-first prompt gating", () => {
       );
       expect(prompt).toContain("Use null for unknown fields");
       expect(prompt).toContain(
-        "read it back and wait for confirmation before resolving",
+        "Use a supplied DOB directly in resolve_patient, without a read-back or confirmation question",
       );
       expect(prompt).not.toContain("<caller_identity_hint>");
       expect(prompt).not.toContain("middleware_error");
@@ -1589,7 +1589,7 @@ describe("model-facing tool definitions", () => {
       "Use only caller-provided identity",
     );
     expect(resolve_patient.description).toContain(
-      "Try their supplied first name before collecting more identity",
+      "Phone lookup found possible patients: call with first name",
     );
     expect(resolve_patient.description).toContain("leave unknown fields null");
     expect(resolve_patient.description).toContain(
@@ -1602,41 +1602,32 @@ describe("model-facing tool definitions", () => {
       safeParse: (value: unknown) => { success: boolean };
       shape: Record<string, unknown>;
     };
-    expect(Object.keys(parameters.shape)).toEqual([
-      "firstName",
-      "lastName",
-      "dob",
-    ]);
+    expect(Object.keys(parameters.shape)).toEqual(["firstName", "dob"]);
     expect(
       parameters.safeParse({
         firstName: "Jane",
-        lastName: "Doe",
         dob: null,
       }).success,
     ).toBe(true);
     expect(
       parameters.safeParse({
         firstName: "Jane",
-        lastName: "Doe",
         dob: "01/01/1980",
       }).success,
     ).toBe(true);
-    expect(
-      parameters.safeParse({ firstName: null, lastName: null, dob: null })
-        .success,
-    ).toBe(true);
+    expect(parameters.safeParse({ firstName: null, dob: null }).success).toBe(
+      true,
+    );
     expect(parameters.safeParse({}).success).toBe(false);
     expect(
       parameters.safeParse({
         firstName: null,
-        lastName: null,
         dob: null,
         registrationStatus: "not_registered",
       }).success,
     ).toBe(false);
-    expect(
-      parameters.safeParse({ firstName: " ", lastName: null, dob: null })
-        .success,
-    ).toBe(false);
+    expect(parameters.safeParse({ firstName: " ", dob: null }).success).toBe(
+      false,
+    );
   });
 });

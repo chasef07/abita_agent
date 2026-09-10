@@ -91,7 +91,6 @@ describe("stable tool catalog", () => {
             name: "resolve_patient",
             args: {
               firstName: "Jane",
-              lastName: "Doe",
               dob: "01/01/1980",
             },
           },
@@ -226,7 +225,7 @@ describe("stable tool catalog", () => {
           toolCalls: [
             {
               name: "resolve_patient",
-              args: { firstName: "John", lastName: null, dob: null },
+              args: { firstName: "John", dob: null },
             },
           ],
         },
@@ -266,7 +265,6 @@ describe("stable tool catalog", () => {
             name: "resolve_patient",
             args: {
               firstName: "Jane",
-              lastName: "Doe",
               dob: "01/02/1980",
             },
           },
@@ -358,7 +356,6 @@ describe("stable tool catalog", () => {
             name: "resolve_patient",
             args: {
               firstName: "Jane",
-              lastName: "Doe",
               dob: "01/01/1980",
             },
           },
@@ -425,7 +422,6 @@ describe("stable tool catalog", () => {
     expect(session.userData.identity.unregisteredPatientReceipt).toEqual({
       identity: {
         firstName: "Jane",
-        lastName: "Doe",
         dob: "01/01/1980",
       },
       lookupOperationVersion: session.userData.identity.operationVersion,
