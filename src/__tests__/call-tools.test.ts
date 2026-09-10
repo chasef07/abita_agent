@@ -1577,7 +1577,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "I found you in our system, John Doe. We have Aetna on file. I don't see any upcoming appointments.",
+      "I found you in our system, John Doe. We have Aetna on file. I don't see any upcoming appointments.\nDOB is on file. Do not ask for DOB.",
     );
     expect(middleware.requests.resolvePatient[0]).toMatchObject({
       identity: {
@@ -1616,7 +1616,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "I found you in our system, CHASE TEST. I don't see any upcoming appointments.",
+      "I found you in our system, CHASE TEST. I don't see any upcoming appointments.\nDOB is on file. Do not ask for DOB.",
     );
     expect(state.identity.activePatient!.patientId).toBe("patient-1");
     expect(state.identity.activePatient!.kind).toBe("existing");
@@ -1910,7 +1910,7 @@ describe("stateful call tools", () => {
     );
 
     expect(result).toBe(
-      "I found you in our system, ELLA ARSHED. We have Aetna on file. I don't see any upcoming appointments.",
+      "I found you in our system, ELLA ARSHED. We have Aetna on file. I don't see any upcoming appointments.\nDOB is on file. Do not ask for DOB.",
     );
     expect(middleware.requests.resolvePatient[0]).toMatchObject({
       identity: {
@@ -1967,7 +1967,7 @@ describe("stateful call tools", () => {
 
     expect(testMiddleware.operations).toHaveLength(0);
     expect(result).toBe(
-      "I found you in our system, MONIQUE HAMILTON. We have HUMANA on file. I don't see any upcoming appointments.",
+      "I found you in our system, MONIQUE HAMILTON. We have HUMANA on file. I don't see any upcoming appointments.\nDOB is on file. Do not ask for DOB.",
     );
     expect(state.identity.activePatient!.patientId).toBe("patient-monique");
     expect(state.identity.activePatient!.name).toBe("MONIQUE HAMILTON");
@@ -2013,7 +2013,9 @@ describe("stateful call tools", () => {
     } as never);
 
     expect(testMiddleware.operations).toHaveLength(0);
-    expect(result).toBe("BRANDON ANDERSON is already the active patient.");
+    expect(result).toBe(
+      "BRANDON ANDERSON is already the active patient.\nDOB is on file. Do not ask for DOB.",
+    );
     expect(state.availability.slots.map((slot) => slot.slotId)).toEqual(["S1"]);
     expect(state.availability.bookingTokensBySlotId).toEqual({
       S1: "token-a",
@@ -2038,7 +2040,7 @@ describe("stateful call tools", () => {
 
     expect(testMiddleware.operations).toHaveLength(0);
     expect(result).toBe(
-      "I found you in our system, ESA ARSHED. We have Florida Blue Shield on file. I don't see any upcoming appointments.",
+      "I found you in our system, ESA ARSHED. We have Florida Blue Shield on file. I don't see any upcoming appointments.\nDOB is on file. Do not ask for DOB.",
     );
     expect(state.identity.activePatient!.patientId).toBe("patient-esa");
   });
