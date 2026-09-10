@@ -37,6 +37,7 @@ describe("patient resolution conversation contract", () => {
     );
     expect(state.identity.activePatient?.dob).toBe(candidate.dob);
     expect(reply).toContain("I found you in our system, Jane Doe.");
+    expect(reply).toContain("DOB is on file. Do not ask for DOB.");
     expect(reply).not.toContain(candidate.dob);
     expect(middleware.operations).toHaveLength(0);
   });
