@@ -62,12 +62,33 @@ describe("Google Cloud trace export", () => {
     vi.restoreAllMocks();
   });
 
-  it("leaves the existing LiveKit provider alone when disabled", () => {
-    const existing = telemetry.tracer.getProvider();
-    expect(setupGoogleCloudTracing(ctx, {})).toBeUndefined();
-    expect(telemetry.tracer.getProvider()).toBe(existing);
+  it("protects native LiveKit exports for every office when no Google collector is configured", async () => {
+    const add = vi.spyOn(telemetry.FanoutSpanProcessor.prototype, "add");
+    const provider = setupGoogleCloudTracing(ctx, {})!;
+    expect(provider).toBeDefined();
     expect(transport.options).toBeUndefined();
-    expect(callbacks).toEqual([]);
+    const destination = new InMemorySpanExporter();
+    add.mock.contexts[0].add(new SimpleSpanProcessor(destination));
+    telemetry.tracer
+      .startSpan({
+        name: "function_tool",
+        attributes: {
+          "lk.function_tool.name": "search_office_knowledge",
+          "lk.pii.function_tool.arguments": "sensitive-query",
+          "gen_ai.tool.call.arguments": "sensitive-query",
+          "gen_ai.tool.call.id": "knowledge-1",
+        },
+      })
+      .end();
+    await provider.forceFlush();
+    expect(
+      JSON.stringify(
+        destination.getFinishedSpans().map((span) => span.attributes),
+      ),
+    ).not.toContain("sensitive-query");
+    expect(
+      destination.getFinishedSpans()[0].attributes["gen_ai.tool.call.id"],
+    ).toBe("knowledge-1");
   });
 
   it("rejects a malformed destination before installing a provider", () => {
@@ -168,6 +189,74 @@ describe("Google Cloud trace export", () => {
       expect(exported.status.code).toBe(SpanStatusCode.ERROR);
     },
   );
+
+  it("redacts knowledge tool payloads and message copies while retaining other tools", async () => {
+    const provider = setupGoogleCloudTracing(ctx, {
+      GOOGLE_CLOUD_TRACE_ENDPOINT: "https://collector.example/v1/traces",
+      GOOGLE_CLOUD_TRACE_TOKEN: "test-token",
+    })!;
+    telemetry.tracer
+      .startSpan({
+        name: "function_tool",
+        attributes: {
+          "lk.function_tool.name": "search_office_knowledge",
+          "lk.pii.function_tool.arguments": "sensitive-query",
+          "gen_ai.tool.call.arguments": "sensitive-query",
+          "gen_ai.tool.call.result": "sensitive-passage",
+          "gen_ai.tool.call.id": "knowledge-1",
+        },
+      })
+      .end();
+    telemetry.tracer
+      .startSpan({
+        name: "llm_node",
+        attributes: {
+          "gen_ai.input.messages": JSON.stringify([
+            {
+              role: "assistant",
+              parts: [
+                {
+                  type: "tool_call",
+                  id: "knowledge-1",
+                  name: "search_office_knowledge",
+                  arguments: { query: "sensitive-query" },
+                },
+              ],
+            },
+            {
+              role: "tool",
+              parts: [
+                {
+                  type: "tool_call_response",
+                  id: "knowledge-1",
+                  response: "sensitive-passage",
+                },
+              ],
+            },
+            {
+              role: "assistant",
+              parts: [
+                {
+                  type: "tool_call",
+                  id: "other-1",
+                  name: "check_insurance",
+                  arguments: { plan: "existing-policy-content" },
+                },
+              ],
+            },
+          ]),
+        },
+      })
+      .end();
+    await provider.forceFlush();
+    const exported = JSON.stringify(
+      transport.batches.flat().map((span) => span.attributes),
+    );
+    expect(exported).not.toContain("sensitive-query");
+    expect(exported).not.toContain("sensitive-passage");
+    expect(exported).toContain("existing-policy-content");
+    expect(exported).toContain("knowledge-1");
+  });
 
   it("retains the registrar LiveKit needs to add its own span processor", async () => {
     const add = vi.spyOn(telemetry.FanoutSpanProcessor.prototype, "add");

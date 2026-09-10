@@ -5,6 +5,17 @@ import {
 } from "../customers/abita/profile.js";
 import type { CallState } from "./call-state.js";
 
+const officeContextControllers = new WeakMap<CallState, AbortController>();
+
+export function officeContextSignal(state: CallState): AbortSignal {
+  let controller = officeContextControllers.get(state);
+  if (!controller) {
+    controller = new AbortController();
+    officeContextControllers.set(state, controller);
+  }
+  return controller.signal;
+}
+
 export type TransferState = "idle" | "pending" | "accepted" | "ambiguous";
 
 export function activeOfficeKey(state: CallState): OfficeKey {
@@ -20,6 +31,10 @@ export function activateOffice(
   state: CallState,
   office: Pick<OfficeProfile, "key">,
 ): void {
+  if (state.office.activeKey !== office.key) {
+    officeContextControllers.get(state)?.abort();
+    officeContextControllers.delete(state);
+  }
   state.office.activeKey = office.key;
 }
 

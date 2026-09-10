@@ -10,10 +10,6 @@ import {
   loadInsuranceReference,
   matchInsurancePlanForOffice,
 } from "../insurance-rules.js";
-import {
-  resolveOfficeKnowledge,
-  validateOfficeKnowledgeDocument,
-} from "../office-knowledge.js";
 import { buildPrompt } from "../prompt.js";
 
 const WORKSPACE = join(import.meta.dirname, "..", "..", "workspace");
@@ -23,17 +19,15 @@ function readWorkspaceFile(source: string): string {
 }
 
 describe("ophthalmology demo content", () => {
-  it("uses dedicated Clearbrook role and knowledge sources", () => {
+  it("keeps the dedicated Clearbrook role and office identity", () => {
     const office = getOfficeProfileByPhone(OPHTHALMOLOGY_DEMO_TRUNK_PHONE);
     const prompt = buildPrompt(OPHTHALMOLOGY_DEMO_TRUNK_PHONE);
-    const knowledge = readWorkspaceFile(office.knowledgeSource);
     const role = readWorkspaceFile("SOUL_OPHTHALMOLOGY_DEMO.md");
 
     expect(office).toMatchObject({
       displayName: "Clearbrook Eye Center",
       greeting: "Hi, this is Maya at Clearbrook Eye Center. How can I help?",
       key: "ophthalmology-demo",
-      knowledgeSource: "KNOWLEDGE_OPHTHALMOLOGY_DEMO.md",
       trunkPhones: [OPHTHALMOLOGY_DEMO_TRUNK_PHONE],
     });
     expect(office.promptSources()).toContainEqual({
@@ -43,42 +37,15 @@ describe("ophthalmology demo content", () => {
     expect(prompt).toContain("a fictional ophthalmology clinic");
     expect(prompt).toContain("Clearbrook Eye Center");
     expect(prompt).not.toContain("Abita Eye Group");
-    validateOfficeKnowledgeDocument(office.knowledgeSource, knowledge);
-    expect(knowledge).toContain("Doctor Elena Marlowe");
-    expect(knowledge).toContain("Harbor Point Center");
-    expect(knowledge).toContain("Cypress Commons Center");
-    expect(knowledge).not.toContain("Dr. Bach");
-    expect(knowledge).not.toContain("Spring Hill");
-    expect(knowledge).not.toContain("abitaeye.com");
-    for (const source of [role, knowledge]) {
-      expect(source).toContain(
-        "New flashes or floaters require immediate transfer to office staff.",
-      );
-    }
+    expect(role).toContain(
+      "New flashes or floaters require immediate transfer to office staff.",
+    );
   });
 
-  it("keeps ophthalmology behavior while retrieving only Clearbrook facts", () => {
+  it("retains both eye-care scheduling lanes after migration", () => {
     const office = getOfficeProfile("ophthalmology-demo");
-    const provider = resolveOfficeKnowledge(
-      "ophthalmology-demo",
-      "Which doctors work there?",
-    );
-    const location = resolveOfficeKnowledge(
-      "ophthalmology-demo",
-      "Where are you located?",
-    );
-
     expect(office.schedulingFor("medical")).toEqual({ supported: true });
-    expect(office.schedulingFor("routine_vision")).toEqual({
-      supported: true,
-    });
-    expect(provider).toMatchObject({ outcome: "matched", topic: "providers" });
-    expect(provider.sections.join("\n")).toContain("Doctor Julian Reyes");
-    expect(location).toMatchObject({
-      outcome: "matched",
-      topic: "location_contact",
-    });
-    expect(location.sections.join("\n")).toContain("Harbor Point Center");
+    expect(office.schedulingFor("routine_vision")).toEqual({ supported: true });
   });
 
   it("keeps demo insurance isolated from Spring Hill-only rules", () => {

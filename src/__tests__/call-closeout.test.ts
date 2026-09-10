@@ -369,23 +369,30 @@ describe("call closeout", () => {
         ACUITY_DEMO_PRODUCT_SERVICE_SECRET: "demo-secret",
       }),
     ).toThrow(
-      "AMD_API_URL, AMD_API_TOKEN, ACUITY_PRODUCT_INTERACTION_URL, ACUITY_PRODUCT_HANDOFF_URL, ACUITY_DEMO_PRODUCT_SERVICE_SECRET, ACUITY_DEMO_PRODUCT_PRACTICE_ID, ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET, ABITA_EYE_GROUP_PRODUCT_PRACTICE_ID are required in production",
+      "AMD_API_URL, AMD_API_TOKEN, ACUITY_PRODUCT_INTERACTION_URL, ACUITY_PRODUCT_KNOWLEDGE_URL, ACUITY_PRODUCT_HANDOFF_URL, ACUITY_DEMO_PRODUCT_SERVICE_SECRET, ACUITY_DEMO_PRODUCT_PRACTICE_ID, ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET, ABITA_EYE_GROUP_PRODUCT_PRACTICE_ID are required in production",
     );
+    const configured = {
+      NODE_ENV: "production",
+      AMD_API_URL: "https://middleware.example",
+      AMD_API_TOKEN: "middleware-secret",
+      ACUITY_PRODUCT_INTERACTION_URL:
+        "https://product.example/v1/ai/interactions",
+      ACUITY_PRODUCT_KNOWLEDGE_URL:
+        "https://product.example/v1/agent/knowledge/search",
+      ACUITY_PRODUCT_HANDOFF_URL: "https://product.example/v1/handoffs",
+      ACUITY_DEMO_PRODUCT_PRACTICE_ID: "00000000-0000-0000-0000-000000000001",
+      ACUITY_DEMO_PRODUCT_SERVICE_SECRET: "demo-secret",
+      ABITA_EYE_GROUP_PRODUCT_PRACTICE_ID:
+        "00000000-0000-0000-0000-000000000002",
+      ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET: "production-secret",
+    };
+    expect(() => validateRuntimeConfig(configured)).not.toThrow();
     expect(() =>
       validateRuntimeConfig({
-        NODE_ENV: "production",
-        AMD_API_URL: "https://middleware.example",
-        AMD_API_TOKEN: "middleware-secret",
-        ACUITY_PRODUCT_INTERACTION_URL:
-          "https://product.example/v1/ai/interactions",
-        ACUITY_PRODUCT_HANDOFF_URL: "https://product.example/v1/handoffs",
-        ACUITY_DEMO_PRODUCT_PRACTICE_ID: "00000000-0000-0000-0000-000000000001",
-        ACUITY_DEMO_PRODUCT_SERVICE_SECRET: "demo-secret",
-        ABITA_EYE_GROUP_PRODUCT_PRACTICE_ID:
-          "00000000-0000-0000-0000-000000000002",
-        ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET: "production-secret",
+        ...configured,
+        ACUITY_PRODUCT_KNOWLEDGE_URL: undefined,
       }),
-    ).not.toThrow();
+    ).toThrow("ACUITY_PRODUCT_KNOWLEDGE_URL");
     expect(() =>
       getProductInteractionConfig("spring-hill", {
         NODE_ENV: "production",
@@ -932,6 +939,20 @@ describe("call closeout", () => {
         error:
           "request failed with Authorization: Bearer private-token at http://10.0.0.5/private",
         clientSecret: "private-client-secret",
+        functionCalls: [
+          {
+            name: "search_office_knowledge",
+            callId: "knowledge-1",
+            args: "sensitive-query",
+          },
+        ],
+        outputs: [
+          {
+            type: "function_call_output",
+            callId: "knowledge-1",
+            output: "sensitive-passage",
+          },
+        ],
       },
     ];
     const adapter = createLiveKitCallCloseoutEventAdapter(
@@ -959,6 +980,9 @@ describe("call closeout", () => {
       { input_tokens: 12, output_tokens: 4 },
     ]);
     expect(captured).not.toContain("private-token");
+    expect(captured).not.toContain("sensitive-query");
+    expect(captured).not.toContain("sensitive-passage");
+    expect(captured).toContain("search_office_knowledge");
     expect(captured).not.toContain("private-client-secret");
     expect(captured).not.toContain("10.0.0.5");
   });

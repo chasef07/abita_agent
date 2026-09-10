@@ -46,9 +46,13 @@ pnpm test
 - [src/runtime/](src/runtime/): startup, speech, and closeout.
 - [src/tools/](src/tools/): model-facing tools.
 - [Tests](src/__tests__/): behavior and contract tests.
-- [workspace/](workspace/): live prompts and office knowledge.
+- [workspace/](workspace/): live prompts.
 
 Read the owning module, its callers, and tests for current behavior.
+
+Office facts come from `search_office_knowledge`, backed by the current Product-owned
+corpus. Set `ACUITY_PRODUCT_KNOWLEDGE_URL`; the runtime supplies the active office
+and its existing Product service credential. Queries exclude patient details.
 
 ## Supporting workflows
 

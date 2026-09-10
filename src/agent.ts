@@ -3,7 +3,6 @@
 
 import {
   Agent as LiveKitAgent,
-  ChatContext,
   ChatMessage,
   ToolContext,
   type ModelSettings,
@@ -18,11 +17,6 @@ import type { VoiceLanguageRuntime } from "./runtime/voice-language.js";
 import { getOfficeProfileByPhone } from "./customers/abita/profile.js";
 import { buildToolsForTrunk } from "./runtime/tool-registry.js";
 import {
-  officeKnowledgeReference,
-  resolveOfficeKnowledge,
-} from "./office-knowledge.js";
-import { activeOfficeKey } from "./state/call-lifecycle.js";
-import {
   clinicTimestampMessage,
   systemSchedulingClock,
   type SchedulingClock,
@@ -32,7 +26,6 @@ import { preCallLookupHint } from "./runtime/precall-bootstrap.js";
 
 type VoiceAgentOptions = {
   ownedMiddleware: OwnedMiddleware;
-  officeKnowledgeResolver?: typeof resolveOfficeKnowledge;
   onAssistantText?: (text: string, complete: boolean) => void;
   suppressGreeting?: boolean;
   turnClock?: SchedulingClock;
@@ -70,30 +63,6 @@ export function createVoiceAgent(
       }
     },
 
-    async onUserTurnCompleted(
-      ctx,
-      chatCtx: ChatContext,
-      newMessage: ChatMessage,
-    ): Promise<void> {
-      const state = ctx.session.userData;
-      const transcript = newMessage.textContent ?? "";
-      if (!transcript) return;
-      const officeKey = activeOfficeKey(state);
-      try {
-        const knowledge = (
-          options.officeKnowledgeResolver ?? resolveOfficeKnowledge
-        )(officeKey, transcript, recentNaturalLanguageConversation(chatCtx));
-        if (knowledge.outcome !== "skipped") {
-          chatCtx.addMessage({
-            role: "assistant",
-            content: officeKnowledgeReference(officeKey, knowledge),
-          });
-        }
-      } catch {
-        console.warn(`[office_knowledge] retrieval failed office=${officeKey}`);
-      }
-    },
-
     async llmNode(ctx, chatCtx, toolCtx, modelSettings) {
       const modelChatCtx = chatCtx.copy();
       modelChatCtx.items = modelChatCtx.items.filter(
@@ -125,6 +94,21 @@ export function createVoiceAgent(
           break;
         }
       }
+      // Keep current-turn results, but search again for each new question.
+      const priorKnowledge = new Set(
+        modelChatCtx.items
+          .slice(0, Math.max(0, latestUserIndex))
+          .filter(
+            (item) =>
+              (item.type === "function_call" ||
+                item.type === "function_call_output") &&
+              item.name === "search_office_knowledge",
+          ),
+      );
+      modelChatCtx.items = modelChatCtx.items.filter(
+        (item) => !priorKnowledge.has(item),
+      );
+      latestUserIndex -= priorKnowledge.size;
       modelChatCtx.items.splice(
         latestUserIndex < 0 ? modelChatCtx.items.length : latestUserIndex,
         0,
@@ -179,16 +163,4 @@ export async function* observeAssistantText(
   }
 
   observer(text, true);
-}
-
-function recentNaturalLanguageConversation(chatCtx: ChatContext): string[] {
-  return chatCtx.items
-    .flatMap((item) =>
-      item.type === "message" &&
-      (item.role === "user" || item.role === "assistant") &&
-      item.textContent?.trim()
-        ? [item.textContent]
-        : [],
-    )
-    .slice(-2);
 }

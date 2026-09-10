@@ -46,6 +46,7 @@ const SUPPORTED_TOOLS = [
   "book_appointment",
   "cancel_appointment",
   "check_insurance",
+  "search_office_knowledge",
   "create_staff_task",
   "end_call",
   "list_available_appointments",

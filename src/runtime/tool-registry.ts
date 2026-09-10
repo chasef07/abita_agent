@@ -1,3 +1,4 @@
+import { createSearchOfficeKnowledgeTool } from "../tools/search-office-knowledge.js";
 import { withMiddlewareToolDiagnostics } from "./middleware-tool-diagnostics.js";
 import { withNewTampaDemoTools } from "../customers/abita/new-tampa-demo.js";
 import { beta, type ToolContextEntry } from "@livekit/agents";
@@ -49,7 +50,12 @@ function buildUnobservedToolsForTrunk(
     reschedule_appointment,
     check_insurance,
   ] as const satisfies readonly ToolContextEntry<CallState>[];
-  const commonTools = [...coreTools, transfer_call, end_call] as const;
+  const commonTools = [
+    ...coreTools,
+    createSearchOfficeKnowledgeTool(),
+    transfer_call,
+    end_call,
+  ] as const;
   if (office.key === "new-tampa-demo") {
     return withNewTampaDemoTools(
       [...commonTools, create_staff_task],

@@ -64,7 +64,6 @@ export interface OfficeProfile {
   trunkPhones: string[];
   greeting: string;
   amdOfficePhone: string;
-  knowledgeSource: string;
   staffTaskEnabled: boolean;
   availabilityOfficeFor(
     requestedOffice?: AvailabilityOfficeKey,
@@ -91,7 +90,6 @@ type OfficeProfileInput = {
   greeting: string;
   handoff?: () => OfficeHandoffPolicy;
   key: OfficeKey;
-  knowledgeSource: string;
   roleFile?: string;
   staffTaskEnabled: boolean;
   trunkPhones: string[];
@@ -106,7 +104,6 @@ function defineOffice(input: OfficeProfileInput): OfficeProfile {
     greeting,
     handoff = () => ({ mode: "call-center" }),
     key,
-    knowledgeSource,
     roleFile,
     staffTaskEnabled,
     trunkPhones,
@@ -130,7 +127,6 @@ function defineOffice(input: OfficeProfileInput): OfficeProfile {
     displayName,
     greeting,
     key,
-    knowledgeSource,
     staffTaskEnabled,
     trunkPhones,
     availabilityOfficeFor(requestedOffice) {
@@ -196,7 +192,6 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     displayName: "Abita Eye Group",
     trunkPhones: [SPRING_HILL_OFFICE_PHONE, SPRING_HILL_813_TRUNK_PHONE],
     greeting: "Hi, this is Maya at Abeeta Eye Group. How can I help?",
-    knowledgeSource: "KNOWLEDGE_SPRINGHILL.md",
     care: {
       medical: {
         supported: true,
@@ -216,7 +211,6 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     trunkPhones: [CRYSTAL_RIVER_OFFICE_PHONE],
     greeting:
       "Hi, this is Maya at Eye Radiance, powered by Abeeta Eye Group. How can I help?",
-    knowledgeSource: "KNOWLEDGE_EYERADIANCE.md",
     care: {
       medical: {
         supported: true,
@@ -236,7 +230,6 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     displayName: "Abita Eye Group Hollywood",
     trunkPhones: [HOLLYWOOD_OFFICE_PHONE],
     greeting: "Hi, this is Maya at Abeeta Eye Group. How can I help?",
-    knowledgeSource: "KNOWLEDGE_HOLLYWOOD.md",
     care: {
       medical: {
         supported: true,
@@ -256,7 +249,6 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     displayName: "Abita Eye Group Sweetwater",
     trunkPhones: [...SWEETWATER_TRUNK_PHONES],
     greeting: "Hi, this is Maya at Abeeta Eye Group. How can I help?",
-    knowledgeSource: "KNOWLEDGE_SWEETWATER.md",
     care: {
       medical: {
         supported: true,
@@ -276,7 +268,6 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     displayName: "North Miami Beach Optical",
     trunkPhones: [NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE],
     greeting: "Hi, this is Maya at Abeeta Eye Group. How can I help?",
-    knowledgeSource: "KNOWLEDGE_NORTH_MIAMI_BEACH_OPTICAL.md",
     care: {
       medical: { supported: false },
       routine_vision: {
@@ -294,7 +285,6 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     trunkPhones: [OPHTHALMOLOGY_DEMO_TRUNK_PHONE],
     greeting: "Hi, this is Maya at Clearbrook Eye Center. How can I help?",
     roleFile: "SOUL_OPHTHALMOLOGY_DEMO.md",
-    knowledgeSource: "KNOWLEDGE_OPHTHALMOLOGY_DEMO.md",
     care: {
       medical: {
         supported: true,
@@ -316,7 +306,6 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     greeting:
       "Hi, this is Maya at the New Tampa Eye Institute demo. How can I help you today?",
     roleFile: "SOUL_NEW_TAMPA_DEMO.md",
-    knowledgeSource: "KNOWLEDGE_NEW_TAMPA_DEMO.md",
     care: {
       medical: {
         supported: true,
@@ -338,7 +327,6 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     greeting:
       "Hi, this is Julia, the virtual assistant at Juniper Ridge Rheumatology and Arthritis Care. How can I help you today?",
     roleFile: "SOUL_RHEUM_DEMO.md",
-    knowledgeSource: "KNOWLEDGE_RHEUM_DEMO.md",
     care: {
       medical: {
         supported: true,
