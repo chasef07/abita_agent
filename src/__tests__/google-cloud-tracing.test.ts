@@ -62,7 +62,7 @@ describe("Google Cloud trace export", () => {
     vi.restoreAllMocks();
   });
 
-  it("protects native LiveKit exports for every office when no Google collector is configured", async () => {
+  it("retains knowledge calls in native LiveKit exports without a Google collector", async () => {
     const add = vi.spyOn(telemetry.FanoutSpanProcessor.prototype, "add");
     const provider = setupGoogleCloudTracing(ctx, {})!;
     expect(provider).toBeDefined();
@@ -85,7 +85,7 @@ describe("Google Cloud trace export", () => {
       JSON.stringify(
         destination.getFinishedSpans().map((span) => span.attributes),
       ),
-    ).not.toContain("sensitive-query");
+    ).toContain("sensitive-query");
     expect(
       destination.getFinishedSpans()[0].attributes["gen_ai.tool.call.id"],
     ).toBe("knowledge-1");
@@ -132,6 +132,7 @@ describe("Google Cloud trace export", () => {
         context: trace.setSpan(context.active(), parent),
         attributes: {
           "lk.redaction.enabled": redactionEnabled,
+          "lk.function_tool.name": "search_office_knowledge",
           "lk.job_id": "synthetic-job",
           "gen_ai.usage.input_tokens": 10,
           "lk.pii.function_tool.arguments": "synthetic-private-arguments",
@@ -190,7 +191,7 @@ describe("Google Cloud trace export", () => {
     },
   );
 
-  it("redacts knowledge tool payloads and message copies while retaining other tools", async () => {
+  it("retains knowledge tool payloads and message copies like other tools", async () => {
     const provider = setupGoogleCloudTracing(ctx, {
       GOOGLE_CLOUD_TRACE_ENDPOINT: "https://collector.example/v1/traces",
       GOOGLE_CLOUD_TRACE_TOKEN: "test-token",
@@ -252,8 +253,8 @@ describe("Google Cloud trace export", () => {
     const exported = JSON.stringify(
       transport.batches.flat().map((span) => span.attributes),
     );
-    expect(exported).not.toContain("sensitive-query");
-    expect(exported).not.toContain("sensitive-passage");
+    expect(exported).toContain("sensitive-query");
+    expect(exported).toContain("sensitive-passage");
     expect(exported).toContain("existing-policy-content");
     expect(exported).toContain("knowledge-1");
   });

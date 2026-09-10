@@ -1,4 +1,3 @@
-import { redactKnowledgePayload } from "./knowledge-observability.js";
 import {
   AgentSessionEventTypes,
   sessionReportToJSON,
@@ -634,12 +633,7 @@ export function createLiveKitCallCloseoutEventAdapter(
 
       try {
         const report = ctx.makeSessionReport();
-        sessionReport = sanitizeSessionReport(
-          redactKnowledgePayload(sessionReportToJSON(report)) as Record<
-            string,
-            unknown
-          >,
-        );
+        sessionReport = sanitizeSessionReport(sessionReportToJSON(report));
       } catch {
         reportUnavailable = true;
       }

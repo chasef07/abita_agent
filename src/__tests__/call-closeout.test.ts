@@ -980,8 +980,8 @@ describe("call closeout", () => {
       { input_tokens: 12, output_tokens: 4 },
     ]);
     expect(captured).not.toContain("private-token");
-    expect(captured).not.toContain("sensitive-query");
-    expect(captured).not.toContain("sensitive-passage");
+    expect(captured).toContain("sensitive-query");
+    expect(captured).toContain("sensitive-passage");
     expect(captured).toContain("search_office_knowledge");
     expect(captured).not.toContain("private-client-secret");
     expect(captured).not.toContain("10.0.0.5");
