@@ -3,10 +3,10 @@
 // Pass scenario IDs as arguments to run a focused subset.
 import { llm, initializeLogger } from "@livekit/agents";
 import { buildPrompt } from "../prompt.js";
+import { preCallLookupHint } from "../runtime/precall-bootstrap.js";
 import { createLlmPair } from "../model-config.js";
 import { buildToolsForTrunk } from "../runtime/tool-registry.js";
 import { createResolvePatientTool } from "../tools/resolve-patient.js";
-import { patientModelProjection } from "../identity/patient-identity.js";
 import {
   HOLLYWOOD_OFFICE_PHONE,
   SPRING_HILL_OFFICE_PHONE,
@@ -102,7 +102,6 @@ const scenarios: Scenario[] = [
     names: [],
     user: "I am an existing patient. My name is John Smith and I need to reschedule.",
     firstName: "John",
-    askDob: true,
   },
   {
     id: "dob_supplied_without_confirmation",
@@ -151,7 +150,6 @@ for (const model of [primary, fallback]) {
       const tools = buildToolsForTrunk(middleware, officePhone);
       const state = createTestCallState({
         officeKey: getOfficeProfileByPhone(officePhone).key,
-        amdOfficePhone: officePhone,
         trunkPhone: officePhone,
         preCallCandidates: scenario.names.map((firstName) => ({
           status: "verified",
@@ -170,32 +168,45 @@ for (const model of [primary, fallback]) {
               : scenario.names.length === 1
                 ? "verified"
                 : "no_match",
-          durationMs: 1,
         },
       });
-      if (scenario.activeSameName) {
-        await createResolvePatientTool(middleware).execute(
-          { firstName: "John", dob: null },
-          {
-            ctx: createToolContext(state),
-            toolCallId: "prior-patient",
-          } as never,
-        );
-      }
       const chatCtx = llm.ChatContext.empty();
       chatCtx.addMessage({
         role: "system",
         content: buildPrompt(officePhone),
       });
-      if (!scenario.promoted)
-        chatCtx.addMessage({
-          role: "system",
-          content: patientModelProjection(state),
-        });
       chatCtx.addMessage({
         role: "assistant",
         content: "Thank you for calling Abita Eye Group. How can I help?",
       });
+      if (scenario.activeSameName) {
+        const args = { firstName: "John", dob: null };
+        chatCtx.addMessage({
+          role: "user",
+          content: "This is John. I need an appointment.",
+        });
+        const reply = await createResolvePatientTool(middleware).execute(args, {
+          ctx: createToolContext(state),
+          toolCallId: "prior-patient",
+        } as never);
+        chatCtx.insert([
+          llm.FunctionCall.create({
+            callId: "prior-patient",
+            name: "resolve_patient",
+            args: JSON.stringify(args),
+          }),
+          llm.FunctionCallOutput.create({
+            callId: "prior-patient",
+            name: "resolve_patient",
+            output: reply,
+            isError: false,
+          }),
+        ]);
+        chatCtx.addMessage({
+          role: "assistant",
+          content: "I found your patient record, John Smith.",
+        });
+      }
       if (scenario.promoted) {
         chatCtx.addMessage({
           role: "user",
@@ -236,11 +247,9 @@ for (const model of [primary, fallback]) {
             isError: false,
           }),
         ]);
-        chatCtx.addMessage({
-          role: "system",
-          content: patientModelProjection(state),
-        });
       }
+      const hint = preCallLookupHint(state);
+      if (hint) chatCtx.addMessage({ role: "system", content: hint });
       try {
         const response = await model
           .chat({

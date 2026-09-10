@@ -295,6 +295,8 @@ describe("tool-first prompt gating", () => {
       const officePrompt = buildPrompt(phone);
 
       expect(officePrompt).toContain("# Tool Use");
+      expect(officePrompt).not.toContain("We are closed on weekends.");
+      expect(officePrompt).not.toContain("Labor Day");
     }
   });
 
@@ -494,7 +496,7 @@ describe("rheumatology demo", () => {
     );
   });
 
-  it("keeps rheumatology fictional and preserves the dermatology files", () => {
+  it("keeps rheumatology fictional", () => {
     const knowledge = readFileSync(
       join(
         import.meta.dirname,
@@ -505,24 +507,12 @@ describe("rheumatology demo", () => {
       ),
       "utf-8",
     );
-    const dermatology = readFileSync(
-      join(
-        import.meta.dirname,
-        "..",
-        "..",
-        "workspace",
-        "KNOWLEDGE_DERM_DEMO.md",
-      ),
-      "utf-8",
-    );
-
     expect(knowledge).toContain(
       "fictional practice created for product demonstrations",
     );
     expect(knowledge).toContain("rheumatoid arthritis");
     expect(knowledge).not.toContain("Abita");
     expect(knowledge).not.toContain("acrmed.com");
-    expect(dermatology).toContain("medical dermatology");
   });
 });
 
@@ -1580,15 +1570,13 @@ describe("model-facing tool definitions", () => {
   });
 
   it("keeps resolve_patient scoped to patient identity loading", () => {
-    expect(resolve_patient.description).toContain(
-      "Phone lookup found possible patients",
+    expect(resolve_patient.description).not.toMatch(
+      /Phone lookup|phone candidates/i,
     );
     expect(resolve_patient.description).toContain(
       "Use caller-provided identity only",
     );
-    expect(resolve_patient.description).toContain(
-      "Otherwise collect firstName and DOB",
-    );
+    expect(resolve_patient.description).toContain("firstName");
     expect(resolve_patient.description).toContain("dob:null");
     expect(resolve_patient.description).toContain(
       "Use add_patient for registration",

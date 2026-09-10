@@ -3,7 +3,6 @@ import { withNewTampaDemoTools } from "../customers/abita/new-tampa-demo.js";
 import { beta, type ToolContextEntry } from "@livekit/agents";
 import { getOfficeProfileByPhone } from "../customers/abita/profile.js";
 import type { CallState } from "../state/call-state.js";
-import { bindSchedulingMiddleware } from "../scheduling/middleware.js";
 import type { OwnedMiddleware } from "../clients/owned-middleware.js";
 import { createSchedulingTools } from "../scheduling/tools.js";
 import {
@@ -37,7 +36,7 @@ function buildUnobservedToolsForTrunk(
     cancel_appointment,
     list_available_appointments,
     reschedule_appointment,
-  } = createSchedulingTools(bindSchedulingMiddleware(middleware), undefined, {
+  } = createSchedulingTools(middleware, undefined, {
     availabilityOfficeMode,
   });
   const coreTools = [
@@ -54,7 +53,7 @@ function buildUnobservedToolsForTrunk(
   if (office.key === "new-tampa-demo") {
     return withNewTampaDemoTools(
       [...commonTools, create_staff_task],
-      bindSchedulingMiddleware(middleware),
+      middleware,
     );
   }
   if (office.staffTaskEnabled) {

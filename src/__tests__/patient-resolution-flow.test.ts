@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { createResolvePatientTool } from "../tools/resolve-patient.js";
-import { patientModelProjection } from "../identity/patient-identity.js";
 import { createTestCallState } from "./support/call-state.js";
 import { createToolContext } from "./support/tool-context.js";
 import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
@@ -25,7 +24,7 @@ describe("patient resolution conversation contract", () => {
     ).toBe(true);
   });
 
-  it("acknowledges promotion and tells the next turn DOB is already on file", async () => {
+  it("returns the patient acknowledgment without exposing DOB", async () => {
     const middleware = new InMemoryOwnedMiddleware();
     const state = createTestCallState({ preCallCandidates: [candidate] });
     const tool = createResolvePatientTool(middleware);
@@ -38,8 +37,7 @@ describe("patient resolution conversation contract", () => {
     );
     expect(state.identity.activePatient?.dob).toBe(candidate.dob);
     expect(reply).toContain("I found you in our system, Jane Doe.");
-    expect(patientModelProjection(state)).toContain("DOB is already on file");
-    expect(patientModelProjection(state)).not.toContain(candidate.dob);
+    expect(reply).not.toContain(candidate.dob);
     expect(middleware.operations).toHaveLength(0);
   });
 
@@ -56,6 +54,13 @@ describe("patient resolution conversation contract", () => {
     });
     const state = createTestCallState();
     const tool = createResolvePatientTool(middleware);
+    const firstNameReply = await tool.execute(
+      { firstName: "Jane", dob: null },
+      { ctx: createToolContext(state), toolCallId: "first-name" } as never,
+    );
+    expect(firstNameReply).toContain("date of birth");
+    expect(middleware.operations).toEqual([]);
+    expect(state.identity.activePatient).toBeNull();
     await tool.execute(
       { firstName: "Jane", dob: "01/02/1980" } as never,
       {
@@ -63,7 +68,7 @@ describe("patient resolution conversation contract", () => {
         toolCallId: "lookup",
       } as never,
     );
-    expect(patientModelProjection(state)).toContain("no patient is active");
+    expect(state.identity.activePatient).toBeNull();
     expect(middleware.requests.resolvePatient).toEqual([
       {
         office: state.runtime.trunkPhone,

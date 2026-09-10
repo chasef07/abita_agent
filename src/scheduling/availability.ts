@@ -182,26 +182,6 @@ export function publicProviderName(provider: string): string {
     .replace("Dr. D. Noel", "Dr. Noel");
 }
 
-export function availabilityModelProjection(state: CallState): string {
-  const slots = availabilitySlotsForState(state);
-  if (
-    state.availability.refreshAfter !== undefined &&
-    Date.now() >= state.availability.refreshAfter
-  ) {
-    return "The loaded appointment inventory is stale. Call list_available_appointments to refresh before offering further times. A caller-confirmed selection still requires middleware booking revalidation.";
-  }
-  if (slots.length === 0) {
-    if (state.availability.refreshAfter !== undefined) {
-      return "The current appointment inventory is empty. Earlier appointment lists are invalid. Use the latest lookup's coverage when explaining availability; expand the range if the caller wants later dates.";
-    }
-    return state.availability.version !== undefined ||
-      state.availability.nextSlotIndex > 0
-      ? "No appointment inventory is active for the current patient, office, and visit. All earlier appointment lists are invalid. Load current appointments before offering times."
-      : "";
-  }
-  return `Current appointment inventory has ${slots.length} slots (${slots[0]?.slotId} through ${slots.at(-1)?.slotId}). Inventory revision ${state.availability.version ?? 0}. Use the most recent list_available_appointments result for dates and times; earlier patient or office inventories are invalid. Keep slot references private and use appointmentSlotRef only after the caller confirms the exact appointment.`;
-}
-
 function completeAvailabilityResult(result: AvailableSlotsResult): boolean {
   if (result.shouldRetrySameSearch || result.status === "incomplete") {
     return false;

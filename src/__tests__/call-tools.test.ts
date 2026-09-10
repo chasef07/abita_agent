@@ -11,7 +11,6 @@ import {
   CALLER_CANDIDATE_REF,
   type PreCallPatientCandidate,
 } from "../state/call-state.js";
-import { patientModelProjection } from "../identity/patient-identity.js";
 import { storeAvailabilityBookingToken } from "../scheduling/state.js";
 import { domainOutcomeReceipts } from "../state/observability.js";
 import {
@@ -87,12 +86,9 @@ function createToolContext(state: TestCallState) {
 
 function markSchedulingTriaged(
   state: TestCallState,
-  appointmentLane: "medical_md" | "routine_od" = "medical_md",
+  visitType: "medical" | "routine_vision" = "medical",
 ) {
-  state.workflow.current = {
-    intent: "schedule",
-    appointmentLane,
-  };
+  state.workflow.visitType = visitType;
 }
 
 function markNewPatientPathConfirmed(state: TestCallState) {
@@ -101,7 +97,7 @@ function markNewPatientPathConfirmed(state: TestCallState) {
 }
 
 function clearSchedulingContext(state: TestCallState) {
-  state.workflow.current = undefined;
+  state.workflow.visitType = null;
   state.workflow.routing.routing = null;
   state.availability.latestRouting = null;
   state.insurance.onFile = null;
@@ -339,7 +335,7 @@ describe("stateful call tools", () => {
       currentCarrier: "self pay",
     });
     expect(state.insurance.lastEligibilityCheck).toBeNull();
-    expect(state.workflow.current).toBeUndefined();
+    expect(state.workflow.visitType).toBeNull();
     expect(middleware.requests.createPatient[0]?.patient).toMatchObject({
       firstName: "Jane",
       lastName: "Doe",
@@ -995,9 +991,6 @@ describe("stateful call tools", () => {
   it("blocks routine vision chart creation for Crystal River", async () => {
     const state = createState();
     state.office.activeKey = "crystal-river";
-    state.office.phoneOverrides = {
-      "crystal-river": "+13523202007",
-    };
     markNewPatientPathConfirmed(state);
     clearSchedulingContext(state);
     markAcceptedInsurance(state, {
@@ -1033,7 +1026,6 @@ describe("stateful call tools", () => {
       "Eye Radiance handles medical eye care, including cataract evaluations. Route routine eye exams, glasses prescriptions, and contact lens prescriptions through a routine-vision office.",
     );
     expect(state.office.activeKey).toBe("crystal-river");
-    expect(state.office.phoneOverrides).not.toHaveProperty("spring-hill");
     expect(testMiddleware.operations).toHaveLength(0);
   });
 
@@ -1200,7 +1192,7 @@ describe("stateful call tools", () => {
   it("keeps a provided SSN last four out of the read-back", async () => {
     const state = createState();
     markNewPatientPathConfirmed(state);
-    markSchedulingTriaged(state, "routine_od");
+    markSchedulingTriaged(state, "routine_vision");
     markAcceptedInsurance(state, {
       plan: "VSP",
       canonicalPlan: "VSP",
@@ -1334,13 +1326,10 @@ describe("stateful call tools", () => {
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
-    expect(result).toBe(
-      "I found you in our system, Jane Doe. We have self pay on file. I found one upcoming appointment, Monday, July 27 at 9:00 AM with Dr. Bach.",
+    expect(result).toContain(
+      "I found you in our system, Jane Doe. We have self pay on file. I found one upcoming appointment, Monday, July 27 at 9:00 AM with Dr. Bach.\nInternal appointment references (do not read aloud):",
     );
-    expect(result).not.toContain("appointmentRef");
-    expect(patientModelProjection(state)).toMatch(
-      /appointmentRef appointment-[a-z0-9]+/,
-    );
+    expect(result).toMatch(/appointmentRef appointment-[a-z0-9]+/);
     expect(result).not.toContain("123");
     expect(result).not.toContain("private-cancellation-token");
     expect(result).not.toContain("private-reschedule-token");
@@ -1502,9 +1491,8 @@ describe("stateful call tools", () => {
     );
     expect(storedRefs).toHaveLength(2);
     expect(new Set(storedRefs).size).toBe(2);
-    expect(result).not.toContain("appointmentRef");
-    expect(patientModelProjection(state)).toContain(storedRefs[0]);
-    expect(patientModelProjection(state)).toContain(storedRefs[1]);
+    expect(result).toContain(storedRefs[0]);
+    expect(result).toContain(storedRefs[1]);
     expect(result).not.toContain("123");
     expect(result).not.toContain("456");
     expect(result).not.toContain("private-token");
@@ -1523,7 +1511,7 @@ describe("stateful call tools", () => {
     expect(middleware.requests.resolvePatient).toHaveLength(2);
   });
 
-  it("keeps every loaded appointment reference out of the direct reply", async () => {
+  it("returns every loaded appointment reference for subsequent appointment tools", async () => {
     const state = createState();
     setPatientUnknown(state);
     stubPatientSearch(
@@ -1549,11 +1537,8 @@ describe("stateful call tools", () => {
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
-    expect(result).not.toContain("appointmentRef");
     expect(
-      patientModelProjection(state).match(
-        /appointmentRef appointment-[a-z0-9]+/g,
-      ) ?? [],
+      result.match(/appointmentRef appointment-[a-z0-9]+/g) ?? [],
     ).toHaveLength(4);
     expect(result).not.toContain("and 1 more");
   });
@@ -1562,14 +1547,9 @@ describe("stateful call tools", () => {
     const state = createState();
     state.runtime.trunkPhone = "+13523202007";
     state.office.activeKey = "spring-hill";
-    state.office.phoneOverrides = {
-      "crystal-river": "+13523202007",
-      "spring-hill": "+17275919997",
-    };
-    markSchedulingTriaged(state, "routine_od");
+    markSchedulingTriaged(state, "routine_vision");
     state.availability.latestRouting = "optical_only";
     storeAvailabilityBookingToken(state, "S1", "stale-token");
-    state.identity.latestBookedAppointmentId = 123;
     state.insurance.lastEligibilityCheck = {
       plan: "Aetna",
       canonicalPlan: "Aetna",
@@ -1607,11 +1587,10 @@ describe("stateful call tools", () => {
       office: "+13523202007",
     });
     expect(state.identity.activePatient!.patientId).toBe("patient-2");
-    expect(state.workflow.current).toBeUndefined();
+    expect(state.workflow.visitType).toBeNull();
     expect(state.office.activeKey).toBe("crystal-river");
     expect(state.availability.slots).toEqual([]);
     expect(state.availability.bookingTokensBySlotId).toEqual({});
-    expect(state.identity.latestBookedAppointmentId).toBeUndefined();
     expect(state.insurance.lastEligibilityCheck).toBeNull();
   });
 
@@ -2020,7 +1999,6 @@ describe("stateful call tools", () => {
       }),
     ]);
     storeAvailabilityBookingToken(state, "S1", "token-a");
-    state.identity.latestBookedAppointmentId = 123;
     state.insurance.lastEligibilityCheck = {
       plan: "Aetna",
       canonicalPlan: "Aetna",
@@ -2040,7 +2018,6 @@ describe("stateful call tools", () => {
     expect(state.availability.bookingTokensBySlotId).toEqual({
       S1: "token-a",
     });
-    expect(state.identity.latestBookedAppointmentId).toBe(123);
     expect(state.insurance.lastEligibilityCheck).toEqual({
       plan: "Aetna",
       canonicalPlan: "Aetna",
@@ -2340,7 +2317,6 @@ describe("stateful call tools", () => {
     const state = createState();
     setPatientUnknown(state);
     storeAvailabilityBookingToken(state, "S1", "stale-token");
-    state.identity.latestBookedAppointmentId = 123;
     state.insurance.lastEligibilityCheck = {
       plan: "Aetna",
       canonicalPlan: "Aetna",
@@ -2377,7 +2353,6 @@ describe("stateful call tools", () => {
       dob: "01/01/1980",
     });
     expect(state.availability.slots).toEqual([]);
-    expect(state.identity.latestBookedAppointmentId).toBeUndefined();
     expect(state.insurance.lastEligibilityCheck).toEqual({
       plan: "Aetna",
       canonicalPlan: "Aetna",
@@ -2468,18 +2443,13 @@ describe("stateful call tools", () => {
   it("preserves patient-scoped state when add_patient lacks accepted insurance", async () => {
     const state = createState();
     storeAvailabilityBookingToken(state, "S1", "private-token");
-    state.identity.latestBookedAppointmentId = 123;
-    state.workflow.current = {
-      intent: "schedule",
-      appointmentLane: "medical_md",
-    };
+    state.workflow.visitType = "medical";
     state.office.activeKey = "hollywood";
     const patientScopedStateBefore = structuredClone({
       activePatient: state.identity.activePatient,
       registration: state.identity.registration,
       insurance: state.insurance,
       availability: state.availability,
-      latestBookedAppointmentId: state.identity.latestBookedAppointmentId,
       workflow: state.workflow,
       office: state.office,
     });
@@ -2512,7 +2482,6 @@ describe("stateful call tools", () => {
       registration: state.identity.registration,
       insurance: state.insurance,
       availability: state.availability,
-      latestBookedAppointmentId: state.identity.latestBookedAppointmentId,
       workflow: state.workflow,
       office: state.office,
     }).toEqual(patientScopedStateBefore);
@@ -2587,7 +2556,7 @@ describe("stateful call tools", () => {
       currentCarrier: "Blue Cross Blue Shield",
       accepted: true,
     });
-    expect(state.workflow.current).toBeUndefined();
+    expect(state.workflow.visitType).toBeNull();
   });
 
   it("returns a staff-task result for preauth-required insurance checks", async () => {
@@ -2711,14 +2680,14 @@ describe("stateful call tools", () => {
       currentCarrier: "Florida Blue",
     });
     expect(state.insurance.lastEligibilityCheck).toBeNull();
-    expect(state.workflow.current).toBeUndefined();
+    expect(state.workflow.visitType).toBeNull();
   });
 
   it("passes patient SSN last 4 to new patient creation for routine vision", async () => {
     const state = createState();
     markNewPatientPathConfirmed(state);
     state.insurance.onFile = null;
-    markSchedulingTriaged(state, "routine_od");
+    markSchedulingTriaged(state, "routine_vision");
     const middleware = stubCreatePatient(
       createdPatientResult({
         insuranceCarrier: "VSP",
@@ -2768,7 +2737,7 @@ describe("stateful call tools", () => {
       currentCarrier: "VSP",
     });
     expect(state.insurance.lastEligibilityCheck).toBeNull();
-    expect(state.workflow.current).toBeUndefined();
+    expect(state.workflow.visitType).toBeNull();
   });
 
   it("creates a chart directly after explicit new-patient confirmation", async () => {

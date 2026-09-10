@@ -18,10 +18,10 @@ import type { CallState } from "./state/call-state.js";
 import { transferIsAccepted } from "./state/call-lifecycle.js";
 import {
   formatPhoneLookupLogLine,
-  loadPreCallBootstrap,
+  lookupByPhone,
 } from "./runtime/precall-bootstrap.js";
 import {
-  applyPreCallBootstrap,
+  applyPreCallLookup,
   createInitialCallState,
 } from "./runtime/initial-call-state.js";
 import { MAX_CALL_DURATION_MS } from "./runtime/call-duration-deadline.js";
@@ -116,12 +116,7 @@ export default defineAgent({
       );
       await coordinateSessionStartup({
         lookup: (signal) =>
-          loadPreCallBootstrap({
-            middleware: ownedMiddleware,
-            callerPhone,
-            trunkPhone,
-            signal,
-          }),
+          lookupByPhone(ownedMiddleware, callerPhone, trunkPhone, signal),
         startupIsActive: () => startupActive,
         initializeRuntime: async () => {
           const callStart = await attachStartupCallCloseout({
@@ -157,10 +152,8 @@ export default defineAgent({
           );
 
           const initialCall = {
-            amdOfficePhone: office.amdOfficePhone,
             callId,
             callerPhone,
-            maxDurationMs: MAX_CALL_DURATION_MS,
             officeKey: office.key,
             roomName,
             sipParticipantIdentity: participant.identity ?? "",
@@ -245,8 +238,6 @@ export default defineAgent({
 
           return {
             callState,
-            initialCall,
-            initialVoiceLanguage,
             markCallStateReady: () => {
               callStateReady = true;
             },
@@ -255,16 +246,9 @@ export default defineAgent({
             voiceLanguageRuntime,
           };
         },
-        createState: (preCall, runtime, startupOverlap) => {
-          const { phoneLookup } = preCall;
-          console.log(formatPhoneLookupLogLine(callerPhone, phoneLookup));
-          applyPreCallBootstrap(
-            runtime.callState,
-            runtime.initialCall,
-            preCall,
-          );
-          runtime.callState.runtime.preCallLookup.startupOverlap =
-            startupOverlap;
+        prepareSession: (phoneLookup, runtime) => {
+          console.log(formatPhoneLookupLogLine(phoneLookup));
+          applyPreCallLookup(runtime.callState, phoneLookup);
 
           const { agent } = createVoiceAgent(trunkPhone, {
             ownedMiddleware,
@@ -272,9 +256,9 @@ export default defineAgent({
             voiceLanguageRuntime: runtime.voiceLanguageRuntime,
           });
           runtime.markCallStateReady();
-          return { agent, callState: runtime.callState };
+          return agent;
         },
-        startSession: async ({ agent }, runtime) => {
+        startSession: async (agent, runtime) => {
           await runtime.session.start({
             agent,
             room: ctx.room,

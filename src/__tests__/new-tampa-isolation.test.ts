@@ -4,7 +4,6 @@ import { getOfficeProfiles } from "../customers/abita/profile.js";
 import { buildToolsForTrunk } from "../runtime/tool-registry.js";
 import { check_insurance } from "../tools/check-insurance.js";
 import { createSchedulingTools } from "../scheduling/tools.js";
-import { bindSchedulingMiddleware } from "../scheduling/middleware.js";
 import { createConfirmedPatientState } from "./support/call-state.js";
 import { createToolContext } from "./support/tool-context.js";
 import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
@@ -49,16 +48,12 @@ describe("New Tampa isolation from other numbers", () => {
             .map((entry) => entry.id)
             .filter((id) => extraTools.includes(id)),
         ).toEqual([]);
-        const base = createSchedulingTools(
-          bindSchedulingMiddleware(middleware),
-          undefined,
-          {
-            availabilityOfficeMode:
-              office.availabilityOfficeFor().status === "blocked"
-                ? "required"
-                : "omitted",
-          },
-        );
+        const base = createSchedulingTools(middleware, undefined, {
+          availabilityOfficeMode:
+            office.availabilityOfficeFor().status === "blocked"
+              ? "required"
+              : "omitted",
+        });
         for (const original of Object.values(base)) {
           const actual = registered.find((entry) => entry.id === original.id)!;
           expect(actual.description).toBe(original.description);

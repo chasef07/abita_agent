@@ -25,8 +25,6 @@ Status: available
 
 Monday–Thursday 8:30 AM–4:30 PM. Friday 8:30 AM–2:30 PM.
 
-Holiday closure: Closed on Labor Day, Monday, September 7, 2026.
-
 ## After Hours
 Status: not-supplied
 

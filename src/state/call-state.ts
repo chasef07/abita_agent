@@ -8,27 +8,10 @@ import type {
 } from "../identity/candidate.js";
 import { createSchedulingState } from "../scheduling/state.js";
 import type { TransferState } from "./call-lifecycle.js";
-import type {
-  OfficeKnowledgeLanguage,
-  OfficeKnowledgeTopic,
-} from "../office-knowledge.js";
 
 export const CALLER_CANDIDATE_REF = "caller";
 
 export type AppointmentLoadStatus = "found" | "none" | "error";
-export type PreCallHydrationOutcome =
-  | "verified"
-  | "not_found"
-  | "multiple_matches"
-  | "lookup_failed"
-  | "incomplete";
-
-export interface StartupOverlapTelemetry {
-  overlapped: true;
-  lookupCompletedBeforeRuntimeSetup: boolean;
-  runtimeSetupDurationMs: number;
-}
-
 export interface CallerAppointment {
   id: number;
   appointmentRef?: string;
@@ -61,7 +44,6 @@ export interface CallerMatch {
   appointmentsStatus?: AppointmentLoadStatus | null;
   appointmentsMessage?: string | null;
   appointments: StoredCallerAppointment[] | null;
-  lookupDurationMs?: number;
 }
 
 export type CallerCandidate = LightweightPatientCandidate;
@@ -70,14 +52,12 @@ export interface CallerMultipleMatches {
   status: "multiple_matches";
   message: string;
   matches: Array<CallerMatch | CallerCandidate>;
-  lookupDurationMs?: number;
 }
 
 interface CallerNoMatch {
   status: "no_match";
   phone: string;
   message?: string;
-  lookupDurationMs?: number;
 }
 
 export interface CallerLookupFailed {
@@ -90,7 +70,6 @@ export interface CallerLookupFailed {
     | "request_rejected"
     | "unsupported_trunk";
   retryable: boolean;
-  lookupDurationMs?: number;
 }
 
 export type PhoneLookupResult =
@@ -100,15 +79,8 @@ export type PhoneLookupResult =
   | CallerLookupFailed
   | null;
 
-export interface PreCallLookupTelemetry {
+export interface PreCallLookupState {
   status: NonNullable<PhoneLookupResult>["status"] | "not_attempted";
-  durationMs: number | null;
-  candidateCount?: number;
-  appointmentsStatus?: AppointmentLoadStatus | null;
-  failureReason?: CallerLookupFailed["reason"];
-  hydrationOutcome?: PreCallHydrationOutcome;
-  retryable?: boolean;
-  startupOverlap?: StartupOverlapTelemetry;
 }
 
 interface PreCallCandidateReference {
@@ -155,18 +127,7 @@ export interface ActivePatient {
 type SchedulingRouting =
   "bach_only" | "bach_licht" | "all_three" | "optical_only";
 
-type TurnIntent = "schedule" | "change_appointment";
-
-export type AppointmentLane = "medical_md" | "routine_od" | "not_applicable";
-export type SchedulingAppointmentLane = Exclude<
-  AppointmentLane,
-  "not_applicable"
->;
-
-export interface WorkflowTurnContext {
-  intent: TurnIntent;
-  appointmentLane: AppointmentLane;
-}
+export type VisitType = "medical" | "routine_vision";
 
 export interface CompletedRescheduleState {
   originalAppointmentRef?: string;
@@ -273,30 +234,6 @@ export interface DomainOutcomeReceipt {
   evidence?: Record<string, unknown>;
 }
 
-export type AvailabilityInvalidationReason =
-  | "booking_authorization_invalidated"
-  | "booking_succeeded"
-  | "booking_token_expired"
-  | "cancellation_succeeded"
-  | "office_changed"
-  | "patient_context_changed"
-  | "request_cancelled"
-  | "reschedule_succeeded"
-  | "routing_context_changed"
-  | "scheduling_context_changed";
-
-export type AvailabilityReadAnalytics =
-  | {
-      operation: "completed_cache_hit" | "in_flight_join" | "middleware_call";
-      durationMs: number;
-      createdAt?: string;
-    }
-  | {
-      operation: "invalidation";
-      reason: AvailabilityInvalidationReason;
-      createdAt?: string;
-    };
-
 export type StaffTaskCategory =
   | "billing"
   | "appointments"
@@ -305,8 +242,6 @@ export type StaffTaskCategory =
   | "medication"
   | "referrals"
   | "other";
-
-export type StaffTaskUrgency = "high_priority" | "normal" | "non_urgent";
 
 export interface StaffTaskReceipt {
   createdAt: string;
@@ -342,27 +277,9 @@ export type PatientIdentityOutcome =
   | "lookup_failed"
   | "needs_identity";
 
-export type PatientIdentityTransitionOutcome =
-  "pending" | "confirmed" | Exclude<PatientIdentityOutcome, "verified">;
-
-export interface PatientIdentityTransitionAnalytics {
-  outcome: PatientIdentityTransitionOutcome;
-  source: "resolve_patient" | "create_patient";
-}
-
-export interface OfficeKnowledgeRetrievalAnalytics {
-  createdAt: string;
-  elapsedMs: number;
-  language: OfficeKnowledgeLanguage;
-  officeKey: OfficeKey;
-  outcome: "matched" | "unavailable" | "skipped" | "failure";
-  sectionCount: number;
-  topic: OfficeKnowledgeTopic | null;
-}
-
 interface RuntimeCallState {
   endedReason?: "duration_limit";
-  preCallLookup: PreCallLookupTelemetry;
+  preCallLookup: PreCallLookupState;
   sipRoomName: string;
   sipParticipantIdentity: string;
   callId: string;
@@ -370,15 +287,12 @@ interface RuntimeCallState {
   trunkPhone: string;
   transferState: TransferState;
   outcomeReceipts: DomainOutcomeReceipt[];
-  availabilityReads: AvailabilityReadAnalytics[];
-  knowledgeRetrievals: OfficeKnowledgeRetrievalAnalytics[];
   staffTasks: StaffTaskReceipt[];
   voiceLanguage?: RuntimeVoiceLanguageState | null;
 }
 
 interface OfficeSessionState {
   activeKey: OfficeKey;
-  phoneOverrides: Partial<Record<OfficeKey, string>>;
 }
 
 export interface InsuranceSnapshot {
@@ -416,8 +330,6 @@ interface IdentitySessionState {
   unregisteredPatientReceipt: UnregisteredPatientReceipt | null;
   operationVersion: number;
   transitionVersion: number;
-  receipts: PatientIdentityTransitionAnalytics[];
-  latestBookedAppointmentId?: number;
   completedBookingsByPatientId: Record<string, CompletedBookingState>;
   completedCancellations: CompletedCancellationState[];
   completedReschedulesByPatientId: Record<string, CompletedRescheduleState>;
@@ -431,13 +343,11 @@ interface RoutingSessionState {
 }
 
 interface WorkflowSessionState {
-  current?: WorkflowTurnContext;
+  visitType: VisitType | null;
   routing: RoutingSessionState;
 }
 
 interface AvailabilitySessionState {
-  version?: number;
-  refreshAfter?: number;
   slots: StoredAvailabilitySlot[];
   requestedStartDate?: string;
   latestRouting?: string | null;
@@ -479,13 +389,6 @@ export function setActivePatientBackendRefs(
   patient.backend = { ...patient.backend, ...refs };
 }
 
-export function recordPatientIdentityTransition(
-  state: CallState,
-  transition: PatientIdentityTransitionAnalytics,
-): void {
-  state.identity.receipts.push(transition);
-}
-
 export function recordUnregisteredPatientInsuranceCheck(
   state: CallState,
 ): void {
@@ -498,9 +401,8 @@ export function recordUnregisteredPatientInsuranceCheck(
 export interface InitialCallStateInput {
   preCallCandidates?: PreCallPatientCandidate[];
   activePatient?: ActivePatient | null;
-  preCallLookup: PreCallLookupTelemetry;
+  preCallLookup: PreCallLookupState;
   officeKey: OfficeKey;
-  amdOfficePhone: string;
   sipRoomName: string;
   sipParticipantIdentity: string;
   callId: string;
@@ -522,9 +424,6 @@ export function createCanonicalCallState(
   const state: CallState = {
     office: {
       activeKey: input.officeKey,
-      phoneOverrides: {
-        [input.officeKey]: input.amdOfficePhone,
-      },
     },
     identity: {
       privateCandidates: input.preCallCandidates ?? [],
@@ -536,7 +435,6 @@ export function createCanonicalCallState(
       completedBookingsByPatientId: {},
       operationVersion: 0,
       transitionVersion: 0,
-      receipts: [],
       completedCancellations: [],
       completedReschedulesByPatientId: {},
     },
@@ -550,8 +448,6 @@ export function createCanonicalCallState(
       trunkPhone: input.trunkPhone,
       transferState: "idle",
       outcomeReceipts: [],
-      availabilityReads: [],
-      knowledgeRetrievals: [],
       staffTasks: [],
       voiceLanguage: input.voiceLanguage ?? null,
     },

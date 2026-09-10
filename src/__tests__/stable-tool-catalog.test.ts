@@ -13,8 +13,7 @@ import {
 } from "../customers/abita/profile.js";
 import {
   buildPreCallCandidates,
-  loadPreCallBootstrap,
-  preCallLookupTelemetry,
+  lookupByPhone,
 } from "../runtime/precall-bootstrap.js";
 import { buildToolsForTrunk } from "../runtime/tool-registry.js";
 import { setLastInsuranceEligibilityCheck } from "../scheduling/state.js";
@@ -77,19 +76,16 @@ describe("stable tool catalog", () => {
       ],
       getAvailability: [availabilityFound()],
     });
-    const preCall = await loadPreCallBootstrap({
+    const preCall = await lookupByPhone(
       middleware,
-      callerPhone: "+17275551212",
-      trunkPhone: SPRING_HILL_OFFICE_PHONE,
-    });
+      "+17275551212",
+      SPRING_HILL_OFFICE_PHONE,
+    );
     const state = createTestCallState({
-      preCallCandidates: buildPreCallCandidates(preCall.phoneLookup),
-      preCallLookup: preCallLookupTelemetry(preCall.phoneLookup),
+      preCallCandidates: buildPreCallCandidates(preCall),
+      preCallLookup: { status: preCall?.status ?? "not_attempted" },
     });
-    state.workflow.current = {
-      intent: "schedule",
-      appointmentLane: "medical_md",
-    };
+    state.workflow.visitType = "medical";
     const llm = new ToolCapturingFakeLLM([
       {
         input: "This is Jane Doe, January 1, 1980.",
@@ -149,10 +145,7 @@ describe("stable tool catalog", () => {
     setLastInsuranceEligibilityCheck(newPatient, acceptedInsurance());
     const activePatient = createConfirmedPatientState();
     const availabilityLoaded = createConfirmedPatientState();
-    availabilityLoaded.workflow.current = {
-      intent: "schedule",
-      appointmentLane: "medical_md",
-    };
+    availabilityLoaded.workflow.visitType = "medical";
     availabilityLoaded.availability.slots = [storedSlot()];
     const postMutation = createConfirmedPatientState();
     postMutation.identity.activePatient!.appointments = [
@@ -224,7 +217,7 @@ describe("stable tool catalog", () => {
       }));
       const state = createTestCallState({
         preCallCandidates: candidates,
-        preCallLookup: { status: "multiple_matches", durationMs: 1 },
+        preCallLookup: { status: "multiple_matches" },
       });
       const middleware = new InMemoryOwnedMiddleware();
       const model = new ToolCapturingFakeLLM([
@@ -251,21 +244,19 @@ describe("stable tool catalog", () => {
         }).agent,
       });
       await session.run({ userInput: input }).wait();
-      expect(patientProjections(model.contexts[0]!)).toEqual([
-        expect.stringContaining("Phone lookup found 2 possible patients"),
-      ]);
       expect(state.identity.activePatient?.patientId).toBe("John");
-      expect(state.identity.receipts).toEqual([
-        { outcome: "confirmed", source: "resolve_patient" },
-      ]);
       expect(middleware.operations).toEqual([]);
-      expect(patientProjections(model.contexts.at(-1)!)).toEqual([
-        expect.stringContaining("John Doe is the active existing patient"),
-      ]);
+      expect(
+        JSON.stringify(
+          model.contexts
+            .at(-1)!
+            .items.filter((item) => item.type === "function_call_output"),
+        ),
+      ).toContain("I found you in our system, John Doe.");
     },
   );
 
-  it("preserves the per-turn patient projection while the catalog stays stable", async () => {
+  it("returns resolved patient details through tool history while the catalog stays stable", async () => {
     const verifiedReply =
       "Verified existing patient Jane Doe. No upcoming appointments are loaded.";
     const llm = new ToolCapturingFakeLLM([
@@ -312,12 +303,19 @@ describe("stable tool catalog", () => {
       .wait();
 
     expect(llm.toolRequests).toEqual([SUPPORTED_TOOLS, SUPPORTED_TOOLS]);
-    expect(patientProjections(llm.contexts[0]!)).toEqual([
-      expect.stringContaining("Patient situation: no patient is active."),
-    ]);
-    expect(patientProjections(llm.contexts[1]!)).toEqual([
-      expect.stringContaining("Jane Doe is the active existing patient."),
-    ]);
+    expect(session.userData.identity.activePatient?.name).toBe("Jane Doe");
+    expect(
+      llm.contexts[0]!.items.some(
+        (item) => item.type === "function_call_output",
+      ),
+    ).toBe(false);
+    expect(
+      JSON.stringify(
+        llm.contexts[1]!.items.filter(
+          (item) => item.type === "function_call_output",
+        ),
+      ),
+    ).toContain("I found you in our system, Jane Doe.");
   });
 
   it("returns the add_patient identity guard before middleware mutation", async () => {
@@ -714,16 +712,6 @@ function expectStableToolRequests(llm: ToolCapturingFakeLLM): void {
   for (const tools of llm.toolRequests) {
     expect(tools).toEqual(SUPPORTED_TOOLS);
   }
-}
-
-function patientProjections(chatCtx: ChatContext): string[] {
-  return chatCtx.items.flatMap((item) =>
-    item.type === "message" &&
-    item.role === "system" &&
-    item.textContent?.includes("Patient situation:")
-      ? [item.textContent.slice(item.textContent.indexOf("Patient situation:"))]
-      : [],
-  );
 }
 
 function functionCallNames(session: AgentSession<CallState>): string[] {

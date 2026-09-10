@@ -27,7 +27,7 @@ import { createConfirmedPatientState } from "./support/call-state.js";
 import { createToolContext } from "./support/tool-context.js";
 import { InMemorySchedulingMiddleware } from "./support/scheduling-middleware.js";
 import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
-import type { AvailabilityResult } from "../scheduling/middleware.js";
+import type { AvailabilityResult } from "../clients/owned-middleware.js";
 
 function stateForDemo() {
   const state = createConfirmedPatientState({
@@ -35,10 +35,7 @@ function stateForDemo() {
     trunkPhone: NEW_TAMPA_DEMO_TRUNK_PHONE,
     amdOfficePhone: DEMO_BOOKING_OFFICE_PHONE,
   });
-  state.workflow.current = {
-    intent: "schedule",
-    appointmentLane: "medical_md",
-  };
+  state.workflow.visitType = "medical";
   return state;
 }
 const context = (state: ReturnType<typeof stateForDemo>) =>

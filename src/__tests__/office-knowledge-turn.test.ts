@@ -56,7 +56,6 @@ function knowledgeMessages(chatCtx: ChatContext): string[] {
 async function completeUserTurn(
   session: AgentSession,
   transcript: string,
-  preemptive = false,
 ): Promise<void> {
   const activity = await session.waitForIdle();
   const turn = {
@@ -67,7 +66,6 @@ async function completeUserTurn(
     transcriptionDelay: 0,
     transcriptConfidence: 0.99,
   };
-  if (preemptive) activity.onPreemptiveGeneration(turn);
   await activity.onEndOfTurn(turn);
 }
 
@@ -175,62 +173,6 @@ describe("Office Knowledge turn enrichment", () => {
     },
   );
 
-  it("reuses an equivalent preemptive reply and invalidates one that needs grounding", async () => {
-    const unrelatedLlm = new CapturingFakeLLM([
-      { input: "How are you?", content: "I am ready to help." },
-    ]);
-    const unrelatedSession = new AgentSession({ llm: unrelatedLlm });
-    sessions.push(unrelatedSession);
-    unrelatedSession.userData = createTestCallState({
-      officeKey: "spring-hill",
-      trunkPhone: SPRING_HILL_OFFICE_PHONE,
-    });
-    await unrelatedSession.start({
-      agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
-        ownedMiddleware,
-        suppressGreeting: true,
-      }).agent,
-    });
-
-    await completeUserTurn(unrelatedSession, "How are you?", true);
-    await vi.waitFor(() => expect(unrelatedLlm.requests).toHaveLength(1));
-    await unrelatedSession.waitForIdle();
-    expect(knowledgeMessages(unrelatedLlm.requests[0]!)).toEqual([]);
-
-    const groundedLlm = new CapturingFakeLLM([
-      {
-        input: "What are your office hours?",
-        content: "The preemptive answer is not grounded.",
-      },
-      {
-        input: "What are your office hours?",
-        content: "The supplied hours are available.",
-      },
-    ]);
-    const groundedSession = new AgentSession({ llm: groundedLlm });
-    sessions.push(groundedSession);
-    groundedSession.userData = createTestCallState({
-      officeKey: "spring-hill",
-      trunkPhone: SPRING_HILL_OFFICE_PHONE,
-    });
-    await groundedSession.start({
-      agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
-        ownedMiddleware,
-        suppressGreeting: true,
-      }).agent,
-    });
-
-    await completeUserTurn(
-      groundedSession,
-      "What are your office hours?",
-      true,
-    );
-    await vi.waitFor(() => expect(groundedLlm.requests).toHaveLength(2));
-    await groundedSession.waitForIdle();
-    expect(knowledgeMessages(groundedLlm.requests[0]!)).toEqual([]);
-    expect(knowledgeMessages(groundedLlm.requests[1]!)).toHaveLength(1);
-  });
-
   it("uses the active Call State office and the immediately preceding exchange", async () => {
     const session = new AgentSession();
     sessions.push(session);
@@ -263,17 +205,6 @@ describe("Office Knowledge turn enrichment", () => {
     expect(messages).toHaveLength(1);
     expect(messages[0]).toContain("active office: Eye Radiance");
     expect(messages[0]).toContain("1100 N Lyle Avenue");
-    expect(session.userData.runtime).toMatchObject({
-      knowledgeRetrievals: [
-        {
-          language: "en",
-          officeKey: "crystal-river",
-          outcome: "matched",
-          sectionCount: 1,
-          topic: "location_contact",
-        },
-      ],
-    });
   });
 
   it("skips unrelated turns and injects unavailable facts", async () => {
@@ -300,15 +231,6 @@ describe("Office Knowledge turn enrichment", () => {
     );
 
     expect(knowledgeMessages(unrelatedContext)).toEqual([]);
-    expect(unrelatedSession.userData.runtime).toMatchObject({
-      knowledgeRetrievals: [
-        {
-          outcome: "skipped",
-          sectionCount: 0,
-          topic: null,
-        },
-      ],
-    });
 
     const unavailableSession = new AgentSession();
     sessions.push(unavailableSession);
@@ -337,19 +259,10 @@ describe("Office Knowledge turn enrichment", () => {
     expect(unavailableMessages[0]).toContain(
       "active office has no supplied information",
     );
-    expect(unavailableSession.userData.runtime).toMatchObject({
-      knowledgeRetrievals: [
-        {
-          officeKey: "rheumatology-demo",
-          outcome: "unavailable",
-          sectionCount: 0,
-          topic: "social_follow_up",
-        },
-      ],
-    });
   });
 
-  it("records a sanitized failure and lets the reply path continue", async () => {
+  it("logs a sanitized failure and lets the reply path continue", async () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
     const session = new AgentSession();
     sessions.push(session);
     session.userData = createTestCallState({
@@ -378,19 +291,9 @@ describe("Office Knowledge turn enrichment", () => {
     ).resolves.toBeUndefined();
 
     expect(knowledgeMessages(turnContext)).toEqual([]);
-    expect(session.userData.runtime).toMatchObject({
-      knowledgeRetrievals: [
-        {
-          language: "unknown",
-          officeKey: "spring-hill",
-          outcome: "failure",
-          sectionCount: 0,
-          topic: null,
-        },
-      ],
-    });
-    expect(
-      JSON.stringify(session.userData.runtime.knowledgeRetrievals),
-    ).not.toContain("raw caller content");
+    expect(warning).toHaveBeenCalledExactlyOnceWith(
+      "[office_knowledge] retrieval failed office=spring-hill",
+    );
+    warning.mockRestore();
   });
 });

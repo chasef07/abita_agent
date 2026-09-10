@@ -26,8 +26,6 @@ Status: available
 
 Tuesday–Thursday 12:00 PM–5:00 PM. Closed Monday, Friday, Saturday, and Sunday.
 
-Holiday closure: Closed on Labor Day, Monday, September 7, 2026.
-
 The Spring Hill office is open Monday–Friday, 8:30 AM–4:30 PM.
 
 ## After Hours
