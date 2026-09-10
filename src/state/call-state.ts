@@ -2,7 +2,10 @@ import type { MiddlewareRequestDiagnostic } from "../clients/middleware-diagnost
 import type { OfficeKey } from "../customers/abita/profile.js";
 import type { InsuranceCoverageType } from "../insurance-rules.js";
 import type { RuntimeVoiceLanguageState } from "../runtime/voice-language.js";
-import type { LightweightPatientCandidate } from "../identity/candidate.js";
+import type {
+  LightweightPatientCandidate,
+  PatientCandidateSet,
+} from "../identity/candidate.js";
 import { createSchedulingState } from "../scheduling/state.js";
 import type { TransferState } from "./call-lifecycle.js";
 import type {
@@ -396,6 +399,18 @@ interface InsuranceSessionState {
 
 interface IdentitySessionState {
   privateCandidates: PreCallPatientCandidate[];
+  nameSearch: {
+    officePhone: string;
+    firstName: string;
+    dob: string;
+    result: PatientCandidateSet;
+  } | null;
+  pendingIdentity: {
+    details: RegistrationDraft;
+    // Present only during a caller-declared patient switch (null if no chart was active).
+    previousPatientId?: string | null;
+    excludePreviousPatient?: boolean;
+  } | null;
   activePatient: ActivePatient | null;
   registration: RegistrationDraft | null;
   unregisteredPatientReceipt: UnregisteredPatientReceipt | null;
@@ -515,6 +530,8 @@ export function createCanonicalCallState(
       privateCandidates: input.preCallCandidates ?? [],
       activePatient: input.activePatient ?? null,
       registration: null,
+      pendingIdentity: null,
+      nameSearch: null,
       unregisteredPatientReceipt: null,
       completedBookingsByPatientId: {},
       operationVersion: 0,

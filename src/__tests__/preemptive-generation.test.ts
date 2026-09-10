@@ -285,7 +285,10 @@ describe("preemptive generation through the LiveKit turn pipeline", () => {
           toolCalls: [
             {
               name: "resolve_patient",
-              args: { firstName: "Larry", dob: null },
+              args: {
+                firstName: "Larry",
+                dob: null,
+              },
             },
           ],
         },

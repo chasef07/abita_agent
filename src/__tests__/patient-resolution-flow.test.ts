@@ -45,7 +45,14 @@ describe("patient resolution conversation contract", () => {
 
   it("looks up first name and DOB when phone candidates are absent", async () => {
     const middleware = new InMemoryOwnedMiddleware({
-      resolvePatient: [{ status: "not_found" }],
+      resolvePatient: [
+        {
+          status: "candidates",
+          source: "first_name",
+          complete: true,
+          matches: [],
+        },
+      ],
     });
     const state = createTestCallState();
     const tool = createResolvePatientTool(middleware);
@@ -67,7 +74,14 @@ describe("patient resolution conversation contract", () => {
 
   it("asks for DOB after an unmatched first name, then accepts clarified phone-match identity", async () => {
     const middleware = new InMemoryOwnedMiddleware({
-      resolvePatient: [{ status: "not_found" }],
+      resolvePatient: [
+        {
+          status: "candidates",
+          source: "first_name",
+          complete: true,
+          matches: [],
+        },
+      ],
     });
     const state = createTestCallState({ preCallCandidates: [candidate] });
     const tool = createResolvePatientTool(middleware);
@@ -96,8 +110,13 @@ describe("patient resolution conversation contract", () => {
     const middleware = new InMemoryOwnedMiddleware({
       resolvePatient: [
         {
-          status: "multiple_matches",
-          matches: [],
+          status: "candidates",
+          source: "first_name",
+          complete: true,
+          matches: [
+            candidate,
+            { ...candidate, patientId: "synthetic-2", ref: "second" },
+          ],
         },
       ],
     });

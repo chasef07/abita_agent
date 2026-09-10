@@ -80,6 +80,47 @@ export function phoneCandidateFirstNameMatches(
   );
 }
 
+// Only use after the phone candidate's first name and supplied DOB match.
+export function phoneCandidateSurnameMatches(
+  provided: string,
+  expected: string,
+): boolean {
+  const providedName = normalizeName(provided);
+  const expectedName = normalizeName(expected);
+  if (!providedName || !expectedName) return false;
+  if (providedName === expectedName) return true;
+  if (Math.min(providedName.length, expectedName.length) < 4) return false;
+
+  const providedParts = provided
+    .split(/[\s-]+/)
+    .map(normalizeName)
+    .filter(Boolean);
+  const expectedParts = expected
+    .split(/[\s-]+/)
+    .map(normalizeName)
+    .filter(Boolean);
+  if (
+    (providedParts.length === 1 &&
+      expectedParts.length > 1 &&
+      [expectedParts[0], expectedParts.at(-1)].includes(providedName)) ||
+    (expectedParts.length === 1 &&
+      providedParts.length > 1 &&
+      [providedParts[0], providedParts.at(-1)].includes(expectedName))
+  ) {
+    return true;
+  }
+
+  // With Sellers disabled, fast-fuzzy scores whole-name edit distance / max length.
+  // Permit at most one insertion, deletion, substitution, or adjacent transposition.
+  return (
+    fuzzy(providedName, expectedName, {
+      useDamerau: true,
+      useSellers: false,
+    }) >=
+    1 - 1 / Math.max(providedName.length, expectedName.length)
+  );
+}
+
 function normalizeDob(value: string | null | undefined): string {
   const trimmed = value?.trim();
   if (!trimmed) return "";

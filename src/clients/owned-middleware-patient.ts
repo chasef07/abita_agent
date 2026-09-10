@@ -2,7 +2,10 @@ import type {
   AppointmentLoadStatus,
   StoredCallerAppointment,
 } from "../state/call-state.js";
-import type { LightweightPatientCandidate } from "../identity/candidate.js";
+import type {
+  LightweightPatientCandidate,
+  PatientCandidateSet,
+} from "../identity/candidate.js";
 
 export type PatientResolveCandidate = LightweightPatientCandidate;
 
@@ -53,6 +56,7 @@ interface PatientResolveError {
 }
 
 export type PatientResolveResult =
+  | PatientCandidateSet
   | PatientResolveVerified
   | PatientResolveMultipleMatches
   | PatientResolveNotFound
@@ -74,6 +78,25 @@ export function normalizePatientResolveResponse(
     return {
       status: "error",
       reason: "middleware_error",
+    };
+  }
+
+  if (status === "candidates") {
+    if (
+      raw.source !== "first_name" ||
+      typeof raw.complete !== "boolean" ||
+      !Array.isArray(raw.matches)
+    ) {
+      return { status: "error", reason: "invalid_response" };
+    }
+    const matches = raw.matches.map(normalizePatientCandidate);
+    if (matches.some((match) => match === null))
+      return { status: "error", reason: "invalid_response" };
+    return {
+      status: "candidates",
+      source: "first_name",
+      complete: raw.complete,
+      matches: matches as PatientResolveCandidate[],
     };
   }
 

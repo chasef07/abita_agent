@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.1.2](https://github.com/chasef07/abita_agent/compare/5.1.1...5.1.2) (2026-09-10)
+
+
+### Bug Fixes
+
+* **identity:** simplify phone-first patient resolution ([#456](https://github.com/chasef07/abita_agent/issues/456)) ([8116a4f](https://github.com/chasef07/abita_agent/commit/8116a4f03d4c929c4f71c2b50ad2ba86d49569b6))
+
 ## [5.1.1](https://github.com/chasef07/abita_agent/compare/5.1.0...5.1.1) (2026-09-10)
 
 

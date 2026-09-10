@@ -1,4 +1,4 @@
-import { tool, type ToolOptions } from "@livekit/agents";
+import { tool, ToolError, type ToolOptions } from "@livekit/agents";
 import { z } from "zod";
 import type { OwnedMiddleware } from "../clients/owned-middleware.js";
 import {
@@ -6,7 +6,6 @@ import {
   type PatientIdentityResolution,
   type PatientResolveLookup,
 } from "../identity/patient-identity.js";
-import { throwOwnedMiddlewareFailure } from "../runtime/middleware-tool-failure.js";
 import { domainOutcomesForTool } from "../state/observability.js";
 import { getState } from "./session.js";
 
@@ -73,8 +72,8 @@ export function createResolvePatientTool(middleware: OwnedMiddleware) {
         throw error;
       }
       outcomes.record(patientResolutionDomainOutcome(resolution.outcome));
-      if (resolution.outcome === "lookup_failed" && resolution.failure) {
-        throwOwnedMiddlewareFailure(resolution.failure, resolution.reply);
+      if (resolution.outcome === "lookup_failed") {
+        throw new ToolError(resolution.reply);
       }
       return resolution.reply;
     },

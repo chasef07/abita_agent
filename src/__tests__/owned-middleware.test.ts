@@ -959,7 +959,7 @@ describe("HTTP owned middleware transport", () => {
 
     expect(result).toEqual({
       status: "error",
-      reason: "request_rejected",
+      reason: "middleware_error",
     });
   });
 
@@ -1279,7 +1279,7 @@ describe("HTTP owned middleware transport", () => {
   it.each([
     {
       name: "patient lookup",
-      expectedReason: "request_rejected",
+      expectedReason: "middleware_error",
       call: (middleware: HttpOwnedMiddleware) =>
         middleware.resolvePatient({
           office: SPRING_HILL_OFFICE_PHONE,
@@ -1849,10 +1849,10 @@ const semanticContractCases: SemanticContractCase[] = [
     name: "patient middleware failure",
     http: httpResult({ status: "error", message: "private detail" }),
     memory: memoryResult({
-      resolvePatient: [semanticFailure("request_rejected")],
+      resolvePatient: [semanticFailure("middleware_error")],
     }),
     invoke: patientLookup,
-    expected: semanticFailure("request_rejected"),
+    expected: semanticFailure("middleware_error"),
   },
   {
     name: "patient network failure",

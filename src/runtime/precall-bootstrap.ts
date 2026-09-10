@@ -100,6 +100,8 @@ export async function lookupByPhone(
       lookupDurationMs,
     };
   }
+  if (result.status === "candidates")
+    return lookupFailure(phone, "invalid_response", lookupDurationMs);
   return lookupFailure(
     phone,
     result.reason === "unsupported_office"

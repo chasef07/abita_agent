@@ -1,3 +1,4 @@
+import { candidateSearchResult } from "./support/owned-middleware.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToolError } from "@livekit/agents";
 
@@ -181,6 +182,20 @@ function stubPatient(
   ...responses: PatientResolveResult[]
 ): InMemoryOwnedMiddleware {
   return useMiddleware({ resolvePatient: responses });
+}
+
+function stubPatientSearch(
+  ...responses: PatientResolveResult[]
+): InMemoryOwnedMiddleware {
+  return stubPatient(
+    ...responses.flatMap((result) =>
+      result.status === "verified"
+        ? [candidateSearchResult(result), result]
+        : result.status === "not_found"
+          ? [candidateSearchResult()]
+          : [result],
+    ),
+  );
 }
 
 function verifiedPatientResult(
@@ -511,7 +526,14 @@ describe("stateful call tools", () => {
       markAcceptedInsurance(state);
       const middleware = useMiddleware({
         createPatient: [creation.promise],
-        resolvePatient: [lookup.promise],
+        resolvePatient: [
+          lookup.promise.then((result) =>
+            result.status === "verified"
+              ? candidateSearchResult(result)
+              : result,
+          ),
+          lookup.promise,
+        ],
       });
 
       const pendingCreation = add_patient.execute(
@@ -581,6 +603,7 @@ describe("stateful call tools", () => {
       expect(middleware.operations.map(({ name }) => name)).toEqual([
         "createPatient",
         "resolvePatient",
+        "resolvePatient",
       ]);
     },
   );
@@ -626,7 +649,7 @@ describe("stateful call tools", () => {
     deferred.resolve(createdPatientResult());
 
     await expect(resolution).rejects.toThrow(
-      "I couldn't look up the patient. Let me try once more.",
+      "The first-name search could not be verified.",
     );
     await expect(pendingCreation).resolves.toBe(
       "I created a patient chart for Jane Doe. We can continue with scheduling.",
@@ -1284,7 +1307,7 @@ describe("stateful call tools", () => {
   it("returns a speech-ready result after confirming identity by lookup", async () => {
     const state = createState();
     setPatientUnknown(state);
-    const middleware = stubPatient(
+    const middleware = stubPatientSearch(
       verifiedPatientResult({
         appointmentsStatus: "found",
         appointments: [
@@ -1348,10 +1371,94 @@ describe("stateful call tools", () => {
     ]);
   });
 
+  it.each(["verified", "candidate", "absent"] as const)(
+    "records a switch through %s phone candidates after conflicting identity is clarified",
+    async (status) => {
+      const state = createState();
+      if (status !== "absent")
+        state.identity.privateCandidates = [
+          {
+            status,
+            ref: "second",
+            patientId: "patient-2",
+            firstName: "John",
+            lastName: "Doe",
+            dob: "02/02/1982",
+            appointments: [],
+            appointmentsStatus: "none",
+          },
+        ];
+      const resolved = verifiedPatientResult({
+        patientId: "patient-2",
+        name: "John Doe",
+        dob: "02/02/1982",
+      });
+      if (status === "absent") stubPatientSearch(resolved);
+      else stubPatient(resolved, resolved);
+      const ctx = createToolContext(state);
+
+      await resolve_patient.execute({ firstName: "Different", dob: null }, {
+        ctx,
+        toolCallId: "switch-start",
+      } as never);
+      expect(state.identity.activePatient).toBeNull();
+      expect(state.availability.slots).toEqual([]);
+      await resolve_patient.execute({ firstName: "John", dob: "02/02/1982" }, {
+        ctx,
+        toolCallId: "switch-finish",
+      } as never);
+
+      expect(state.identity.activePatient?.patientId).toBe("patient-2");
+      await resolve_patient.execute({ firstName: "John", dob: "02/02/1982" }, {
+        ctx,
+        toolCallId: "same-patient",
+      } as never);
+      expect(domainOutcomeReceipts(state)).toMatchObject([
+        {
+          callId: "switch-start",
+          outcome: "patient_lookup_needs_identity",
+          status: "blocked",
+        },
+        {
+          callId: "switch-finish",
+          outcome: "patient_switched",
+          status: "success",
+        },
+        {
+          callId: "same-patient",
+          outcome: "patient_verified",
+          status: "success",
+        },
+      ]);
+    },
+  );
+
+  it("reports verification when a different-patient request has no previous chart", async () => {
+    const state = createState();
+    setPatientUnknown(state);
+    stubPatientSearch(verifiedPatientResult());
+
+    await resolve_patient.execute(
+      {
+        firstName: "Jane",
+        dob: "01/01/1980",
+      },
+      { ctx: createToolContext(state), toolCallId: "first-patient" } as never,
+    );
+
+    expect(domainOutcomeReceipts(state)).toMatchObject([
+      {
+        callId: "first-patient",
+        outcome: "patient_verified",
+        status: "success",
+      },
+    ]);
+  });
+
   it("keeps distinct loaded appointment references in state instead of the reply", async () => {
     const state = createState();
     setPatientUnknown(state);
-    const middleware = stubPatient(
+    const middleware = stubPatientSearch(
       verifiedPatientResult({
         appointmentsStatus: "found",
         appointments: [
@@ -1413,13 +1520,13 @@ describe("stateful call tools", () => {
         rescheduleToken: "private-reschedule-token-two",
       }),
     ]);
-    expect(middleware.requests.resolvePatient).toHaveLength(1);
+    expect(middleware.requests.resolvePatient).toHaveLength(2);
   });
 
   it("keeps every loaded appointment reference out of the direct reply", async () => {
     const state = createState();
     setPatientUnknown(state);
-    stubPatient(
+    stubPatientSearch(
       verifiedPatientResult({
         appointmentsStatus: "found",
         appointments: [1, 2, 3, 4].map((day) => ({
@@ -1470,7 +1577,7 @@ describe("stateful call tools", () => {
       currentCarrier: "Aetna",
       accepted: true,
     };
-    const middleware = stubPatient(
+    const middleware = stubPatientSearch(
       verifiedPatientResult({
         patientId: "patient-2",
         name: "John Doe",
@@ -1510,7 +1617,7 @@ describe("stateful call tools", () => {
 
   it("clearly reports verified existing patients without insurance on file", async () => {
     const state = createState();
-    stubPatient(
+    stubPatientSearch(
       verifiedPatientResult({
         name: "TEST,CHASE",
         dob: "04/07/2000",
@@ -1538,34 +1645,46 @@ describe("stateful call tools", () => {
     expect(state.insurance.lastEligibilityCheck).toBeNull();
   });
 
-  it("activates a verified compound-surname receipt using first name and DOB", async () => {
-    const state = createState();
-    setPatientUnknown(state);
-    stubPatient(
-      verifiedPatientResult({
-        name: "GARCIA LOPEZ,ANA",
-        dob: "01/01/1980",
-      }),
-    );
+  it.each(["Garcia", "Lopez", "Garcia Lopez"])(
+    "activates a verified compound-surname receipt using %s",
+    async (lastName) => {
+      const state = createState();
+      setPatientUnknown(state);
+      stubPatientSearch(
+        verifiedPatientResult({
+          name: "GARCIA LOPEZ,ANA",
+          dob: "01/01/1980",
+        }),
+      );
 
-    await resolve_patient.execute({ firstName: "Ana", dob: "01/01/1980" }, {
-      ctx: createToolContext(state) as never,
-      toolCallId: "tool-1",
-    } as never);
+      await resolve_patient.execute(
+        { firstName: "Ana", lastName, dob: "01/01/1980" },
+        {
+          ctx: createToolContext(state) as never,
+          toolCallId: "tool-1",
+        } as never,
+      );
 
-    expect(state.identity.activePatient?.patientId).toBe("patient-1");
-    expect(domainOutcomeReceipts(state)).toMatchObject([
-      { callId: "tool-1", outcome: "patient_verified", status: "success" },
-    ]);
-  });
+      expect(state.identity.activePatient?.patientId).toBe("patient-1");
+      expect(domainOutcomeReceipts(state)).toMatchObject([
+        { callId: "tool-1", outcome: "patient_verified", status: "success" },
+      ]);
+    },
+  );
 
   it.each([
-    { firstName: "Other", dob: "01/01/1980" },
-    { firstName: "Ana", dob: "02/02/1980" },
+    { firstName: "Other", lastName: "Garcia", dob: "01/01/1980" },
+    { firstName: "Ana", lastName: "Garcia", dob: "02/02/1980" },
   ])("rejects a mismatched compound-surname receipt: %j", async (identity) => {
     const state = createState();
     setPatientUnknown(state);
     stubPatient(
+      candidateSearchResult(
+        verifiedPatientResult({
+          name: `${identity.lastName},${identity.firstName}`,
+          dob: identity.dob,
+        }),
+      ),
       verifiedPatientResult({ name: "GARCIA LOPEZ,ANA", dob: "01/01/1980" }),
     );
 
@@ -1574,7 +1693,7 @@ describe("stateful call tools", () => {
         ctx: createToolContext(state) as never,
         toolCallId: "tool-1",
       } as never),
-    ).rejects.toThrow("Owned Middleware returned a non-retryable failure.");
+    ).rejects.toThrow("I couldn't verify the chart receipt.");
     expect(state.identity.activePatient).toBeNull();
   });
 
@@ -1582,6 +1701,9 @@ describe("stateful call tools", () => {
     const state = createState();
     setPatientUnknown(state);
     stubPatient(
+      candidateSearchResult(
+        verifiedPatientResult({ name: "Doe,Ana", dob: "01/01/1980" }),
+      ),
       verifiedPatientResult({
         patientId: "patient-wrong",
         name: "ANNA,DOE",
@@ -1598,7 +1720,7 @@ describe("stateful call tools", () => {
     );
 
     await expect(result).rejects.toThrow(
-      "Owned Middleware returned a non-retryable failure.",
+      "I couldn't verify the chart receipt.",
     );
     expect(state.identity.activePatient).toBeNull();
     expect(domainOutcomeReceipts(state)).toMatchObject([
@@ -1613,7 +1735,7 @@ describe("stateful call tools", () => {
   it("keeps a private candidate inactive after a full lookup finds no patient", async () => {
     const state = createState();
     setSingleArshedPreCallCandidate(state);
-    const middleware = stubPatient({
+    const middleware = stubPatientSearch({
       status: "not_found",
       message: "No patient found matching that first name.",
     });
@@ -1640,10 +1762,7 @@ describe("stateful call tools", () => {
   it("preserves lookup failures instead of using the pre-call spelling fallback", async () => {
     const state = createState();
     setSingleArshedPreCallCandidate(state);
-    stubPatient({
-      status: "error",
-      reason: "middleware_error",
-    });
+    stubPatient({ status: "error", reason: "middleware_error" });
 
     await expect(
       resolve_patient.execute(
@@ -1656,12 +1775,12 @@ describe("stateful call tools", () => {
           toolCallId: "tool-1",
         } as never,
       ),
-    ).rejects.toThrow("I couldn't look up the patient. Let me try once more.");
+    ).rejects.toThrow("The first-name search could not be verified.");
     expect(state.identity.privateCandidates).toHaveLength(1);
     expect(state.identity.activePatient).toBeNull();
   });
 
-  it("leaves an invalid patient response as an internal error", async () => {
+  it("returns an actionable failed lookup for an invalid patient response", async () => {
     const state = createState();
     setSingleArshedPreCallCandidate(state);
     stubPatient({ status: "error", reason: "invalid_response" });
@@ -1678,9 +1797,9 @@ describe("stateful call tools", () => {
     );
 
     await expect(failure).rejects.toThrow(
-      "Owned Middleware returned a non-retryable failure.",
+      "The first-name search could not be verified.",
     );
-    await expect(failure).rejects.not.toBeInstanceOf(ToolError);
+    await expect(failure).rejects.toBeInstanceOf(ToolError);
   });
 
   it("records a lookup outcome when identity resolution throws early", async () => {
@@ -1717,7 +1836,10 @@ describe("stateful call tools", () => {
     const state = createState();
     setPatientUnknown(state);
     const middleware = new InMemoryOwnedMiddleware({
-      resolvePatient: [verifiedPatientResult()],
+      resolvePatient: [
+        candidateSearchResult(verifiedPatientResult()),
+        verifiedPatientResult(),
+      ],
     });
     const tool = createResolvePatientTool(middleware);
 
@@ -1734,13 +1856,11 @@ describe("stateful call tools", () => {
         } as never,
       ),
     ).resolves.toContain("I found you in our system, Jane Doe.");
-    expect(middleware.requests.resolvePatient).toEqual([
-      expect.objectContaining({
-        identity: {
-          firstName: "Jane",
-          dob: "01/01/1980",
-        },
-      }),
+    expect(
+      middleware.requests.resolvePatient.map((request) => request.identity),
+    ).toEqual([
+      { firstName: "Jane", dob: "01/01/1980" },
+      { patientId: "patient-1" },
     ]);
   });
 
@@ -1783,7 +1903,7 @@ describe("stateful call tools", () => {
   it("verifies a backend patient before spelling fallback when a pre-call single match shares last name and DOB", async () => {
     const state = createState();
     setSingleArshedPreCallCandidate(state);
-    const middleware = stubPatient({
+    const middleware = stubPatientSearch({
       status: "verified",
       patientId: "patient-ella",
       name: "ELLA ARSHED",
@@ -1992,7 +2112,7 @@ describe("stateful call tools", () => {
     ]);
   });
 
-  it("treats model-emitted empty DOB as unknown", async () => {
+  it("treats model-emitted empty surname and DOB as unknown", async () => {
     const state = createState();
     setSingleArshedPreCallCandidate(state);
     const identity = resolve_patient.parameters.parse({
@@ -2007,7 +2127,7 @@ describe("stateful call tools", () => {
     expect(testMiddleware.operations).toHaveLength(0);
   });
 
-  it("requests DOB before fallback lookup", async () => {
+  it("does not call middleware until full identity is provided", async () => {
     const state = createState();
     setPatientUnknown(state);
 
@@ -2021,7 +2141,7 @@ describe("stateful call tools", () => {
         toolCallId: "tool-1",
       } as never,
     );
-    expect(result).toContain("What is the patient's date of birth?");
+    expect(result).toContain("date of birth");
     expect(testMiddleware.operations).toHaveLength(0);
   });
 
