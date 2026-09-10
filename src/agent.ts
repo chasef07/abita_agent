@@ -17,7 +17,6 @@ import type { CallState } from "./state/call-state.js";
 import type { VoiceLanguageRuntime } from "./runtime/voice-language.js";
 import { getOfficeProfileByPhone } from "./customers/abita/profile.js";
 import { buildToolsForTrunk } from "./runtime/tool-registry.js";
-import { patientContext } from "./identity/patient-identity.js";
 import {
   officeKnowledgeReference,
   resolveOfficeKnowledge,
@@ -39,7 +38,7 @@ type VoiceAgentOptions = {
   voiceLanguageRuntime?: VoiceLanguageRuntime;
 };
 
-const TURN_CONTEXT_MESSAGE_ID = "runtime_turn_context";
+const CLINIC_TIME_MESSAGE_ID = "clinic_time";
 
 export function createVoiceAgent(
   trunkPhone: string,
@@ -94,11 +93,9 @@ export function createVoiceAgent(
     },
 
     async llmNode(ctx, chatCtx, toolCtx, modelSettings) {
-      const state = ctx.session.userData;
-      const input = modelTurnInput(state, turnClock);
       const modelChatCtx = chatCtx.copy();
       modelChatCtx.items = modelChatCtx.items.filter(
-        (item) => item.id !== TURN_CONTEXT_MESSAGE_ID,
+        (item) => item.id !== CLINIC_TIME_MESSAGE_ID,
       );
       let latestUserIndex = -1;
       for (let index = modelChatCtx.items.length - 1; index >= 0; index -= 1) {
@@ -112,9 +109,9 @@ export function createVoiceAgent(
         latestUserIndex < 0 ? modelChatCtx.items.length : latestUserIndex,
         0,
         ChatMessage.create({
-          id: TURN_CONTEXT_MESSAGE_ID,
+          id: CLINIC_TIME_MESSAGE_ID,
           role: "system",
-          content: input,
+          content: clinicTimestampMessage(turnClock.now()),
         }),
       );
       return LiveKitAgent.default.llmNode(
@@ -151,10 +148,6 @@ export function createVoiceAgent(
   });
 
   return { agent, office };
-}
-
-function modelTurnInput(state: CallState, clock: SchedulingClock) {
-  return [clinicTimestampMessage(clock.now()), patientContext(state)].join(" ");
 }
 
 export async function* observeAssistantText(

@@ -36,8 +36,8 @@ export function createResolvePatientTool(middleware: OwnedMiddleware) {
     name: "resolve_patient",
     onDuplicate: "reject",
     description:
-      "Phone lookup found possible patients: call immediately with firstName and dob:null. Otherwise collect firstName and DOB. " +
-      "Include supplied DOB without confirmation. Require DOB for same-name patient switches. " +
+      "Call immediately with the patient's supplied firstName. Include supplied DOB without confirmation; otherwise pass dob:null and follow the returned next step. " +
+      "Require DOB for same-name patient switches. " +
       "If unresolved, add DOB and retry; if still unresolved, clarify DOB and first-name spelling and retry before offering staff. " +
       "After success, say the acknowledgment, never internal appointment references. Use caller-provided identity only. Use add_patient for registration.",
     parameters: resolvePatientParameters,

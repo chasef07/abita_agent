@@ -244,18 +244,19 @@ describe("stable tool catalog", () => {
         }).agent,
       });
       await session.run({ userInput: input }).wait();
-      expect(patientContexts(model.contexts[0]!)).toEqual([
-        expect.stringContaining("Phone lookup found 2 possible patients"),
-      ]);
       expect(state.identity.activePatient?.patientId).toBe("John");
       expect(middleware.operations).toEqual([]);
-      expect(patientContexts(model.contexts.at(-1)!)).toEqual([
-        expect.stringContaining("Active patient: John Doe."),
-      ]);
+      expect(
+        JSON.stringify(
+          model.contexts
+            .at(-1)!
+            .items.filter((item) => item.type === "function_call_output"),
+        ),
+      ).toContain("I found you in our system, John Doe.");
     },
   );
 
-  it("updates current patient context while the catalog stays stable", async () => {
+  it("returns resolved patient details through tool history while the catalog stays stable", async () => {
     const verifiedReply =
       "Verified existing patient Jane Doe. No upcoming appointments are loaded.";
     const llm = new ToolCapturingFakeLLM([
@@ -302,12 +303,19 @@ describe("stable tool catalog", () => {
       .wait();
 
     expect(llm.toolRequests).toEqual([SUPPORTED_TOOLS, SUPPORTED_TOOLS]);
-    expect(patientContexts(llm.contexts[0]!)).toEqual([
-      expect.stringContaining("Active patient: none."),
-    ]);
-    expect(patientContexts(llm.contexts[1]!)).toEqual([
-      expect.stringContaining("Active patient: Jane Doe."),
-    ]);
+    expect(session.userData.identity.activePatient?.name).toBe("Jane Doe");
+    expect(
+      llm.contexts[0]!.items.some(
+        (item) => item.type === "function_call_output",
+      ),
+    ).toBe(false);
+    expect(
+      JSON.stringify(
+        llm.contexts[1]!.items.filter(
+          (item) => item.type === "function_call_output",
+        ),
+      ),
+    ).toContain("I found you in our system, Jane Doe.");
   });
 
   it("returns the add_patient identity guard before middleware mutation", async () => {
@@ -704,16 +712,6 @@ function expectStableToolRequests(llm: ToolCapturingFakeLLM): void {
   for (const tools of llm.toolRequests) {
     expect(tools).toEqual(SUPPORTED_TOOLS);
   }
-}
-
-function patientContexts(chatCtx: ChatContext): string[] {
-  return chatCtx.items.flatMap((item) =>
-    item.type === "message" &&
-    item.role === "system" &&
-    item.textContent?.includes("Active patient:")
-      ? [item.textContent.slice(item.textContent.indexOf("Active patient:"))]
-      : [],
-  );
 }
 
 function functionCallNames(session: AgentSession<CallState>): string[] {

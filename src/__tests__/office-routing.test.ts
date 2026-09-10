@@ -1570,15 +1570,13 @@ describe("model-facing tool definitions", () => {
   });
 
   it("keeps resolve_patient scoped to patient identity loading", () => {
-    expect(resolve_patient.description).toContain(
-      "Phone lookup found possible patients",
+    expect(resolve_patient.description).not.toMatch(
+      /Phone lookup|phone candidates/i,
     );
     expect(resolve_patient.description).toContain(
       "Use caller-provided identity only",
     );
-    expect(resolve_patient.description).toContain(
-      "Otherwise collect firstName and DOB",
-    );
+    expect(resolve_patient.description).toContain("firstName");
     expect(resolve_patient.description).toContain("dob:null");
     expect(resolve_patient.description).toContain(
       "Use add_patient for registration",

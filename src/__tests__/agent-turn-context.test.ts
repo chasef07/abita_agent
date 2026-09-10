@@ -10,7 +10,6 @@ import { createVoiceAgent } from "../agent.js";
 import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
 import { SPRING_HILL_OFFICE_PHONE } from "../customers/abita/profile.js";
 import { CALLER_CANDIDATE_REF } from "../state/call-state.js";
-import { patientContext } from "../identity/patient-identity.js";
 import { createTestCallState } from "./support/call-state.js";
 
 const ownedMiddleware = new InMemoryOwnedMiddleware();
@@ -117,9 +116,9 @@ describe("completed user turn context", () => {
       expect(middleware.operations).toEqual([]);
       expect(state.identity.activePatient).toBeNull();
       expect(state.runtime.outcomeReceipts).toEqual([]);
-      expect(patientContext(state)).not.toContain("LARRY TEST");
-      expect(patientContext(state)).not.toContain("FLORIDA BLUE SHIELD");
-      expect(patientContext(state)).not.toContain("patient-larry");
+      expect(JSON.stringify(turnContext)).not.toMatch(
+        /LARRY TEST|FLORIDA BLUE SHIELD|patient-larry/,
+      );
     },
   );
 

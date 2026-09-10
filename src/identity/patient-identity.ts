@@ -641,25 +641,6 @@ function patientIdentityTransitionIsCurrent(
   return state.identity.transitionVersion === transitionVersion;
 }
 
-export function patientContext(state: CallState): string {
-  const patient = state.identity.activePatient;
-  if (patient)
-    return `Active patient: ${patient.name?.trim() || "unnamed patient"}.`;
-  if (state.identity.registration) {
-    return "Active patient: none; new-patient registration is in progress.";
-  }
-  const count = state.identity.privateCandidates.length;
-  const lookup =
-    count > 0
-      ? `Phone lookup found ${count} possible patient${count === 1 ? "" : "s"}.`
-      : state.runtime.preCallLookup.status === "lookup_failed"
-        ? "Phone lookup failed; registration status is unknown."
-        : state.runtime.preCallLookup.status === "no_match"
-          ? "Phone lookup found no matches; registration status is unknown."
-          : "Phone lookup has not provided patient candidates.";
-  return `Active patient: none. ${lookup}`;
-}
-
 export function incompletePatientRegistrationMessage(
   state: CallState,
 ): string | null {
