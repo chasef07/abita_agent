@@ -1,0 +1,69 @@
+name: Prompt release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - workspace/SOUL.md
+      - workspace/VOICE.md
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: prompt-release-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Publish SOUL and VOICE snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Re-running after unrelated commits must resolve to the same version.
+          prompt_sha="$(git log -1 --format=%H -- workspace/SOUL.md workspace/VOICE.md)"
+          test -n "$prompt_sha"
+          tag="prompts-${prompt_sha}"
+          release_tags="$RUNNER_TEMP/prompt-release-tags.txt"
+          gh api --paginate "repos/$GH_REPO/releases" --jq '.[] | select(.draft == false) | .tag_name' > "$release_tags"
+          if grep -Fxq "$tag" "$release_tags"; then
+            echo "Prompt release $tag already exists."
+            exit 0
+          fi
+
+          # Assets and tag both come from the exact prompt revision.
+          asset_dir="$RUNNER_TEMP/prompt-release"
+          mkdir -p "$asset_dir"
+          git show "$prompt_sha:workspace/SOUL.md" > "$asset_dir/SOUL.md"
+          git show "$prompt_sha:workspace/VOICE.md" > "$asset_dir/VOICE.md"
+          notes="$asset_dir/notes.md"
+          cat > "$notes" <<EOF
+          Versioned snapshot of the shared SOUL and VOICE prompts.
+
+          Source commit: https://github.com/$GH_REPO/commit/$prompt_sha
+
+          - [SOUL.md](https://github.com/$GH_REPO/blob/$prompt_sha/workspace/SOUL.md)
+          - [VOICE.md](https://github.com/$GH_REPO/blob/$prompt_sha/workspace/VOICE.md)
+
+          This records prompt source history. It does not deploy the agent or certify evaluation results. Agent releases continue to own production deployment.
+          EOF
+
+          gh release create "$tag" "$asset_dir/SOUL.md" "$asset_dir/VOICE.md" \
+            --target "$prompt_sha" \
+            --title "Prompts · ${prompt_sha:0:7}" \
+            --notes-file "$notes" \
+            --latest=false
