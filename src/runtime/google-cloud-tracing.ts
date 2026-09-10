@@ -1,4 +1,3 @@
-import { knowledgeSpanProcessor } from "./knowledge-observability.js";
 import { telemetry, type JobContext } from "@livekit/agents";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-proto";
 import { resourceFromAttributes } from "@opentelemetry/resources";
@@ -71,7 +70,6 @@ export function setupGoogleCloudTracing(
         (env.NODE_ENV === "production" ? "production" : "development"),
     }),
     spanProcessors: [
-      knowledgeSpanProcessor,
       ...(otlp
         ? [new BatchSpanProcessor(exporter, { exportTimeoutMillis: 17_000 })]
         : []),

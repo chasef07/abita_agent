@@ -1,7 +1,3 @@
-import {
-  setupKnowledgeLogging,
-  setupKnowledgeReportRedaction,
-} from "./runtime/knowledge-observability.js";
 // main.ts — LiveKit agent entry point
 // Bootstraps the voice pipeline and connects to LiveKit Cloud.
 
@@ -76,8 +72,6 @@ validateRuntimeConfig();
 export default defineAgent({
   entry: async (ctx: JobContext) => {
     try {
-      setupKnowledgeLogging();
-      setupKnowledgeReportRedaction(ctx);
       setupGoogleCloudTracing(ctx);
       if (ctx.simulationContext()) return await startSimulation(ctx);
       const stt = new assemblyai.STT({
