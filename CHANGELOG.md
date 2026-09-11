@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.2.3](https://github.com/chasef07/abita_agent/compare/5.2.2...5.2.3) (2026-09-11)
+
+
+### Bug Fixes
+
+* **knowledge:** return only office answer text to the agent ([#472](https://github.com/chasef07/abita_agent/issues/472)) ([0ed598d](https://github.com/chasef07/abita_agent/commit/0ed598d425d6b62d8191e03616f7e0f75d380029))
+* **startup:** centralize call startup and report failures accurately ([#473](https://github.com/chasef07/abita_agent/issues/473)) ([cc06005](https://github.com/chasef07/abita_agent/commit/cc06005f730a3358ea1ea94f44c363e3849090cb))
+
 ## [5.2.2](https://github.com/chasef07/abita_agent/compare/5.2.1...5.2.2) (2026-09-10)
 
 
