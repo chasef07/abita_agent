@@ -10,7 +10,7 @@ import { createVoiceAgent } from "../agent.js";
 import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
 import { SPRING_HILL_OFFICE_PHONE } from "../customers/abita/profile.js";
 import { clinicTimestampMessage } from "../scheduling/clock.js";
-import { clearAvailabilitySelection } from "../scheduling/state.js";
+import { clearAvailabilitySelection } from "../scheduling/availability.js";
 import {
   createConfirmedPatientState,
   createTestCallState,

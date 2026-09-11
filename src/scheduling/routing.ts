@@ -5,7 +5,8 @@ import {
 } from "../customers/abita/profile.js";
 import { activateOffice, activeOfficeKey } from "../state/call-lifecycle.js";
 import { type CallState, type CallerAppointment } from "../state/call-state.js";
-import { activeRoutingContext, clearAvailabilitySelection } from "./state.js";
+import { activeRoutingContext } from "./state.js";
+import { clearAvailabilitySelection } from "./availability.js";
 
 export function selectAvailabilityOffice(
   state: CallState,

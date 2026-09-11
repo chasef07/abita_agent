@@ -11,7 +11,7 @@ import {
   CALLER_CANDIDATE_REF,
   type PreCallPatientCandidate,
 } from "../state/call-state.js";
-import { storeAvailabilityBookingToken } from "../scheduling/state.js";
+import { storeAvailabilityBookingToken } from "../scheduling/availability.js";
 import { domainOutcomeReceipts } from "../state/observability.js";
 import {
   check_insurance,

@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  setWorkflowVisitType,
-  removeAvailabilitySlot,
-} from "../scheduling/state.js";
+import { setWorkflowVisitType } from "../scheduling/state.js";
+import { removeAvailabilitySlot } from "../scheduling/availability.js";
 import { createTestCallState } from "./support/call-state.js";
 
 function createState() {

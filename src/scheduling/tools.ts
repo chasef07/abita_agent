@@ -1,3 +1,4 @@
+import { loadAvailability } from "./availability.js";
 import { currentAppointmentReferences } from "./appointments.js";
 import { activePatientId, type CallState } from "../state/call-state.js";
 import { tool } from "@livekit/agents";
@@ -124,13 +125,15 @@ export function createSchedulingTools(
       ctx.disallowInterruptions();
       const office = "office" in args ? args.office : undefined;
       return returnSchedulingInputRequired(() =>
-        workflow.getAvailability(
+        loadAvailability(
           getState(ctx),
           {
             startDate: args.startDate ?? undefined,
             ...(office ? { office } : {}),
             visitType: args.visitType,
           },
+          middleware,
+          clock,
           abortSignal,
         ),
       );

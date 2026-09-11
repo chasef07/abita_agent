@@ -10,7 +10,7 @@ import { createConfirmedPatientState } from "./support/call-state.js";
 import { createToolContext } from "./support/tool-context.js";
 import { InMemorySchedulingMiddleware } from "./support/scheduling-middleware.js";
 import { deferredResult } from "./support/deferred-result.js";
-import { clearAvailabilitySelection } from "../scheduling/state.js";
+import { clearAvailabilitySelection } from "../scheduling/availability.js";
 
 function inventory(count = 4, startDate = "2026-09-06"): AvailabilityResult {
   const date = addCalendarDays(startDate, 4);
