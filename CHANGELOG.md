@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.2.2](https://github.com/chasef07/abita_agent/compare/5.2.1...5.2.2) (2026-09-10)
+
+
+### Bug Fixes
+
+* **knowledge:** retain search results in conversation context ([#469](https://github.com/chasef07/abita_agent/issues/469)) ([0e165eb](https://github.com/chasef07/abita_agent/commit/0e165eb6611787e9e172ac7aea6b0ef279ed96b9))
+
 ## [5.2.1](https://github.com/chasef07/abita_agent/compare/5.2.0...5.2.1) (2026-09-10)
 
 
