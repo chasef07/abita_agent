@@ -42,7 +42,9 @@ const parameters = z
       ),
   })
   .strict();
-const unavailable = { outcome: "temporary_failure" as const, passages: [] };
+const unavailable = "Office knowledge is temporarily unavailable.";
+const noInformation =
+  "No relevant office information was found for this question.";
 
 export function createSearchOfficeKnowledgeTool() {
   return tool({
@@ -75,7 +77,7 @@ export function createSearchOfficeKnowledgeTool() {
           includesIdentifier ||
           !parameters.safeParse({ query }).success
         )
-          return JSON.stringify(unavailable);
+          return unavailable;
         const endpoint = new URL(url);
         if (
           endpoint.protocol !== "https:" &&
@@ -84,7 +86,7 @@ export function createSearchOfficeKnowledgeTool() {
             ["localhost", "127.0.0.1", "[::1]"].includes(endpoint.hostname)
           )
         )
-          return JSON.stringify(unavailable);
+          return unavailable;
         signal.throwIfAborted();
         const response = await fetch(endpoint.href, {
           method: "POST",
@@ -102,9 +104,21 @@ export function createSearchOfficeKnowledgeTool() {
         signal.throwIfAborted();
         if (activeOfficeKey(state) !== officeKey)
           throw new Error("Office changed");
-        return JSON.stringify({ ...parsed, officeKey });
+        if (parsed.outcome === "temporary_failure") return unavailable;
+        if (parsed.outcome === "no_relevant_information") return noInformation;
+        const answer = parsed.passages
+          .map((passage) =>
+            passage.text
+              .replace(
+                /^Status:\s*(?:available|not-supplied|not-offered)\s*(?:\r?\n|$)/i,
+                "",
+              )
+              .trim(),
+          )
+          .join("\n");
+        return answer.trim() ? answer : unavailable;
       } catch {
-        return JSON.stringify({ ...unavailable, officeKey });
+        return unavailable;
       }
     },
   });
