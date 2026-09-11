@@ -485,8 +485,6 @@ describe("patient identity", () => {
         insPlanId: null,
         respPartyId: null,
         routing: null,
-        allowedProviders: [],
-        routingAmbiguous: false,
         preauthRequired: false,
       }),
     ).toMatchObject({ outcome: "activated" });
@@ -520,8 +518,6 @@ describe("patient identity", () => {
       insPlanId: null,
       respPartyId: null,
       routing: null,
-      allowedProviders: [],
-      routingAmbiguous: false,
       preauthRequired: false,
     };
     expect(commitPatientCreation(otherCall, creation!, receipt)).toMatchObject({
@@ -571,8 +567,6 @@ describe("patient identity", () => {
         insPlanId: null,
         respPartyId: null,
         routing: null,
-        allowedProviders: [],
-        routingAmbiguous: false,
         preauthRequired: false,
       }),
     ).toMatchObject({ outcome: "activated" });
@@ -610,8 +604,6 @@ function verifiedResult(patientId: string, name: string, dob: string) {
     insPlanId: null,
     respPartyId: null,
     routing: null,
-    allowedProviders: [],
-    routingAmbiguous: false,
     preauthRequired: false,
     appointmentsStatus: "none" as const,
     appointmentsMessage: null,

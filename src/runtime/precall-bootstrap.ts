@@ -67,8 +67,6 @@ export async function lookupByPhone(
       insPlanId: result.insPlanId,
       respPartyId: result.respPartyId,
       routing: result.routing,
-      allowedProviders: result.allowedProviders,
-      routingAmbiguous: result.routingAmbiguous,
       preauthRequired: result.preauthRequired,
       appointmentsStatus: result.appointmentsStatus,
       appointmentsMessage: result.appointmentsMessage,
@@ -139,8 +137,6 @@ function patientResolveMatchToCallerMatch(
     insPlanId: match.insPlanId,
     respPartyId: match.respPartyId,
     routing: match.routing,
-    allowedProviders: match.allowedProviders,
-    routingAmbiguous: match.routingAmbiguous,
     preauthRequired: match.preauthRequired,
     appointmentsStatus: match.appointmentsStatus,
     appointmentsMessage: match.appointmentsMessage,
@@ -174,8 +170,6 @@ export function buildPreCallCandidates(
         insPlanId: lookup.insPlanId,
         respPartyId: lookup.respPartyId,
         routing: lookup.routing,
-        allowedProviders: lookup.allowedProviders,
-        routingAmbiguous: lookup.routingAmbiguous,
         preauthRequired: lookup.preauthRequired,
       },
     ];
@@ -212,8 +206,6 @@ function preCallCandidateFromMatch(
       insPlanId: match.insPlanId,
       respPartyId: match.respPartyId,
       routing: match.routing,
-      allowedProviders: match.allowedProviders,
-      routingAmbiguous: match.routingAmbiguous,
       preauthRequired: match.preauthRequired,
     };
   }

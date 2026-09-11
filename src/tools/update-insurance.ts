@@ -131,8 +131,6 @@ export function createUpdateInsuranceTool(middleware: OwnedMiddleware) {
       setLastInsuranceEligibilityCheck(state, null);
       setRoutingContext(state, {
         routing: result.routing,
-        allowedProviders: result.allowedProviders,
-        routingAmbiguous: result.routingAmbiguous,
         preauthRequired: result.preauthRequired,
       });
       clearAvailabilitySelection(state);

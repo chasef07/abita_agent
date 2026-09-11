@@ -34,8 +34,6 @@ const verifiedPatient: PatientResolveVerified = {
   insPlanId: "plan-1",
   respPartyId: "resp-1",
   routing: "all_three",
-  allowedProviders: ["Dr. Bach"],
-  routingAmbiguous: false,
   preauthRequired: false,
   appointmentsStatus: "none",
   appointmentsMessage: null,
@@ -161,8 +159,6 @@ const updatedInsurance: UpdateInsuranceResult = {
   status: "updated",
   newInsurance: "Aetna",
   routing: "all_three",
-  allowedProviders: ["Dr. Bach"],
-  routingAmbiguous: false,
   preauthRequired: false,
 };
 
@@ -177,6 +173,7 @@ describe.each([
             newInsurance: "Aetna",
             routing: "all_three",
             allowedProviders: ["Dr. Bach"],
+            routingAmbiguous: false,
           }),
         ),
         middlewareBaseUrl: "https://middleware.test",
@@ -312,8 +309,6 @@ const createdPatient: CreatePatientResult = {
   insPlanId: null,
   respPartyId: null,
   routing: "all_three",
-  allowedProviders: [],
-  routingAmbiguous: false,
   preauthRequired: false,
 };
 

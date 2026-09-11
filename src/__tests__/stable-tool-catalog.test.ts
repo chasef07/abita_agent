@@ -288,7 +288,6 @@ describe("stable tool catalog", () => {
           dob: "01/02/1980",
           insuranceCarrier: null,
           routing: null,
-          allowedProviders: [],
         }),
       ],
     });
@@ -779,8 +778,6 @@ function createdPatient() {
     insPlanId: null,
     respPartyId: null,
     routing: "all_three",
-    allowedProviders: ["Dr. Bach"],
-    routingAmbiguous: false,
     preauthRequired: false,
   };
 }
@@ -802,8 +799,6 @@ function verifiedPatientBase() {
     insPlanId: null,
     respPartyId: null,
     routing: "all_three",
-    allowedProviders: ["Dr. Bach"],
-    routingAmbiguous: false,
     preauthRequired: false,
     appointmentsStatus: "none" as const,
     appointmentsMessage: null,

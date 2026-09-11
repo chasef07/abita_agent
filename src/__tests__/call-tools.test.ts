@@ -144,8 +144,6 @@ function preCallCandidate(
     appointmentsStatus: "none",
     insuranceCarrier: "Florida Blue Shield",
     routing: "bach_only",
-    allowedProviders: ["Dr. Bach"],
-    routingAmbiguous: false,
     preauthRequired: false,
     ...overrides,
   };
@@ -209,8 +207,6 @@ function verifiedPatientResult(
     insPlanId: null,
     respPartyId: null,
     routing: "all_three",
-    allowedProviders: [],
-    routingAmbiguous: false,
     preauthRequired: false,
     appointmentsStatus: "none",
     appointmentsMessage: null,
@@ -241,8 +237,6 @@ function updatedInsuranceResult(
     status: "updated",
     newInsurance: "Aetna",
     routing: "all_three",
-    allowedProviders: [],
-    routingAmbiguous: false,
     preauthRequired: false,
     ...overrides,
   };
@@ -261,8 +255,6 @@ function createdPatientResult(
     insPlanId: null,
     respPartyId: null,
     routing: "all_three",
-    allowedProviders: [],
-    routingAmbiguous: false,
     preauthRequired: false,
     ...overrides,
   };
@@ -754,8 +746,6 @@ describe("stateful call tools", () => {
       insPlanId: null,
       respPartyId: null,
       routing: null,
-      allowedProviders: [],
-      routingAmbiguous: false,
       preauthRequired: false,
     });
     const params = {
@@ -1564,7 +1554,6 @@ describe("stateful call tools", () => {
         dob: "02/02/1982",
         insuranceCarrier: "Aetna",
         routing: "bach_only",
-        allowedProviders: ["Dr. Bach"],
       }),
     );
 
@@ -1892,8 +1881,6 @@ describe("stateful call tools", () => {
       insPlanId: null,
       respPartyId: null,
       routing: "all_three",
-      allowedProviders: [],
-      routingAmbiguous: false,
       preauthRequired: false,
       appointmentsStatus: "none",
       appointmentsMessage: null,
@@ -1943,7 +1930,6 @@ describe("stateful call tools", () => {
         patientId: "patient-brandon",
         insuranceCarrier: undefined,
         routing: undefined,
-        allowedProviders: undefined,
       }),
       preCallCandidate({
         ref: "precall:2",
@@ -1953,7 +1939,6 @@ describe("stateful call tools", () => {
         patientId: "patient-monique",
         insuranceCarrier: "HUMANA",
         routing: undefined,
-        allowedProviders: undefined,
       }),
     ]);
 
@@ -1995,7 +1980,6 @@ describe("stateful call tools", () => {
         patientId: "patient-brandon",
         insuranceCarrier: undefined,
         routing: undefined,
-        allowedProviders: undefined,
       }),
     ]);
     storeAvailabilityBookingToken(state, "S1", "token-a");
@@ -2996,7 +2980,6 @@ describe("stateful call tools", () => {
       updatedInsuranceResult({
         newInsurance: "United Healthcare",
         routing: "bach_only",
-        allowedProviders: ["Dr. Bach"],
         preauthRequired: true,
       }),
     );
@@ -3035,7 +3018,6 @@ describe("stateful call tools", () => {
       respPartyId: "resp-1",
     });
     expect(state.workflow.routing.routing).toBe("bach_only");
-    expect(state.workflow.routing.allowedProviders).toEqual(["Dr. Bach"]);
     expect(state.workflow.routing.preauthRequired).toBe(true);
     expect(state.availability.slots).toEqual([]);
     expect(domainOutcomeReceipts(state)).toMatchObject([
@@ -3123,7 +3105,6 @@ describe("stateful call tools", () => {
       respPartyId: "resp-1",
     });
     expect(state.workflow.routing.routing).toBe("optical_only");
-    expect(state.workflow.routing.allowedProviders).toEqual([]);
     expect(state.workflow.routing.preauthRequired).toBe(false);
     expect(state.availability.slots).toEqual([]);
   });

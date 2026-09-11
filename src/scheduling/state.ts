@@ -22,8 +22,6 @@ export function createSchedulingState(input: {
   checkedInsurancePlan: string | null;
   checkedInsuranceCoverageType: InsuranceCoverageType | null;
   routing: string | null;
-  allowedProviders: string[];
-  routingAmbiguous: boolean;
   preauthRequired: boolean;
 }): Pick<CallState, "insurance" | "workflow" | "availability"> {
   const routing = normalizeSchedulingRouting(input.routing);
@@ -48,8 +46,6 @@ export function createSchedulingState(input: {
       visitType: null,
       routing: {
         routing,
-        allowedProviders: input.allowedProviders,
-        routingAmbiguous: input.routingAmbiguous,
         preauthRequired: input.preauthRequired,
       },
     },
@@ -98,14 +94,10 @@ export function setWorkflowVisitType(
 
 export function activeRoutingContext(state: CallState): {
   routing: SchedulingRouting | null;
-  allowedProviders: string[];
-  routingAmbiguous: boolean;
   preauthRequired: boolean;
 } {
   return {
     routing: state.workflow.routing.routing ?? null,
-    allowedProviders: state.workflow.routing.allowedProviders,
-    routingAmbiguous: state.workflow.routing.routingAmbiguous,
     preauthRequired: state.workflow.routing.preauthRequired,
   };
 }
@@ -265,15 +257,11 @@ export function setRoutingContext(
   state: CallState,
   routing: {
     routing?: string | null;
-    allowedProviders?: string[];
-    routingAmbiguous?: boolean;
     preauthRequired?: boolean;
   },
 ): void {
   const nextRouting = {
     routing: normalizeSchedulingRouting(routing.routing),
-    allowedProviders: routing.allowedProviders ?? [],
-    routingAmbiguous: routing.routingAmbiguous ?? false,
     preauthRequired: routing.preauthRequired ?? false,
   };
   const currentRouting = state.workflow.routing;
