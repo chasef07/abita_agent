@@ -24,7 +24,7 @@ import {
 import {
   clearAvailabilitySelection,
   storeAvailabilityBookingToken,
-} from "../scheduling/state.js";
+} from "../scheduling/availability.js";
 import { type PatientActivation } from "../identity/patient-identity.js";
 import type {
   CallerAppointment,

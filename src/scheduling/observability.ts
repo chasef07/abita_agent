@@ -8,7 +8,7 @@ import {
   type CallerAppointment,
   type StoredAvailabilitySlot,
 } from "../state/call-state.js";
-import { latestAvailabilityRouting } from "./state.js";
+import { latestAvailabilityRouting } from "./availability.js";
 import type { BookAppointmentResult } from "../clients/owned-middleware.js";
 
 export function bookedSlotAppointmentAnalytics(

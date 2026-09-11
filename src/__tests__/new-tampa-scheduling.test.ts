@@ -17,7 +17,7 @@ import { createToolContext } from "./support/tool-context.js";
 import { InMemorySchedulingMiddleware } from "./support/scheduling-middleware.js";
 import { activeAppointments } from "../state/appointments.js";
 import { appointmentActions } from "../state/observability.js";
-import { storeAvailabilityBookingToken } from "../scheduling/state.js";
+import { storeAvailabilityBookingToken } from "../scheduling/availability.js";
 import type {
   CallerAppointment,
   StoredAvailabilitySlot,

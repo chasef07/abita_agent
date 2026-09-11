@@ -6,12 +6,14 @@ import { spokenSlot } from "../../scheduling/booking.js";
 import { createSchedulingTools } from "../../scheduling/tools.js";
 import type { SchedulingMiddleware } from "../../scheduling/middleware.js";
 import type { SchedulingClock } from "../../scheduling/clock.js";
-import { selectedAvailabilitySlot } from "../../scheduling/availability.js";
+import {
+  selectedAvailabilitySlot,
+  clearAvailabilitySelection,
+} from "../../scheduling/availability.js";
 import { check_insurance } from "../../tools/check-insurance.js";
 import { isToolset, tool, type ToolContextEntry } from "@livekit/agents";
 import { z } from "zod";
 import { activePatientId, type CallState } from "../../state/call-state.js";
-import { clearAvailabilitySelection } from "../../scheduling/state.js";
 import { getState } from "../../tools/session.js";
 import {
   NEW_TAMPA_DEMO_TRUNK_PHONE,

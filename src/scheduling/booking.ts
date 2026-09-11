@@ -13,8 +13,6 @@ import {
   availabilityBookingToken,
   clearAvailabilitySelection,
   latestAvailabilityRouting,
-} from "./state.js";
-import {
   publicProviderName,
   selectedAvailabilitySlot,
 } from "./availability.js";
