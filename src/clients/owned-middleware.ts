@@ -101,8 +101,6 @@ type PatientCreationEvidence = {
   insPlanId: string | null;
   respPartyId: string | null;
   routing: string | null;
-  allowedProviders: string[];
-  routingAmbiguous: boolean;
   preauthRequired: boolean;
 };
 
@@ -200,8 +198,6 @@ export type UpdateInsuranceResult =
       status: "updated";
       newInsurance: string | null;
       routing: string | null;
-      allowedProviders: string[];
-      routingAmbiguous: boolean;
       preauthRequired: boolean;
     }
   | MiddlewareFailure;
@@ -693,12 +689,6 @@ function normalizeCreatedPatient(
     insPlanId: stringValue(raw.insPlanId),
     respPartyId: stringValue(raw.respPartyId),
     routing: stringValue(raw.routing),
-    allowedProviders: Array.isArray(raw.allowedProviders)
-      ? raw.allowedProviders.filter(
-          (provider): provider is string => typeof provider === "string",
-        )
-      : [],
-    routingAmbiguous: raw.routingAmbiguous === true,
     preauthRequired: raw.preauthRequired === true,
   };
 }
@@ -793,12 +783,6 @@ function normalizeUpdatedInsurance(raw: unknown): UpdateInsuranceResult {
       status: "updated",
       newInsurance: stringValue(raw.newInsurance),
       routing: stringValue(raw.routing),
-      allowedProviders: Array.isArray(raw.allowedProviders)
-        ? raw.allowedProviders.filter(
-            (provider): provider is string => typeof provider === "string",
-          )
-        : [],
-      routingAmbiguous: raw.routingAmbiguous === true,
       preauthRequired: raw.preauthRequired === true,
     };
   }

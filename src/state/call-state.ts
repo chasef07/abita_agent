@@ -38,8 +38,6 @@ export interface CallerMatch {
   insPlanId: string | null;
   respPartyId: string | null;
   routing: string | null;
-  allowedProviders: string[];
-  routingAmbiguous: boolean;
   preauthRequired: boolean;
   appointmentsStatus?: AppointmentLoadStatus | null;
   appointmentsMessage?: string | null;
@@ -105,8 +103,6 @@ export interface PreCallVerifiedPatientCandidate extends PreCallCandidateReferen
   insPlanId?: string | null;
   respPartyId?: string | null;
   routing?: string | null;
-  allowedProviders?: string[];
-  routingAmbiguous?: boolean;
   preauthRequired?: boolean;
 }
 
@@ -337,8 +333,6 @@ interface IdentitySessionState {
 
 interface RoutingSessionState {
   routing?: SchedulingRouting | null;
-  allowedProviders: string[];
-  routingAmbiguous: boolean;
   preauthRequired: boolean;
 }
 
@@ -412,8 +406,6 @@ export interface InitialCallStateInput {
   checkedInsurancePlan: string | null;
   checkedInsuranceCoverageType: InsuranceCoverageType | null;
   routing: string | null;
-  allowedProviders: string[];
-  routingAmbiguous: boolean;
   preauthRequired: boolean;
   voiceLanguage?: RuntimeVoiceLanguageState | null;
 }

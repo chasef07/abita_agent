@@ -78,8 +78,6 @@ export async function startSimulation(ctx: JobContext): Promise<void> {
     checkedInsurancePlan: null,
     checkedInsuranceCoverageType: null,
     routing: null,
-    allowedProviders: [],
-    routingAmbiguous: false,
     preauthRequired: false,
   });
   const { primary, fallback } = createLlmPair();

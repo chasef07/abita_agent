@@ -76,8 +76,6 @@ export type PatientIdentityResolution = {
 export type PatientActivation = ActivePatient & {
   insuranceCarrier: string | null;
   routing: string | null;
-  allowedProviders: string[];
-  routingAmbiguous: boolean;
   preauthRequired: boolean;
 };
 
@@ -535,8 +533,6 @@ function activatePatientFromReceipt(
       },
       insuranceCarrier: receipt.insuranceCarrier ?? null,
       routing: receipt.routing ?? null,
-      allowedProviders: receipt.allowedProviders ?? [],
-      routingAmbiguous: receipt.routingAmbiguous ?? false,
       preauthRequired: receipt.preauthRequired ?? false,
     },
     "operation",
@@ -648,13 +644,6 @@ export function incompletePatientRegistrationMessage(
     !state.insurance.onFile
     ? "The patient chart exists, but insurance is not attached. Connect the caller to office staff to finish registration before scheduling."
     : null;
-}
-
-export function activatePatient(
-  state: CallState,
-  patient: PatientActivation,
-): boolean {
-  return promotePatient(state, patient, "synchronous");
 }
 
 function promotePatient(
@@ -918,8 +907,6 @@ function activationFromCandidate(
     },
     insuranceCarrier: candidate.insuranceCarrier ?? null,
     routing: candidate.routing ?? null,
-    allowedProviders: candidate.allowedProviders ?? [],
-    routingAmbiguous: candidate.routingAmbiguous ?? false,
     preauthRequired: candidate.preauthRequired ?? false,
   };
 }
@@ -945,8 +932,6 @@ function activationFromResolvedPatient(
     },
     insuranceCarrier: patient.insuranceCarrier,
     routing: patient.routing,
-    allowedProviders: patient.allowedProviders,
-    routingAmbiguous: patient.routingAmbiguous,
     preauthRequired: patient.preauthRequired,
   };
 }

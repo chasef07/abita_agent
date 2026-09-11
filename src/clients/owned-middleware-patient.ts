@@ -19,8 +19,6 @@ export interface PatientResolveVerified {
   insPlanId: string | null;
   respPartyId: string | null;
   routing: string | null;
-  allowedProviders: string[];
-  routingAmbiguous: boolean;
   preauthRequired: boolean;
   appointmentsStatus: AppointmentLoadStatus | null;
   appointmentsMessage: string | null;
@@ -149,12 +147,6 @@ export function normalizePatientResolveResponse(
       insPlanId: stringValue(raw.insPlanId),
       respPartyId: stringValue(raw.respPartyId),
       routing: stringValue(raw.routing),
-      allowedProviders: Array.isArray(raw.allowedProviders)
-        ? raw.allowedProviders.filter(
-            (provider): provider is string => typeof provider === "string",
-          )
-        : [],
-      routingAmbiguous: raw.routingAmbiguous === true,
       preauthRequired: raw.preauthRequired === true,
       appointmentsStatus:
         normalizeAppointmentsStatus(raw.appointmentsStatus) ??

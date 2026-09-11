@@ -38,8 +38,6 @@ const receipt = (
   insPlanId: null,
   respPartyId: null,
   routing: null,
-  allowedProviders: [],
-  routingAmbiguous: false,
   preauthRequired: false,
   appointmentsStatus: "none" as const,
   appointmentsMessage: null,

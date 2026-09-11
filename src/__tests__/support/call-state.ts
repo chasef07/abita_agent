@@ -16,8 +16,6 @@ const DEFAULT_CALL_STATE_INPUT: InitialCallStateInput = {
   checkedInsurancePlan: null,
   checkedInsuranceCoverageType: null,
   routing: null,
-  allowedProviders: [],
-  routingAmbiguous: false,
   preauthRequired: false,
   voiceLanguage: null,
 };

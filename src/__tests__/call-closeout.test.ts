@@ -1,3 +1,4 @@
+import { InMemoryCallPortal } from "./support/call-portal.js";
 import {
   ChatContext,
   createSessionReport,
@@ -7,7 +8,6 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   HttpCallPortal,
-  InMemoryCallPortal,
   attachCallCloseout,
   attachStartupCallCloseout,
   createLiveKitCallCloseoutEventAdapter,

@@ -33,8 +33,6 @@ const phoneLookup = {
   insPlanId: "private-plan-id",
   respPartyId: "private-party-id",
   routing: "all_three",
-  allowedProviders: ["private-provider-reference"],
-  routingAmbiguous: false,
   preauthRequired: false,
   appointmentsStatus: "found",
   appointmentsMessage: null,
@@ -108,7 +106,6 @@ describe("initial call state", () => {
     expect(session.userData.identity.privateCandidates).toMatchObject([
       {
         patientId: "private-patient-id",
-        allowedProviders: ["private-provider-reference"],
         appointments: [
           expect.objectContaining({
             cancellationToken: "private-cancellation-token",

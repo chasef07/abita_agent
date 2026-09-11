@@ -35,8 +35,6 @@ function verifiedPatient(
     insPlanId: "plan-1",
     respPartyId: "resp-1",
     routing: "all_three",
-    allowedProviders: [],
-    routingAmbiguous: false,
     preauthRequired: false,
     appointmentsStatus: "none",
     appointmentsMessage: null,
@@ -280,8 +278,6 @@ describe("pre-call bootstrap", () => {
       insPlanId: "plan-1",
       respPartyId: "resp-1",
       routing: "all_three",
-      allowedProviders: ["Dr. Bach"],
-      routingAmbiguous: false,
       appointmentsStatus: "found",
       appointmentsMessage: null,
       appointments: [
@@ -308,7 +304,6 @@ describe("pre-call bootstrap", () => {
         insPlanId: "plan-1",
         respPartyId: "resp-1",
         routing: "all_three",
-        allowedProviders: ["Dr. Bach"],
       },
     ]);
 
@@ -386,7 +381,6 @@ describe("pre-call bootstrap", () => {
       message: "Found 2 patients for this phone number.",
       matches: [
         verifiedPatient({
-          allowedProviders: ["Dr. Bach"],
           appointmentsStatus: "found",
           appointments: [
             {
@@ -406,7 +400,6 @@ describe("pre-call bootstrap", () => {
           dob: "02/02/1985",
           insuranceCarrier: "Humana",
           routing: "bach_only",
-          allowedProviders: ["Dr. Bach"],
           preauthRequired: true,
         }),
       ],
@@ -444,7 +437,6 @@ describe("pre-call bootstrap", () => {
         appointmentsStatus: "found",
         insuranceCarrier: "Aetna",
         routing: "all_three",
-        allowedProviders: ["Dr. Bach"],
         preauthRequired: false,
       },
       {

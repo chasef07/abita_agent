@@ -17,12 +17,15 @@ import {
   appointmentActions,
   domainOutcomeReceipts,
 } from "../state/observability.js";
-import { activeAppointments } from "../state/appointments.js";
-import { storeAvailabilityBookingToken } from "../scheduling/state.js";
 import {
-  activatePatient,
-  type PatientActivation,
-} from "../identity/patient-identity.js";
+  activeAppointments,
+  normalizeCallerAppointments,
+} from "../state/appointments.js";
+import {
+  clearAvailabilitySelection,
+  storeAvailabilityBookingToken,
+} from "../scheduling/state.js";
+import { type PatientActivation } from "../identity/patient-identity.js";
 import type {
   CallerAppointment,
   StoredAvailabilitySlot,
@@ -44,11 +47,29 @@ function activateExistingPatient(
   },
 ) {
   const { insPlanId, respPartyId, ...activePatient } = patient;
-  activatePatient(state, {
-    ...activePatient,
-    kind: "existing",
-    backend: { insPlanId, respPartyId },
+  const next = createConfirmedPatientState({
+    insuranceCarrier: patient.insuranceCarrier,
+    checkedInsurancePlan: patient.insuranceCarrier,
+    routing: patient.routing,
+    preauthRequired: patient.preauthRequired,
+    activePatient: {
+      ...activePatient,
+      kind: "existing",
+      appointments: normalizeCallerAppointments(
+        patient.appointments,
+        patient.patientId,
+      ),
+      backend: { insPlanId, respPartyId },
+    },
   });
+  if (state.identity.activePatient?.patientId !== patient.patientId) {
+    clearAvailabilitySelection(state, { invalidateReads: true });
+    state.workflow = next.workflow;
+  }
+  state.identity.activePatient = next.identity.activePatient;
+  state.identity.operationVersion += 1;
+  state.identity.transitionVersion += 1;
+  state.insurance = next.insurance;
 }
 
 function createHollywoodSweetwaterState(office: "hollywood" | "sweetwater") {
@@ -184,8 +205,6 @@ function switchActivePatient(
     insPlanId: null,
     respPartyId: null,
     routing: "all_three",
-    allowedProviders: [],
-    routingAmbiguous: false,
     preauthRequired: false,
   });
 }
@@ -205,8 +224,6 @@ function restoreFirstPatient(
     insPlanId: null,
     respPartyId: null,
     routing: "all_three",
-    allowedProviders: [],
-    routingAmbiguous: false,
     preauthRequired: false,
   });
 }
@@ -1639,8 +1656,6 @@ describe("scheduling tools", () => {
       insPlanId: null,
       respPartyId: null,
       routing: "all_three",
-      allowedProviders: [],
-      routingAmbiguous: false,
       preauthRequired: false,
     });
     resolveAvailability(availabilityFound([returnedSlot()]));
@@ -2269,8 +2284,6 @@ describe("scheduling tools", () => {
       insPlanId: null,
       respPartyId: null,
       routing: "all_three",
-      allowedProviders: [],
-      routingAmbiguous: false,
       preauthRequired: false,
     });
     prepareBooking(state);
@@ -2879,8 +2892,6 @@ describe("scheduling tools", () => {
       insPlanId: null,
       respPartyId: null,
       routing: "all_three",
-      allowedProviders: [],
-      routingAmbiguous: false,
       preauthRequired: false,
     });
     const secondAppointmentRef = loadedAppointmentRef(state);

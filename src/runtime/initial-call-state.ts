@@ -30,8 +30,6 @@ export function createInitialCallState(call: InitialCallInput): CallState {
     checkedInsurancePlan: null,
     checkedInsuranceCoverageType: null,
     routing: null,
-    allowedProviders: [],
-    routingAmbiguous: false,
     preauthRequired: false,
     voiceLanguage: call.voiceLanguage,
   });
