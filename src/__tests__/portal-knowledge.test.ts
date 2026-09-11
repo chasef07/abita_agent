@@ -55,13 +55,11 @@ describe("Portal office knowledge tool", () => {
       vi.stubEnv("ACUITY_DEMO_PRODUCT_SERVICE_SECRET", "demo-secret");
       const fetch = vi.fn().mockResolvedValue(Response.json(result));
       vi.stubGlobal("fetch", fetch);
-      const answer = JSON.parse(
-        await createSearchOfficeKnowledgeTool().execute(
-          { query: "What are your hours?" },
-          options(createTestCallState({ officeKey })),
-        ),
+      const answer = await createSearchOfficeKnowledgeTool().execute(
+        { query: "What are your hours?" },
+        options(createTestCallState({ officeKey })),
       );
-      expect(answer.outcome).toBe("found");
+      expect(answer).toBe(result.passages[0]!.text);
       expect(fetch.mock.calls[0]![1].headers).toMatchObject({
         Authorization: `Bearer ${secret}`,
         "X-Office-Key": officeKey,
@@ -86,6 +84,7 @@ describe("Portal office knowledge tool", () => {
         passages: result.passages.map((passage) => ({
           ...passage,
           revisionId,
+          text: `Hours for ${request.headers["X-Office-Key"]}.`,
         })),
       });
     });
@@ -95,15 +94,17 @@ describe("Portal office knowledge tool", () => {
       amdOfficePhone: first.amdOfficePhone,
     });
     const tool = createSearchOfficeKnowledgeTool();
-    const firstResult = JSON.parse(
-      await tool.execute({ query: "What are your hours?" }, options(state)),
+    const firstResult = await tool.execute(
+      { query: "What are your hours?" },
+      options(state),
     );
     activateOffice(state, next);
-    const nextResult = JSON.parse(
-      await tool.execute({ query: "What are your hours?" }, options(state)),
+    const nextResult = await tool.execute(
+      { query: "What are your hours?" },
+      options(state),
     );
-    expect(firstResult.revisionId).toBe("revision-new-tampa-demo");
-    expect(nextResult.revisionId).toBe("revision-ophthalmology-demo");
+    expect(firstResult).toBe("Hours for new-tampa-demo.");
+    expect(nextResult).toBe("Hours for ophthalmology-demo.");
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
@@ -132,14 +133,11 @@ describe("Portal office knowledge tool", () => {
     vi.stubEnv("ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET", "test-service-secret");
     const fetch = vi.fn().mockResolvedValue(Response.json(result));
     vi.stubGlobal("fetch", fetch);
-    const answer = JSON.parse(
-      await createSearchOfficeKnowledgeTool().execute(
-        { query: "When does everyone head home for the day?" },
-        options(),
-      ),
+    const answer = await createSearchOfficeKnowledgeTool().execute(
+      { query: "When does everyone head home for the day?" },
+      options(),
     );
-    expect(answer.outcome).toBe("found");
-    expect(answer.passages).toEqual(result.passages);
+    expect(answer).toBe(result.passages[0]!.text);
     const [url, request] = fetch.mock.calls[0]!;
     expect(url).toBe("https://product.example/v1/agent/knowledge/search");
     expect(request.headers).toMatchObject({
@@ -149,8 +147,53 @@ describe("Portal office knowledge tool", () => {
     expect(JSON.parse(request.body)).toEqual({
       query: "When does everyone head home for the day?",
     });
-    expect(answer).toEqual({ ...result, officeKey: "spring-hill" });
+    expect(answer).not.toMatch(
+      /revisionId|sectionId|officeKey|outcome|passages/,
+    );
   });
+  it.each(["available", "not-supplied", "not-offered"])(
+    "returns only answer text while removing a legacy leading %s marker",
+    async (status) => {
+      const text =
+        "This service is not offered. Status: available is part of an explanation.";
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(
+          Response.json({
+            ...result,
+            passages: [
+              { ...result.passages[0]!, text: `Status: ${status}\n${text}` },
+            ],
+          }),
+        ),
+      );
+      expect(
+        await createSearchOfficeKnowledgeTool().execute(
+          { query: "Is this service offered?" },
+          options(),
+        ),
+      ).toBe(text);
+    },
+  );
+
+  it("does not report an empty answer after removing a legacy marker", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json({
+          ...result,
+          passages: [{ ...result.passages[0]!, text: "Status: available" }],
+        }),
+      ),
+    );
+    expect(
+      await createSearchOfficeKnowledgeTool().execute(
+        { query: "What are your hours?" },
+        options(),
+      ),
+    ).toBe("Office knowledge is temporarily unavailable.");
+  });
+
   it.each(["network", "http", "invalid", "mixed-revision"])(
     "keeps failure visible without file fallback: %s",
     async (failure) => {
@@ -167,14 +210,12 @@ describe("Portal office knowledge tool", () => {
         }),
       );
       const state = createTestCallState();
-      const answer = JSON.parse(
-        await createSearchOfficeKnowledgeTool().execute(
-          { query: "What are your hours?" },
-          options(state),
-        ),
+      const answer = await createSearchOfficeKnowledgeTool().execute(
+        { query: "What are your hours?" },
+        options(state),
       );
-      expect(answer.outcome).toBe("temporary_failure");
-      expect(answer.passages).toEqual([]);
+      expect(answer).toBe("Office knowledge is temporarily unavailable.");
+      expect(answer).not.toContain("revision-1");
       expect(JSON.stringify(answer)).not.toContain("4:30");
       expect(JSON.stringify(answer)).not.toContain("hours?");
     },
@@ -189,14 +230,15 @@ describe("Portal office knowledge tool", () => {
       "fetch",
       vi.fn().mockResolvedValue(Response.json({ ...result, passages })),
     );
-    const answer = JSON.parse(
-      await createSearchOfficeKnowledgeTool().execute(
-        { query: "What are your office policies?" },
-        options(),
-      ),
+    const answer = await createSearchOfficeKnowledgeTool().execute(
+      { query: "What are your office policies?" },
+      options(),
     );
-    expect(answer.outcome).toBe(count === 8 ? "found" : "temporary_failure");
-    expect(answer.passages).toEqual(count === 8 ? passages : []);
+    expect(answer).toBe(
+      count === 8
+        ? passages.map((p) => p.text).join("\n")
+        : "Office knowledge is temporarily unavailable.",
+    );
   });
 
   it("distinguishes no relevant information from temporary failure", async () => {
@@ -210,13 +252,13 @@ describe("Portal office knowledge tool", () => {
         }),
       ),
     );
-    const answer = JSON.parse(
-      await createSearchOfficeKnowledgeTool().execute(
-        { query: "Do you offer valet parking?" },
-        options(),
-      ),
+    const answer = await createSearchOfficeKnowledgeTool().execute(
+      { query: "Do you offer valet parking?" },
+      options(),
     );
-    expect(answer.outcome).toBe("no_relevant_information");
+    expect(answer).toBe(
+      "No relevant office information was found for this question.",
+    );
   });
 
   it("allows caller interruption while the read-only search is in flight", async () => {
@@ -228,17 +270,15 @@ describe("Portal office knowledge tool", () => {
       return Response.json(result);
     });
     vi.stubGlobal("fetch", fetch);
-    const answer = JSON.parse(
-      await createSearchOfficeKnowledgeTool().execute(
-        { query: "What are your hours?" },
-        {
-          ctx,
-          toolCallId: "knowledge-test",
-          abortSignal: controller.signal,
-        } as unknown as ToolOptions,
-      ),
+    const answer = await createSearchOfficeKnowledgeTool().execute(
+      { query: "What are your hours?" },
+      {
+        ctx,
+        toolCallId: "knowledge-test",
+        abortSignal: controller.signal,
+      } as unknown as ToolOptions,
     );
-    expect(answer.outcome).toBe("temporary_failure");
+    expect(answer).toBe("Office knowledge is temporarily unavailable.");
     expect(ctx.disallowInterruptions).not.toHaveBeenCalled();
   });
 
@@ -269,7 +309,9 @@ describe("Portal office knowledge tool", () => {
       );
       expect(timeout).toHaveBeenCalledWith(4000);
       deadline.abort();
-      expect(JSON.parse(await pending).outcome).toBe("temporary_failure");
+      expect(await pending).toBe(
+        "Office knowledge is temporarily unavailable.",
+      );
     } finally {
       timeout.mockRestore();
       vi.useRealTimers();
@@ -304,9 +346,9 @@ describe("Portal office knowledge tool", () => {
       }
       expect(fetch.mock.calls[0]![1].signal.aborted).toBe(true);
       finish(Response.json(result));
-      const answer = JSON.parse(await pending);
-      expect(answer.outcome).toBe("temporary_failure");
-      expect(answer.passages).toEqual([]);
+      const answer = await pending;
+      expect(answer).toBe("Office knowledge is temporarily unavailable.");
+      expect(answer).not.toContain("revision-1");
     },
   );
 
@@ -321,10 +363,8 @@ describe("Portal office knowledge tool", () => {
       const fetch = vi.fn();
       vi.stubGlobal("fetch", fetch);
       expect(
-        JSON.parse(
-          await createSearchOfficeKnowledgeTool().execute({ query }, options()),
-        ).outcome,
-      ).toBe("temporary_failure");
+        await createSearchOfficeKnowledgeTool().execute({ query }, options()),
+      ).toBe("Office knowledge is temporarily unavailable.");
       expect(fetch).not.toHaveBeenCalled();
     },
   );
@@ -335,13 +375,11 @@ describe("Portal office knowledge tool", () => {
     vi.stubGlobal("fetch", fetch);
     const state = createTestCallState({ officeKey: "crystal-river" });
     expect(
-      JSON.parse(
-        await createSearchOfficeKnowledgeTool().execute(
-          { query: "What are your hours?" },
-          options(state),
-        ),
-      ).outcome,
-    ).toBe("temporary_failure");
+      await createSearchOfficeKnowledgeTool().execute(
+        { query: "What are your hours?" },
+        options(state),
+      ),
+    ).toBe("Office knowledge is temporarily unavailable.");
     expect(fetch).not.toHaveBeenCalled();
   });
 });

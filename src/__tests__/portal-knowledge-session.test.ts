@@ -17,7 +17,7 @@ class CapturingModel extends voice.testing.FakeLLM {
     return super.chat(options);
   }
   override lookup(input: string) {
-    if (input.startsWith('"{\\"outcome\\":'))
+    if (input.includes("Monday–Friday 8:30 AM–4:30 PM."))
       return { input, content: "The office closes at 4:30 PM on weekdays." };
     return super.lookup(input);
   }
@@ -49,7 +49,7 @@ describe("Portal knowledge through AgentSession", () => {
               revisionId: "revision-1",
               sectionId: "hours",
               title: "Hours",
-              text: "Monday–Friday 8:30 AM–4:30 PM. Closed Saturday and Sunday.",
+              text: "Status: available\nMonday–Friday 8:30 AM–4:30 PM. Closed Saturday and Sunday.",
             },
           ],
         }),
@@ -86,7 +86,9 @@ describe("Portal knowledge through AgentSession", () => {
         ),
       );
       expect(consumed.length).toBeGreaterThan(0);
-      expect(JSON.stringify(consumed)).toContain("revision-1");
+      expect(JSON.stringify(consumed)).not.toMatch(
+        /revision-1|sectionId|revisionId|officeKey|outcome|passages|Status:/,
+      );
       expect(JSON.stringify(consumed)).toContain("4:30 PM");
       const beforeFollowup = llm.requests.length;
       await session.run({ userInput: "And Saturdays?" }).wait();
@@ -101,7 +103,9 @@ describe("Portal knowledge through AgentSession", () => {
         "function_call",
         "function_call_output",
       ]);
-      expect(JSON.stringify(retained)).toContain("revision-1");
+      expect(JSON.stringify(retained)).not.toMatch(
+        /revision-1|sectionId|revisionId|officeKey|outcome|passages|Status:/,
+      );
       expect(JSON.stringify(retained)).toContain("Closed Saturday and Sunday");
       expect(
         session.currentAgent.chatCtx.items.some(
