@@ -17,7 +17,6 @@ import {
   type CallCloseoutObserver,
   type CallPortalResult,
 } from "../runtime/call-closeout.js";
-import { getOfficeProfileByPhone } from "../customers/abita/profile.js";
 import {
   getProductInteractionConfig,
   validateRuntimeConfig,
@@ -223,57 +222,6 @@ describe("call closeout", () => {
     ).toEqual({ callId: "sip-call-63", startedAt: workerStartedAt });
     expect(fallback).toHaveBeenCalledOnce();
   });
-
-  it.each([
-    ["+19999999999", "Unsupported trunk phone number: +19999999999"],
-    [
-      "not-a-phone-number",
-      "Unsupported trunk phone number: not-a-phone-number",
-    ],
-    ["", "Unsupported trunk phone number: (empty)"],
-  ])(
-    "registers and closes out startup before rejecting trunk %j",
-    async (trunkPhone, expectedError) => {
-      const portal = new InMemoryCallPortal();
-      let startupShutdown: (() => Promise<void>) | undefined;
-      const startSession = vi.fn(async () => undefined);
-
-      await expect(
-        (async () => {
-          await attachStartupCallCloseout({
-            call: {
-              callId: "call-unsupported-trunk",
-              callerPhone: "+17275551212",
-              livekitContext: { roomName: "room-test" },
-              officePhone: trunkPhone,
-              startedAt: new Date("2026-07-20T10:00:00.000Z"),
-            },
-            now: () => new Date("2026-07-20T10:01:00.000Z"),
-            portal,
-            registerShutdownCallback: (closeout) => {
-              startupShutdown = closeout;
-            },
-          });
-          expect(portal.deliveries.map(({ phase }) => phase)).toEqual([
-            "call-start",
-          ]);
-          getOfficeProfileByPhone(trunkPhone);
-          await startSession();
-        })(),
-      ).rejects.toThrow(expectedError);
-
-      expect(startSession).not.toHaveBeenCalled();
-      await startupShutdown?.();
-      expect(portal.deliveries.map(({ phase }) => phase)).toEqual([
-        "call-start",
-        "shutdown",
-      ]);
-      expect(portal.deliveries[1]?.payload).toMatchObject({
-        endedReason: "call_state_not_initialized",
-        status: "FAILED",
-      });
-    },
-  );
 
   it("hands a registered call start to the full closeout lifecycle", async () => {
     const events = new TestLiveKitEvents();
