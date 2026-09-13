@@ -1,5 +1,55 @@
 # Changelog
 
+## [5.2.3](https://github.com/chasef07/abita_agent/compare/5.2.2...5.2.3) (2026-09-11)
+
+
+### Bug Fixes
+
+* **knowledge:** return only office answer text to the agent ([#472](https://github.com/chasef07/abita_agent/issues/472)) ([0ed598d](https://github.com/chasef07/abita_agent/commit/0ed598d425d6b62d8191e03616f7e0f75d380029))
+* **startup:** centralize call startup and report failures accurately ([#473](https://github.com/chasef07/abita_agent/issues/473)) ([cc06005](https://github.com/chasef07/abita_agent/commit/cc06005f730a3358ea1ea94f44c363e3849090cb))
+
+## [5.2.2](https://github.com/chasef07/abita_agent/compare/5.2.1...5.2.2) (2026-09-10)
+
+
+### Bug Fixes
+
+* **knowledge:** retain search results in conversation context ([#469](https://github.com/chasef07/abita_agent/issues/469)) ([0e165eb](https://github.com/chasef07/abita_agent/commit/0e165eb6611787e9e172ac7aea6b0ef279ed96b9))
+
+## [5.2.1](https://github.com/chasef07/abita_agent/compare/5.2.0...5.2.1) (2026-09-10)
+
+
+### Bug Fixes
+
+* **knowledge:** preserve tool calls in reports ([#467](https://github.com/chasef07/abita_agent/issues/467)) ([51c0f50](https://github.com/chasef07/abita_agent/commit/51c0f5074ccee188ec076d7d54df69dfb9424d23))
+
+## [5.2.0](https://github.com/chasef07/abita_agent/compare/5.1.4...5.2.0) (2026-09-10)
+
+
+### Features
+
+* **knowledge:** replace knowledge hooks with vector search for every office ([#457](https://github.com/chasef07/abita_agent/issues/457)) ([8b31fe1](https://github.com/chasef07/abita_agent/commit/8b31fe11cb5b80af210d6aaf04f6b41acbb28919))
+
+## [5.1.4](https://github.com/chasef07/abita_agent/compare/5.1.3...5.1.4) (2026-09-10)
+
+
+### Bug Fixes
+
+* tell the model when patient DOB is on file ([#463](https://github.com/chasef07/abita_agent/issues/463)) ([c477590](https://github.com/chasef07/abita_agent/commit/c477590458a5154af74856212c7740178601465c))
+
+## [5.1.3](https://github.com/chasef07/abita_agent/compare/5.1.2...5.1.3) (2026-09-10)
+
+
+### Bug Fixes
+
+* **identity:** simplify patient lookup and skip DOB confirmation ([#459](https://github.com/chasef07/abita_agent/issues/459)) ([04ad1c1](https://github.com/chasef07/abita_agent/commit/04ad1c1c56a3c504b67a6fc1cd0e7fe8c0044338))
+
+## [5.1.2](https://github.com/chasef07/abita_agent/compare/5.1.1...5.1.2) (2026-09-10)
+
+
+### Bug Fixes
+
+* **identity:** simplify phone-first patient resolution ([#456](https://github.com/chasef07/abita_agent/issues/456)) ([8116a4f](https://github.com/chasef07/abita_agent/commit/8116a4f03d4c929c4f71c2b50ad2ba86d49569b6))
+
 ## [5.1.1](https://github.com/chasef07/abita_agent/compare/5.1.0...5.1.1) (2026-09-10)
 
 

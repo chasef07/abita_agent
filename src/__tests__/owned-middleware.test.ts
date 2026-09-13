@@ -34,8 +34,6 @@ const verifiedPatient: PatientResolveVerified = {
   insPlanId: "plan-1",
   respPartyId: "resp-1",
   routing: "all_three",
-  allowedProviders: ["Dr. Bach"],
-  routingAmbiguous: false,
   preauthRequired: false,
   appointmentsStatus: "none",
   appointmentsMessage: null,
@@ -161,8 +159,6 @@ const updatedInsurance: UpdateInsuranceResult = {
   status: "updated",
   newInsurance: "Aetna",
   routing: "all_three",
-  allowedProviders: ["Dr. Bach"],
-  routingAmbiguous: false,
   preauthRequired: false,
 };
 
@@ -177,6 +173,7 @@ describe.each([
             newInsurance: "Aetna",
             routing: "all_three",
             allowedProviders: ["Dr. Bach"],
+            routingAmbiguous: false,
           }),
         ),
         middlewareBaseUrl: "https://middleware.test",
@@ -312,8 +309,6 @@ const createdPatient: CreatePatientResult = {
   insPlanId: null,
   respPartyId: null,
   routing: "all_three",
-  allowedProviders: [],
-  routingAmbiguous: false,
   preauthRequired: false,
 };
 
@@ -959,7 +954,7 @@ describe("HTTP owned middleware transport", () => {
 
     expect(result).toEqual({
       status: "error",
-      reason: "request_rejected",
+      reason: "middleware_error",
     });
   });
 
@@ -1279,7 +1274,7 @@ describe("HTTP owned middleware transport", () => {
   it.each([
     {
       name: "patient lookup",
-      expectedReason: "request_rejected",
+      expectedReason: "middleware_error",
       call: (middleware: HttpOwnedMiddleware) =>
         middleware.resolvePatient({
           office: SPRING_HILL_OFFICE_PHONE,
@@ -1849,10 +1844,10 @@ const semanticContractCases: SemanticContractCase[] = [
     name: "patient middleware failure",
     http: httpResult({ status: "error", message: "private detail" }),
     memory: memoryResult({
-      resolvePatient: [semanticFailure("request_rejected")],
+      resolvePatient: [semanticFailure("middleware_error")],
     }),
     invoke: patientLookup,
-    expected: semanticFailure("request_rejected"),
+    expected: semanticFailure("middleware_error"),
   },
   {
     name: "patient network failure",

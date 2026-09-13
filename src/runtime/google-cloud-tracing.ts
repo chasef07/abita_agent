@@ -10,24 +10,25 @@ import {
 export function setupGoogleCloudTracing(
   ctx: Pick<JobContext, "addShutdownCallback">,
   env: NodeJS.ProcessEnv = process.env,
-): NodeTracerProvider | undefined {
+): NodeTracerProvider {
   const endpoint = env.GOOGLE_CLOUD_TRACE_ENDPOINT?.trim();
   const token = env.GOOGLE_CLOUD_TRACE_TOKEN?.trim();
-  if (!endpoint && !token) return;
-  if (!endpoint || !token) {
+  if (Boolean(endpoint) !== Boolean(token)) {
     throw new Error(
       "GOOGLE_CLOUD_TRACE_ENDPOINT and GOOGLE_CLOUD_TRACE_TOKEN are required together",
     );
   }
-  const url = URL.canParse(endpoint) ? new URL(endpoint) : undefined;
+  const url =
+    endpoint && URL.canParse(endpoint) ? new URL(endpoint) : undefined;
   if (
-    !url ||
-    url.protocol !== "https:" ||
-    url.username ||
-    url.password ||
-    url.search ||
-    url.hash ||
-    url.pathname !== "/v1/traces"
+    endpoint &&
+    (!url ||
+      url.protocol !== "https:" ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash ||
+      url.pathname !== "/v1/traces")
   ) {
     throw new Error(
       "GOOGLE_CLOUD_TRACE_ENDPOINT must be an HTTPS /v1/traces URL without credentials or query parameters",
@@ -35,13 +36,19 @@ export function setupGoogleCloudTracing(
   }
   // The collector authenticates to Google using its attached service identity.
   // Only the scoped collector token crosses the LiveKit deployment boundary.
-  const otlp = new OTLPTraceExporter({
-    url: url.href,
-    timeoutMillis: 15_000,
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const otlp = url
+    ? new OTLPTraceExporter({
+        url: url.href,
+        timeoutMillis: 15_000,
+        headers: { Authorization: `Bearer ${token}` },
+      })
+    : undefined;
   const exporter: SpanExporter = {
     export(spans, callback) {
+      if (!otlp) {
+        callback({ code: 0 });
+        return;
+      }
       otlp.export(spans, (result) => {
         if (result.code !== 0) {
           // Auth/HTTP errors can contain credentials or request payloads.
@@ -52,7 +59,7 @@ export function setupGoogleCloudTracing(
         callback(result);
       });
     },
-    shutdown: () => otlp.shutdown(),
+    shutdown: () => otlp?.shutdown() ?? Promise.resolve(),
   };
   const fanout = new telemetry.FanoutSpanProcessor();
   const provider = new NodeTracerProvider({
@@ -63,7 +70,9 @@ export function setupGoogleCloudTracing(
         (env.NODE_ENV === "production" ? "production" : "development"),
     }),
     spanProcessors: [
-      new BatchSpanProcessor(exporter, { exportTimeoutMillis: 17_000 }),
+      ...(otlp
+        ? [new BatchSpanProcessor(exporter, { exportTimeoutMillis: 17_000 })]
+        : []),
       fanout,
     ],
   });
@@ -82,6 +91,6 @@ export function setupGoogleCloudTracing(
       console.error("[tracing] Google Cloud trace shutdown failed");
     }
   });
-  console.info("[tracing] Google Cloud trace export enabled");
+  if (otlp) console.info("[tracing] Google Cloud trace export enabled");
   return provider;
 }

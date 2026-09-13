@@ -17,7 +17,7 @@ import { createToolContext } from "./support/tool-context.js";
 import { InMemorySchedulingMiddleware } from "./support/scheduling-middleware.js";
 import { activeAppointments } from "../state/appointments.js";
 import { appointmentActions } from "../state/observability.js";
-import { storeAvailabilityBookingToken } from "../scheduling/state.js";
+import { storeAvailabilityBookingToken } from "../scheduling/availability.js";
 import type {
   CallerAppointment,
   StoredAvailabilitySlot,
@@ -58,10 +58,7 @@ function prepareBooking(
   slot: StoredAvailabilitySlot = availabilitySlot(),
   token = "private-token",
 ) {
-  state.workflow.current = {
-    intent: "schedule",
-    appointmentLane: "medical_md",
-  };
+  state.workflow.visitType = "medical";
   state.availability.slots = [slot];
   storeAvailabilityBookingToken(state, slot.slotId, token);
 }
@@ -77,10 +74,7 @@ function prepareReschedule(
   state.identity.activePatient!.appointments = [
     options.appointment ?? loadedAppointment(),
   ];
-  state.workflow.current = {
-    intent: "schedule",
-    appointmentLane: "medical_md",
-  };
+  state.workflow.visitType = "medical";
   const slot =
     options.slot ??
     availabilitySlot({
@@ -119,9 +113,6 @@ describe("New Tampa provider guards at appointment mutation", () => {
   async function newTampaState() {
     const state = createState();
     state.office.activeKey = "new-tampa-demo";
-    state.office.phoneOverrides = {
-      "new-tampa-demo": DEMO_BOOKING_OFFICE_PHONE,
-    };
     state.runtime.trunkPhone = NEW_TAMPA_DEMO_TRUNK_PHONE;
     await triage_eye_care.execute(
       { purpose: "retina", requestedProvider: "Scott Friedman" },

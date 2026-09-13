@@ -23,7 +23,6 @@ import {
 } from "../customers/abita/profile.js";
 import { simulationTools } from "../runtime/simulation.js";
 import type { CallState } from "../state/call-state.js";
-import { staffTaskReceipts } from "../state/observability.js";
 import {
   confirmedActivePatient,
   createConfirmedPatientState,
@@ -39,15 +38,7 @@ class CapturingLLM extends voice.testing.FakeLLM {
   contexts: ChatContext[] = [];
   override chat(options: Parameters<voice.testing.FakeLLM["chat"]>[0]) {
     this.contexts.push(options.chatCtx.copy());
-    const chatCtx = options.chatCtx.copy();
-    if (chatCtx.items.at(-1)?.type === "message") {
-      const user = [...chatCtx.items]
-        .reverse()
-        .find((item) => item.type === "message" && item.role === "user");
-      if (user?.type === "message")
-        chatCtx.addMessage({ role: "user", content: user.textContent ?? "" });
-    }
-    return super.chat({ ...options, chatCtx });
+    return super.chat(options);
   }
 }
 
@@ -194,7 +185,7 @@ describe("controlled staff-intake conversation execution", () => {
         officeKey: "spring-hill",
         callerPhone: "+17275551212",
       });
-      expect(staffTaskReceipts(state)).toMatchObject([
+      expect(state.runtime.staffTasks).toMatchObject([
         { status: "created", taskId: "synthetic-task-1" },
       ]);
       expect(modelText(llm)).toContain(
@@ -260,28 +251,48 @@ describe("controlled staff-intake conversation execution", () => {
   it.each([
     [
       "How much is a self-pay medical visit for a new patient?",
-      "Self-Pay Pricing",
-      "$250",
+      "Synthetic approved self-pay rate: $250.",
     ],
     [
-      "I have a question about the balance on my bill.",
-      "Billing",
-      "(786) 446-8333",
+      "How much is my copay?",
+      "Copays depend on the plan; no verified amount is available.",
     ],
   ])(
-    "supplies the approved answer and creates no task for %s",
-    async (input, heading, evidence) => {
+    "consumes portal knowledge and avoids an unnecessary task for %s",
+    async (input, evidence) => {
+      vi.stubEnv(
+        "ACUITY_PRODUCT_KNOWLEDGE_URL",
+        "https://knowledge.invalid/search",
+      );
+      const knowledgeFetch = vi.fn(async () =>
+        Response.json({
+          outcome: "found",
+          revisionId: "synthetic-revision",
+          passages: [
+            {
+              revisionId: "synthetic-revision",
+              sectionId: "pricing",
+              title: "Pricing",
+              text: evidence,
+            },
+          ],
+        }),
+      );
+      vi.stubGlobal("fetch", knowledgeFetch);
       const llm = new CapturingLLM([
-        { input, content: "Here is the supplied office information." },
+        {
+          input,
+          toolCalls: [
+            { name: "search_office_knowledge", args: { query: input } },
+          ],
+        },
       ]);
-      const { session, state, transport } = await start(llm);
-      await turn(session, input);
-      expect(modelText(llm)).toContain(`## ${heading}`);
-      expect(modelText(llm)).toContain(evidence);
+      const { session, transport } = await start(llm);
+      await session.run({ userInput: input }).wait();
+      expect(knowledgeFetch).toHaveBeenCalledTimes(1);
+      expect(JSON.stringify(llm.contexts)).toContain(evidence);
       expect(transport.payloads).toEqual([]);
-      expect(state.runtime.knowledgeRetrievals).toMatchObject([
-        { outcome: "matched" },
-      ]);
+      expect(modelText(llm)).toContain("Copay/copayment questions");
       expect(modelText(llm)).toContain(
         "A satisfied question or completed scheduling action needs no Task",
       );
@@ -301,7 +312,7 @@ describe("controlled staff-intake conversation execution", () => {
     ]);
     const { session, transport } = await start(llm);
     await turn(session, input);
-    expect(modelText(llm)).toContain("(786) 446-8333");
+    expect(modelText(llm)).toContain("786-446-8333");
     expect(transport.payloads.map((item) => item.category)).toEqual([
       "documentation",
     ]);

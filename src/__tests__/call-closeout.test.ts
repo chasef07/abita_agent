@@ -1,3 +1,4 @@
+import { InMemoryCallPortal } from "./support/call-portal.js";
 import {
   ChatContext,
   createSessionReport,
@@ -7,7 +8,6 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   HttpCallPortal,
-  InMemoryCallPortal,
   attachCallCloseout,
   attachStartupCallCloseout,
   createLiveKitCallCloseoutEventAdapter,
@@ -17,7 +17,6 @@ import {
   type CallCloseoutObserver,
   type CallPortalResult,
 } from "../runtime/call-closeout.js";
-import { getOfficeProfileByPhone } from "../customers/abita/profile.js";
 import {
   getProductInteractionConfig,
   validateRuntimeConfig,
@@ -28,10 +27,7 @@ import {
   beginTransfer,
   markTransferAmbiguous,
 } from "../state/call-lifecycle.js";
-import {
-  recordDomainOutcome,
-  recordOfficeKnowledgeRetrieval,
-} from "../state/observability.js";
+import { recordDomainOutcome } from "../state/observability.js";
 import { createTestCallState } from "./support/call-state.js";
 import { createToolContext } from "./support/tool-context.js";
 import { create_staff_task } from "../tools/create-staff-task.js";
@@ -130,7 +126,7 @@ describe("call closeout", () => {
     "persists only the bounded phone lookup status: %s",
     async (status) => {
       const state = createTestCallState();
-      state.runtime.preCallLookup = { status, durationMs: 12 };
+      state.runtime.preCallLookup = { status };
       const { events, portal } = await setupCloseout({ state });
       await events.close();
       expect(portal.deliveries.at(-1)?.payload.phoneLookup).toEqual({ status });
@@ -227,57 +223,6 @@ describe("call closeout", () => {
     expect(fallback).toHaveBeenCalledOnce();
   });
 
-  it.each([
-    ["+19999999999", "Unsupported trunk phone number: +19999999999"],
-    [
-      "not-a-phone-number",
-      "Unsupported trunk phone number: not-a-phone-number",
-    ],
-    ["", "Unsupported trunk phone number: (empty)"],
-  ])(
-    "registers and closes out startup before rejecting trunk %j",
-    async (trunkPhone, expectedError) => {
-      const portal = new InMemoryCallPortal();
-      let startupShutdown: (() => Promise<void>) | undefined;
-      const startSession = vi.fn(async () => undefined);
-
-      await expect(
-        (async () => {
-          await attachStartupCallCloseout({
-            call: {
-              callId: "call-unsupported-trunk",
-              callerPhone: "+17275551212",
-              livekitContext: { roomName: "room-test" },
-              officePhone: trunkPhone,
-              startedAt: new Date("2026-07-20T10:00:00.000Z"),
-            },
-            now: () => new Date("2026-07-20T10:01:00.000Z"),
-            portal,
-            registerShutdownCallback: (closeout) => {
-              startupShutdown = closeout;
-            },
-          });
-          expect(portal.deliveries.map(({ phase }) => phase)).toEqual([
-            "call-start",
-          ]);
-          getOfficeProfileByPhone(trunkPhone);
-          await startSession();
-        })(),
-      ).rejects.toThrow(expectedError);
-
-      expect(startSession).not.toHaveBeenCalled();
-      await startupShutdown?.();
-      expect(portal.deliveries.map(({ phase }) => phase)).toEqual([
-        "call-start",
-        "shutdown",
-      ]);
-      expect(portal.deliveries[1]?.payload).toMatchObject({
-        endedReason: "call_state_not_initialized",
-        status: "FAILED",
-      });
-    },
-  );
-
   it("hands a registered call start to the full closeout lifecycle", async () => {
     const events = new TestLiveKitEvents();
     const portal = new InMemoryCallPortal();
@@ -372,23 +317,30 @@ describe("call closeout", () => {
         ACUITY_DEMO_PRODUCT_SERVICE_SECRET: "demo-secret",
       }),
     ).toThrow(
-      "AMD_API_URL, AMD_API_TOKEN, ACUITY_PRODUCT_INTERACTION_URL, ACUITY_PRODUCT_HANDOFF_URL, ACUITY_DEMO_PRODUCT_SERVICE_SECRET, ACUITY_DEMO_PRODUCT_PRACTICE_ID, ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET, ABITA_EYE_GROUP_PRODUCT_PRACTICE_ID are required in production",
+      "AMD_API_URL, AMD_API_TOKEN, ACUITY_PRODUCT_INTERACTION_URL, ACUITY_PRODUCT_KNOWLEDGE_URL, ACUITY_PRODUCT_HANDOFF_URL, ACUITY_DEMO_PRODUCT_SERVICE_SECRET, ACUITY_DEMO_PRODUCT_PRACTICE_ID, ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET, ABITA_EYE_GROUP_PRODUCT_PRACTICE_ID are required in production",
     );
+    const configured = {
+      NODE_ENV: "production",
+      AMD_API_URL: "https://middleware.example",
+      AMD_API_TOKEN: "middleware-secret",
+      ACUITY_PRODUCT_INTERACTION_URL:
+        "https://product.example/v1/ai/interactions",
+      ACUITY_PRODUCT_KNOWLEDGE_URL:
+        "https://product.example/v1/agent/knowledge/search",
+      ACUITY_PRODUCT_HANDOFF_URL: "https://product.example/v1/handoffs",
+      ACUITY_DEMO_PRODUCT_PRACTICE_ID: "00000000-0000-0000-0000-000000000001",
+      ACUITY_DEMO_PRODUCT_SERVICE_SECRET: "demo-secret",
+      ABITA_EYE_GROUP_PRODUCT_PRACTICE_ID:
+        "00000000-0000-0000-0000-000000000002",
+      ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET: "production-secret",
+    };
+    expect(() => validateRuntimeConfig(configured)).not.toThrow();
     expect(() =>
       validateRuntimeConfig({
-        NODE_ENV: "production",
-        AMD_API_URL: "https://middleware.example",
-        AMD_API_TOKEN: "middleware-secret",
-        ACUITY_PRODUCT_INTERACTION_URL:
-          "https://product.example/v1/ai/interactions",
-        ACUITY_PRODUCT_HANDOFF_URL: "https://product.example/v1/handoffs",
-        ACUITY_DEMO_PRODUCT_PRACTICE_ID: "00000000-0000-0000-0000-000000000001",
-        ACUITY_DEMO_PRODUCT_SERVICE_SECRET: "demo-secret",
-        ABITA_EYE_GROUP_PRODUCT_PRACTICE_ID:
-          "00000000-0000-0000-0000-000000000002",
-        ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET: "production-secret",
+        ...configured,
+        ACUITY_PRODUCT_KNOWLEDGE_URL: undefined,
       }),
-    ).not.toThrow();
+    ).toThrow("ACUITY_PRODUCT_KNOWLEDGE_URL");
     expect(() =>
       getProductInteractionConfig("spring-hill", {
         NODE_ENV: "production",
@@ -517,25 +469,6 @@ describe("call closeout", () => {
       endedAt: "2026-08-28T13:45:06.000Z",
       startedAt: "2026-08-28T13:45:06.000Z",
     });
-  });
-
-  it("bounds Office Knowledge observations kept in Call State", () => {
-    const state = createTestCallState();
-
-    for (let index = 0; index <= 200; index += 1) {
-      recordOfficeKnowledgeRetrieval(state, {
-        elapsedMs: index,
-        language: "en",
-        officeKey: "spring-hill",
-        outcome: "skipped",
-        sectionCount: 0,
-        topic: null,
-      });
-    }
-
-    expect(state.runtime.knowledgeRetrievals).toHaveLength(200);
-    expect(state.runtime.knowledgeRetrievals[0]?.elapsedMs).toBe(1);
-    expect(state.runtime.knowledgeRetrievals.at(-1)?.elapsedMs).toBe(200);
   });
 
   it("checkpoints each receipt-backed appointment outcome once after tool execution", async () => {
@@ -954,6 +887,20 @@ describe("call closeout", () => {
         error:
           "request failed with Authorization: Bearer private-token at http://10.0.0.5/private",
         clientSecret: "private-client-secret",
+        functionCalls: [
+          {
+            name: "search_office_knowledge",
+            callId: "knowledge-1",
+            args: "sensitive-query",
+          },
+        ],
+        outputs: [
+          {
+            type: "function_call_output",
+            callId: "knowledge-1",
+            output: "sensitive-passage",
+          },
+        ],
       },
     ];
     const adapter = createLiveKitCallCloseoutEventAdapter(
@@ -981,6 +928,9 @@ describe("call closeout", () => {
       { input_tokens: 12, output_tokens: 4 },
     ]);
     expect(captured).not.toContain("private-token");
+    expect(captured).toContain("sensitive-query");
+    expect(captured).toContain("sensitive-passage");
+    expect(captured).toContain("search_office_knowledge");
     expect(captured).not.toContain("private-client-secret");
     expect(captured).not.toContain("10.0.0.5");
   });

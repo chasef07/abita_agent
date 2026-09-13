@@ -2,18 +2,15 @@ import { AgentSession, initializeLogger } from "@livekit/agents";
 import { describe, expect, it } from "vitest";
 import { SPRING_HILL_OFFICE_PHONE } from "../customers/abita/profile.js";
 import {
-  applyPreCallBootstrap,
+  applyPreCallLookup,
   createInitialCallState,
   type InitialCallInput,
 } from "../runtime/initial-call-state.js";
-import type { PreCallBootstrap } from "../runtime/precall-bootstrap.js";
-import type { CallState } from "../state/call-state.js";
+import type { CallState, PhoneLookupResult } from "../state/call-state.js";
 
 const call = {
-  amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
   callId: "call-test",
   callerPhone: "+17275551212",
-  maxDurationMs: 900_000,
   officeKey: "spring-hill",
   roomName: "room-test",
   sipParticipantIdentity: "sip-participant",
@@ -26,38 +23,33 @@ const call = {
   },
 } satisfies InitialCallInput;
 
-const bootstrap = {
-  phoneLookup: {
-    status: "verified",
-    patientId: "private-patient-id",
-    name: "Doe, Jane",
-    dob: "01/01/1980",
-    phone: "+17275551212",
-    insuranceCarrier: "Aetna",
-    insPlanId: "private-plan-id",
-    respPartyId: "private-party-id",
-    routing: "all_three",
-    allowedProviders: ["private-provider-reference"],
-    routingAmbiguous: false,
-    preauthRequired: false,
-    appointmentsStatus: "found",
-    appointmentsMessage: null,
-    appointments: [
-      {
-        id: 123,
-        cancellationToken: "private-cancellation-token",
-        rescheduleToken: "private-reschedule-token",
-        date: "June 1",
-        time: "9:00 AM",
-        provider: "Dr. Bach",
-        type: "Follow-up",
-        facility: "Spring Hill",
-        confirmed: true,
-      },
-    ],
-    lookupDurationMs: 25,
-  },
-} satisfies PreCallBootstrap;
+const phoneLookup = {
+  status: "verified",
+  patientId: "private-patient-id",
+  name: "Doe, Jane",
+  dob: "01/01/1980",
+  phone: "+17275551212",
+  insuranceCarrier: "Aetna",
+  insPlanId: "private-plan-id",
+  respPartyId: "private-party-id",
+  routing: "all_three",
+  preauthRequired: false,
+  appointmentsStatus: "found",
+  appointmentsMessage: null,
+  appointments: [
+    {
+      id: 123,
+      cancellationToken: "private-cancellation-token",
+      rescheduleToken: "private-reschedule-token",
+      date: "June 1",
+      time: "9:00 AM",
+      provider: "Dr. Bach",
+      type: "Follow-up",
+      facility: "Spring Hill",
+      confirmed: true,
+    },
+  ],
+} satisfies PhoneLookupResult;
 
 describe("initial call state", () => {
   initializeLogger({ pretty: false, level: "silent" });
@@ -72,28 +64,48 @@ describe("initial call state", () => {
     expect(session.userData).toBe(state);
     expect(session.userData.runtime.preCallLookup).toEqual({
       status: "not_attempted",
-      durationMs: null,
     });
   });
 
-  it("hydrates the same userData object with full private candidate state", () => {
+  it("adds phone-lookup candidates without replacing initialized state or resetting live runtime work", () => {
     const state = createInitialCallState(call);
     const session = new AgentSession<CallState>({
       userData: state,
       vad: null,
     });
 
-    applyPreCallBootstrap(state, call, bootstrap);
+    const runtime = state.runtime;
+    const identity = state.identity;
+    const voiceLanguage = state.runtime.voiceLanguage;
+    const workflow = state.workflow;
+    state.runtime.transferState = "pending";
+    state.workflow.visitType = "medical";
+    state.identity.operationVersion = 3;
+    state.runtime.staffTasks.push({
+      createdAt: "2026-09-10T00:00:00Z",
+      idempotencyKey: "startup-task",
+      status: "created",
+      taskId: "task-1",
+    });
+
+    applyPreCallLookup(state, phoneLookup);
+
+    expect(state.runtime).toBe(runtime);
+    expect(state.identity).toBe(identity);
+    expect(state.runtime.voiceLanguage).toBe(voiceLanguage);
+    expect(state.workflow).toBe(workflow);
+    expect(state.runtime.transferState).toBe("pending");
+    expect(state.workflow.visitType).toBe("medical");
+    expect(state.identity.operationVersion).toBe(3);
+    expect(state.runtime.staffTasks).toHaveLength(1);
 
     expect(session.userData).toBe(state);
     expect(session.userData.runtime.preCallLookup).toMatchObject({
       status: "verified",
-      candidateCount: 1,
     });
     expect(session.userData.identity.privateCandidates).toMatchObject([
       {
         patientId: "private-patient-id",
-        allowedProviders: ["private-provider-reference"],
         appointments: [
           expect.objectContaining({
             cancellationToken: "private-cancellation-token",

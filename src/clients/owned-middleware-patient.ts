@@ -2,7 +2,10 @@ import type {
   AppointmentLoadStatus,
   StoredCallerAppointment,
 } from "../state/call-state.js";
-import type { LightweightPatientCandidate } from "../identity/candidate.js";
+import type {
+  LightweightPatientCandidate,
+  PatientCandidateSet,
+} from "../identity/candidate.js";
 
 export type PatientResolveCandidate = LightweightPatientCandidate;
 
@@ -16,8 +19,6 @@ export interface PatientResolveVerified {
   insPlanId: string | null;
   respPartyId: string | null;
   routing: string | null;
-  allowedProviders: string[];
-  routingAmbiguous: boolean;
   preauthRequired: boolean;
   appointmentsStatus: AppointmentLoadStatus | null;
   appointmentsMessage: string | null;
@@ -53,6 +54,7 @@ interface PatientResolveError {
 }
 
 export type PatientResolveResult =
+  | PatientCandidateSet
   | PatientResolveVerified
   | PatientResolveMultipleMatches
   | PatientResolveNotFound
@@ -74,6 +76,25 @@ export function normalizePatientResolveResponse(
     return {
       status: "error",
       reason: "middleware_error",
+    };
+  }
+
+  if (status === "candidates") {
+    if (
+      raw.source !== "first_name" ||
+      typeof raw.complete !== "boolean" ||
+      !Array.isArray(raw.matches)
+    ) {
+      return { status: "error", reason: "invalid_response" };
+    }
+    const matches = raw.matches.map(normalizePatientCandidate);
+    if (matches.some((match) => match === null))
+      return { status: "error", reason: "invalid_response" };
+    return {
+      status: "candidates",
+      source: "first_name",
+      complete: raw.complete,
+      matches: matches as PatientResolveCandidate[],
     };
   }
 
@@ -126,12 +147,6 @@ export function normalizePatientResolveResponse(
       insPlanId: stringValue(raw.insPlanId),
       respPartyId: stringValue(raw.respPartyId),
       routing: stringValue(raw.routing),
-      allowedProviders: Array.isArray(raw.allowedProviders)
-        ? raw.allowedProviders.filter(
-            (provider): provider is string => typeof provider === "string",
-          )
-        : [],
-      routingAmbiguous: raw.routingAmbiguous === true,
       preauthRequired: raw.preauthRequired === true,
       appointmentsStatus:
         normalizeAppointmentsStatus(raw.appointmentsStatus) ??

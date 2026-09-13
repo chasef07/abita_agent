@@ -13,13 +13,13 @@ import {
 } from "../state/call-state.js";
 import { domainOutcomesForTool } from "../state/observability.js";
 import {
-  clearAvailabilitySelection,
   insuranceOnFile,
   insuranceSnapshot,
   setInsuranceOnFile,
   setLastInsuranceEligibilityCheck,
   setRoutingContext,
 } from "../scheduling/state.js";
+import { clearAvailabilitySelection } from "../scheduling/availability.js";
 import { getAmdOfficeForToolCall } from "../scheduling/routing.js";
 import { getState } from "./session.js";
 import { throwOwnedMiddlewareFailure } from "../runtime/middleware-tool-failure.js";
@@ -131,8 +131,6 @@ export function createUpdateInsuranceTool(middleware: OwnedMiddleware) {
       setLastInsuranceEligibilityCheck(state, null);
       setRoutingContext(state, {
         routing: result.routing,
-        allowedProviders: result.allowedProviders,
-        routingAmbiguous: result.routingAmbiguous,
         preauthRequired: result.preauthRequired,
       });
       clearAvailabilitySelection(state);

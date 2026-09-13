@@ -2,30 +2,16 @@ import type { MiddlewareRequestDiagnostic } from "../clients/middleware-diagnost
 import type { OfficeKey } from "../customers/abita/profile.js";
 import type { InsuranceCoverageType } from "../insurance-rules.js";
 import type { RuntimeVoiceLanguageState } from "../runtime/voice-language.js";
-import type { LightweightPatientCandidate } from "../identity/candidate.js";
+import type {
+  LightweightPatientCandidate,
+  PatientCandidateSet,
+} from "../identity/candidate.js";
 import { createSchedulingState } from "../scheduling/state.js";
 import type { TransferState } from "./call-lifecycle.js";
-import type {
-  OfficeKnowledgeLanguage,
-  OfficeKnowledgeTopic,
-} from "../office-knowledge.js";
 
 export const CALLER_CANDIDATE_REF = "caller";
 
 export type AppointmentLoadStatus = "found" | "none" | "error";
-export type PreCallHydrationOutcome =
-  | "verified"
-  | "not_found"
-  | "multiple_matches"
-  | "lookup_failed"
-  | "incomplete";
-
-export interface StartupOverlapTelemetry {
-  overlapped: true;
-  lookupCompletedBeforeRuntimeSetup: boolean;
-  runtimeSetupDurationMs: number;
-}
-
 export interface CallerAppointment {
   id: number;
   appointmentRef?: string;
@@ -52,13 +38,10 @@ export interface CallerMatch {
   insPlanId: string | null;
   respPartyId: string | null;
   routing: string | null;
-  allowedProviders: string[];
-  routingAmbiguous: boolean;
   preauthRequired: boolean;
   appointmentsStatus?: AppointmentLoadStatus | null;
   appointmentsMessage?: string | null;
   appointments: StoredCallerAppointment[] | null;
-  lookupDurationMs?: number;
 }
 
 export type CallerCandidate = LightweightPatientCandidate;
@@ -67,14 +50,12 @@ export interface CallerMultipleMatches {
   status: "multiple_matches";
   message: string;
   matches: Array<CallerMatch | CallerCandidate>;
-  lookupDurationMs?: number;
 }
 
 interface CallerNoMatch {
   status: "no_match";
   phone: string;
   message?: string;
-  lookupDurationMs?: number;
 }
 
 export interface CallerLookupFailed {
@@ -87,7 +68,6 @@ export interface CallerLookupFailed {
     | "request_rejected"
     | "unsupported_trunk";
   retryable: boolean;
-  lookupDurationMs?: number;
 }
 
 export type PhoneLookupResult =
@@ -97,15 +77,8 @@ export type PhoneLookupResult =
   | CallerLookupFailed
   | null;
 
-export interface PreCallLookupTelemetry {
+export interface PreCallLookupState {
   status: NonNullable<PhoneLookupResult>["status"] | "not_attempted";
-  durationMs: number | null;
-  candidateCount?: number;
-  appointmentsStatus?: AppointmentLoadStatus | null;
-  failureReason?: CallerLookupFailed["reason"];
-  hydrationOutcome?: PreCallHydrationOutcome;
-  retryable?: boolean;
-  startupOverlap?: StartupOverlapTelemetry;
 }
 
 interface PreCallCandidateReference {
@@ -130,8 +103,6 @@ export interface PreCallVerifiedPatientCandidate extends PreCallCandidateReferen
   insPlanId?: string | null;
   respPartyId?: string | null;
   routing?: string | null;
-  allowedProviders?: string[];
-  routingAmbiguous?: boolean;
   preauthRequired?: boolean;
 }
 
@@ -152,18 +123,7 @@ export interface ActivePatient {
 type SchedulingRouting =
   "bach_only" | "bach_licht" | "all_three" | "optical_only";
 
-type TurnIntent = "schedule" | "change_appointment";
-
-export type AppointmentLane = "medical_md" | "routine_od" | "not_applicable";
-export type SchedulingAppointmentLane = Exclude<
-  AppointmentLane,
-  "not_applicable"
->;
-
-export interface WorkflowTurnContext {
-  intent: TurnIntent;
-  appointmentLane: AppointmentLane;
-}
+export type VisitType = "medical" | "routine_vision";
 
 export interface CompletedRescheduleState {
   originalAppointmentRef?: string;
@@ -270,30 +230,6 @@ export interface DomainOutcomeReceipt {
   evidence?: Record<string, unknown>;
 }
 
-export type AvailabilityInvalidationReason =
-  | "booking_authorization_invalidated"
-  | "booking_succeeded"
-  | "booking_token_expired"
-  | "cancellation_succeeded"
-  | "office_changed"
-  | "patient_context_changed"
-  | "request_cancelled"
-  | "reschedule_succeeded"
-  | "routing_context_changed"
-  | "scheduling_context_changed";
-
-export type AvailabilityReadAnalytics =
-  | {
-      operation: "completed_cache_hit" | "in_flight_join" | "middleware_call";
-      durationMs: number;
-      createdAt?: string;
-    }
-  | {
-      operation: "invalidation";
-      reason: AvailabilityInvalidationReason;
-      createdAt?: string;
-    };
-
 export const STAFF_TASK_CATEGORIES = [
   "appointments",
   "documentation",
@@ -307,8 +243,6 @@ export const STAFF_TASK_CATEGORIES = [
 ] as const;
 
 export type StaffTaskCategory = (typeof STAFF_TASK_CATEGORIES)[number];
-
-export type StaffTaskUrgency = "high_priority" | "normal" | "non_urgent";
 
 export interface StaffTaskReceipt {
   createdAt: string;
@@ -329,7 +263,8 @@ export interface RegistrationDraft {
 }
 
 export interface UnregisteredPatientReceipt {
-  identity: Required<RegistrationDraft>;
+  identity: Pick<Required<RegistrationDraft>, "firstName" | "dob"> &
+    Pick<RegistrationDraft, "lastName">;
   lookupOperationVersion: number;
   insuranceCheckVersion: number;
 }
@@ -343,27 +278,9 @@ export type PatientIdentityOutcome =
   | "lookup_failed"
   | "needs_identity";
 
-export type PatientIdentityTransitionOutcome =
-  "pending" | "confirmed" | Exclude<PatientIdentityOutcome, "verified">;
-
-export interface PatientIdentityTransitionAnalytics {
-  outcome: PatientIdentityTransitionOutcome;
-  source: "resolve_patient" | "create_patient";
-}
-
-export interface OfficeKnowledgeRetrievalAnalytics {
-  createdAt: string;
-  elapsedMs: number;
-  language: OfficeKnowledgeLanguage;
-  officeKey: OfficeKey;
-  outcome: "matched" | "unavailable" | "skipped" | "failure";
-  sectionCount: number;
-  topic: OfficeKnowledgeTopic | null;
-}
-
 interface RuntimeCallState {
   endedReason?: "duration_limit";
-  preCallLookup: PreCallLookupTelemetry;
+  preCallLookup: PreCallLookupState;
   sipRoomName: string;
   sipParticipantIdentity: string;
   callId: string;
@@ -371,15 +288,12 @@ interface RuntimeCallState {
   trunkPhone: string;
   transferState: TransferState;
   outcomeReceipts: DomainOutcomeReceipt[];
-  availabilityReads: AvailabilityReadAnalytics[];
-  knowledgeRetrievals: OfficeKnowledgeRetrievalAnalytics[];
   staffTasks: StaffTaskReceipt[];
   voiceLanguage?: RuntimeVoiceLanguageState | null;
 }
 
 interface OfficeSessionState {
   activeKey: OfficeKey;
-  phoneOverrides: Partial<Record<OfficeKey, string>>;
 }
 
 export interface InsuranceSnapshot {
@@ -400,6 +314,18 @@ interface InsuranceSessionState {
 
 interface IdentitySessionState {
   privateCandidates: PreCallPatientCandidate[];
+  nameSearch: {
+    officePhone: string;
+    firstName: string;
+    dob: string;
+    result: PatientCandidateSet;
+  } | null;
+  pendingIdentity: {
+    details: RegistrationDraft;
+    // Present only during a caller-declared patient switch (null if no chart was active).
+    previousPatientId?: string | null;
+    excludePreviousPatient?: boolean;
+  } | null;
   activePatient: ActivePatient | null;
   registration: RegistrationDraft | null;
   unregisteredPatientReceipt: UnregisteredPatientReceipt | null;
@@ -407,8 +333,6 @@ interface IdentitySessionState {
   unresolvedTaskPatient: { name?: string; dob?: string } | null;
   operationVersion: number;
   transitionVersion: number;
-  receipts: PatientIdentityTransitionAnalytics[];
-  latestBookedAppointmentId?: number;
   completedBookingsByPatientId: Record<string, CompletedBookingState>;
   completedCancellations: CompletedCancellationState[];
   completedReschedulesByPatientId: Record<string, CompletedRescheduleState>;
@@ -416,19 +340,15 @@ interface IdentitySessionState {
 
 interface RoutingSessionState {
   routing?: SchedulingRouting | null;
-  allowedProviders: string[];
-  routingAmbiguous: boolean;
   preauthRequired: boolean;
 }
 
 interface WorkflowSessionState {
-  current?: WorkflowTurnContext;
+  visitType: VisitType | null;
   routing: RoutingSessionState;
 }
 
 interface AvailabilitySessionState {
-  version?: number;
-  refreshAfter?: number;
   slots: StoredAvailabilitySlot[];
   requestedStartDate?: string;
   latestRouting?: string | null;
@@ -470,13 +390,6 @@ export function setActivePatientBackendRefs(
   patient.backend = { ...patient.backend, ...refs };
 }
 
-export function recordPatientIdentityTransition(
-  state: CallState,
-  transition: PatientIdentityTransitionAnalytics,
-): void {
-  state.identity.receipts.push(transition);
-}
-
 export function recordUnregisteredPatientInsuranceCheck(
   state: CallState,
 ): void {
@@ -489,9 +402,8 @@ export function recordUnregisteredPatientInsuranceCheck(
 export interface InitialCallStateInput {
   preCallCandidates?: PreCallPatientCandidate[];
   activePatient?: ActivePatient | null;
-  preCallLookup: PreCallLookupTelemetry;
+  preCallLookup: PreCallLookupState;
   officeKey: OfficeKey;
-  amdOfficePhone: string;
   sipRoomName: string;
   sipParticipantIdentity: string;
   callId: string;
@@ -501,8 +413,6 @@ export interface InitialCallStateInput {
   checkedInsurancePlan: string | null;
   checkedInsuranceCoverageType: InsuranceCoverageType | null;
   routing: string | null;
-  allowedProviders: string[];
-  routingAmbiguous: boolean;
   preauthRequired: boolean;
   voiceLanguage?: RuntimeVoiceLanguageState | null;
 }
@@ -513,20 +423,18 @@ export function createCanonicalCallState(
   const state: CallState = {
     office: {
       activeKey: input.officeKey,
-      phoneOverrides: {
-        [input.officeKey]: input.amdOfficePhone,
-      },
     },
     identity: {
       privateCandidates: input.preCallCandidates ?? [],
       activePatient: input.activePatient ?? null,
       registration: null,
+      pendingIdentity: null,
+      nameSearch: null,
       unregisteredPatientReceipt: null,
       unresolvedTaskPatient: null,
       completedBookingsByPatientId: {},
       operationVersion: 0,
       transitionVersion: 0,
-      receipts: [],
       completedCancellations: [],
       completedReschedulesByPatientId: {},
     },
@@ -540,8 +448,6 @@ export function createCanonicalCallState(
       trunkPhone: input.trunkPhone,
       transferState: "idle",
       outcomeReceipts: [],
-      availabilityReads: [],
-      knowledgeRetrievals: [],
       staffTasks: [],
       voiceLanguage: input.voiceLanguage ?? null,
     },

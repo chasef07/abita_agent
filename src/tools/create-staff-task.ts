@@ -188,8 +188,7 @@ function buildStaffTaskPayload(
   input: TaskParameters,
 ) {
   const officeKey = getProductOfficeKeyByPhone(state.runtime.trunkPhone);
-  const officePhone =
-    state.office.phoneOverrides[office.key] ?? office.amdOfficePhone;
+  const officePhone = office.amdOfficePhone;
   const unresolvedPatient = state.identity.unresolvedTaskPatient;
   const patientId = unresolvedPatient ? null : activePatientId(state);
   const patientName = unresolvedPatient

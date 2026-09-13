@@ -1,44 +1,49 @@
 import type {
-  AvailabilityRequest,
   AvailabilityResult,
-  BookingRequest,
-  BookingResult,
-  CancellationRequest,
-  CancellationResult,
-  SchedulingMiddleware,
-} from "../../scheduling/middleware.js";
+  BookAppointmentResult,
+  CancelAppointmentResult,
+  CancelAppointmentInput,
+} from "../../clients/owned-middleware.js";
+import type { SchedulingMiddleware } from "../../scheduling/middleware.js";
 
 type SchedulingResult<T> = T | Error | Promise<T>;
 
+// Normalize recorded operations for assertions; method inputs use the owned API contract.
 export type SchedulingOperation =
   | {
       kind: "availability";
-      request: AvailabilityRequest;
+      signal?: AbortSignal;
       office: string;
+      request: Omit<
+        Parameters<SchedulingMiddleware["getAvailability"]>[0],
+        "office" | "signal"
+      >;
     }
   | {
       kind: "book";
-      request: BookingRequest;
       office: string;
+      request: Parameters<
+        SchedulingMiddleware["bookAppointment"]
+      >[0]["booking"];
     }
   | {
       kind: "cancel";
-      request: CancellationRequest;
       office: string;
+      request: CancelAppointmentInput;
     };
 
 export class InMemorySchedulingMiddleware implements SchedulingMiddleware {
   readonly operations: SchedulingOperation[] = [];
 
   readonly #availability: Array<SchedulingResult<AvailabilityResult>>;
-  readonly #bookings: Array<SchedulingResult<BookingResult>>;
-  readonly #cancellations: Array<SchedulingResult<CancellationResult>>;
+  readonly #bookings: Array<SchedulingResult<BookAppointmentResult>>;
+  readonly #cancellations: Array<SchedulingResult<CancelAppointmentResult>>;
 
   constructor(
     outcomes: {
       availability?: Array<SchedulingResult<AvailabilityResult>>;
-      bookings?: Array<SchedulingResult<BookingResult>>;
-      cancellations?: Array<SchedulingResult<CancellationResult>>;
+      bookings?: Array<SchedulingResult<BookAppointmentResult>>;
+      cancellations?: Array<SchedulingResult<CancelAppointmentResult>>;
     } = {},
   ) {
     this.#availability = [...(outcomes.availability ?? [])];
@@ -46,27 +51,35 @@ export class InMemorySchedulingMiddleware implements SchedulingMiddleware {
     this.#cancellations = [...(outcomes.cancellations ?? [])];
   }
 
-  async getAvailability(input: {
-    request: AvailabilityRequest;
-    office: string;
-  }): Promise<AvailabilityResult> {
-    this.operations.push({ kind: "availability", ...input });
+  async getAvailability(
+    input: Parameters<SchedulingMiddleware["getAvailability"]>[0],
+  ): Promise<AvailabilityResult> {
+    const { office, signal, ...request } = input;
+    this.operations.push({
+      kind: "availability",
+      office,
+      request,
+      ...(signal ? { signal } : {}),
+    });
     return nextResult(this.#availability, "availability");
   }
 
-  async bookAppointment(input: {
-    request: BookingRequest;
-    office: string;
-  }): Promise<BookingResult> {
-    this.operations.push({ kind: "book", ...input });
+  async bookAppointment(
+    input: Parameters<SchedulingMiddleware["bookAppointment"]>[0],
+  ): Promise<BookAppointmentResult> {
+    this.operations.push({
+      kind: "book",
+      office: input.office,
+      request: input.booking,
+    });
     return nextResult(this.#bookings, "booking");
   }
 
-  async cancelAppointment(input: {
-    request: CancellationRequest;
-    office: string;
-  }): Promise<CancellationResult> {
-    this.operations.push({ kind: "cancel", ...input });
+  async cancelAppointment(
+    input: Parameters<SchedulingMiddleware["cancelAppointment"]>[0],
+  ): Promise<CancelAppointmentResult> {
+    const { office, ...request } = input;
+    this.operations.push({ kind: "cancel", office, request });
     return nextResult(this.#cancellations, "cancellation");
   }
 }

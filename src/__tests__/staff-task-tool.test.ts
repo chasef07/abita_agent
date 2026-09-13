@@ -9,10 +9,7 @@ import {
   SWEETWATER_TRUNK_PHONES,
 } from "../customers/abita/profile.js";
 import type { InitialCallStateInput } from "../state/call-state.js";
-import {
-  domainOutcomeReceipts,
-  staffTaskReceipts,
-} from "../state/observability.js";
+import { domainOutcomeReceipts } from "../state/observability.js";
 import {
   beginNewPatientRegistration,
   beginPatientCreation,
@@ -127,7 +124,10 @@ describe("create_staff_task", () => {
     } as never;
     const resolve = createResolvePatientTool(
       new InMemoryOwnedMiddleware({
-        resolvePatient: [{ status: "not_found" }, { status: "not_found" }],
+        resolvePatient: [
+          { status: "candidates", complete: true, matches: [] },
+          { status: "candidates", complete: true, matches: [] },
+        ],
       }),
     );
     const input = {
@@ -148,15 +148,15 @@ describe("create_staff_task", () => {
       JSON.parse(call[1].body as string),
     );
     expect(bodies.map((body) => body.patient)).toEqual([
-      { name: "Alex Example", dob: "02/03/1990" },
-      { name: "Morgan Example", dob: "02/03/1990" },
+      { name: "Alex", dob: "02/03/1990" },
+      { name: "Morgan", dob: "02/03/1990" },
     ]);
     expect(bodies[0].idempotencyKey).not.toBe(bodies[1].idempotencyKey);
     expect(bodies.map((body) => body.callId)).toEqual([
       "call-test",
       "call-test",
     ]);
-    expect(state.identity.activePatient?.patientId).toBe("patient-1");
+    expect(state.identity.activePatient).toBeNull();
   });
 
   it("rejects over-limit intake without sending or truncating any details, then accepts a lossless revision", async () => {
@@ -386,7 +386,7 @@ describe("create_staff_task", () => {
   );
 
   it.each([false, true])(
-    "keeps a newly reconfirmed active patient when an older lookup completes (preloaded=%s)",
+    "preserves the current patient evidence when an older lookup completes (verified phone candidate=%s)",
     async (preloaded) => {
       const transport = vi.fn(async () =>
         Response.json({ status: "created", taskId: "reconfirmed" }),
@@ -453,7 +453,11 @@ describe("create_staff_task", () => {
       );
       expect(
         JSON.parse(transport.mock.calls[0]![1].body as string).patient,
-      ).toEqual({ id: "patient-1", name: "Jane Doe", dob: "01/01/1980" });
+      ).toEqual(
+        preloaded
+          ? { id: "patient-1", name: "Jane Doe", dob: "01/01/1980" }
+          : { name: "Jane" },
+      );
     },
   );
 
@@ -539,14 +543,14 @@ describe("create_staff_task", () => {
       id: "patient-1",
       name: "Jane Doe",
     });
-    expect(staffTaskReceipts(state)).toMatchObject([
+    expect(state.runtime.staffTasks).toMatchObject([
       {
         idempotencyKey: body.idempotencyKey,
         status: "created",
         taskId: "task-1",
       },
     ]);
-    expect(JSON.stringify(staffTaskReceipts(state))).not.toContain(
+    expect(JSON.stringify(state.runtime.staffTasks)).not.toContain(
       "Caller needs staff",
     );
   });
@@ -614,7 +618,7 @@ describe("create_staff_task", () => {
         "Prior authorization for United Healthcare Individual Exchange Network.",
       urgency: "normal",
     });
-    expect(staffTaskReceipts(state)).toMatchObject([
+    expect(state.runtime.staffTasks).toMatchObject([
       {
         status: "created",
         taskId: "prior-auth-task-1",
@@ -657,7 +661,7 @@ describe("create_staff_task", () => {
       "Staff tasks are unavailable in this sandbox call",
     );
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(staffTaskReceipts(state)).toEqual([]);
+    expect(state.runtime.staffTasks).toEqual([]);
     expect(domainOutcomeReceipts(state)).toMatchObject([
       { outcome: "staff_task_failed", status: "blocked" },
     ]);
@@ -696,7 +700,7 @@ describe("create_staff_task", () => {
     );
 
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(staffTaskReceipts(state)).toEqual([]);
+    expect(state.runtime.staffTasks).toEqual([]);
   });
 
   it("preserves the sweetwater-optical Product route from the inbound trunk", async () => {
@@ -771,7 +775,7 @@ describe("create_staff_task", () => {
       "I already sent that to the team. They'll review it and follow up.",
     );
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(staffTaskReceipts(state)).toHaveLength(1);
+    expect(state.runtime.staffTasks).toHaveLength(1);
     expect(domainOutcomeReceipts(state)).toMatchObject([
       {
         callId: "tool-1",
@@ -814,7 +818,7 @@ describe("create_staff_task", () => {
     );
     await expect(failure).rejects.not.toBeInstanceOf(ToolError);
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(staffTaskReceipts(state)).toEqual([]);
+    expect(state.runtime.staffTasks).toEqual([]);
   });
 
   it.each([408, 429, 500, 503])(
@@ -850,7 +854,7 @@ describe("create_staff_task", () => {
       );
       expect(fetchMock).toHaveBeenCalledTimes(2);
       expectIdenticalTaskRequests(fetchMock.mock.calls);
-      expect(staffTaskReceipts(state)).toHaveLength(1);
+      expect(state.runtime.staffTasks).toHaveLength(1);
     },
   );
 
@@ -891,7 +895,7 @@ describe("create_staff_task", () => {
     );
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expectIdenticalTaskRequests(fetchMock.mock.calls);
-    expect(staffTaskReceipts(state)).toHaveLength(1);
+    expect(state.runtime.staffTasks).toHaveLength(1);
   });
 
   it("returns a safe ToolError after one retryable failure retry", async () => {
@@ -917,7 +921,7 @@ describe("create_staff_task", () => {
     );
     await expect(failure).rejects.toBeInstanceOf(ToolError);
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(staffTaskReceipts(state)).toEqual([]);
+    expect(state.runtime.staffTasks).toEqual([]);
     expect(domainOutcomeReceipts(state)).toMatchObject([
       {
         callId: "tool-1",
@@ -953,7 +957,7 @@ describe("create_staff_task", () => {
       );
       await expect(failure).rejects.not.toBeInstanceOf(ToolError);
       expect(fetchMock).toHaveBeenCalledTimes(1);
-      expect(staffTaskReceipts(state)).toEqual([]);
+      expect(state.runtime.staffTasks).toEqual([]);
     },
   );
 });

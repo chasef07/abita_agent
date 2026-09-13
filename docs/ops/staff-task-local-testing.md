@@ -10,12 +10,12 @@ Use Node 22 and pnpm 10.34.3. No provider credentials are needed:
 
 ```sh
 corepack pnpm@10.34.3 install --frozen-lockfile
-corepack pnpm@10.34.3 exec vitest run src/__tests__/staff-task-tool.test.ts src/__tests__/staff-task-conversation.test.ts src/__tests__/office-routing.test.ts src/__tests__/office-knowledge-routing-regression.test.ts src/__tests__/patient-identity.test.ts src/__tests__/simulation.test.ts
+corepack pnpm@10.34.3 exec vitest run src/__tests__/staff-task-tool.test.ts src/__tests__/staff-task-conversation.test.ts src/__tests__/office-routing.test.ts src/__tests__/portal-knowledge-session.test.ts src/__tests__/patient-identity.test.ts src/__tests__/simulation.test.ts
 corepack pnpm@10.34.3 typecheck
 ```
 
 The conversation suite uses scripted model decisions with the real Agent,
-registered tool, Call State, Office Knowledge Hook, task payload builder and
+registered tool, Call State, portal knowledge search tool, task payload builder and
 receipts. Only the external HTTP transport is inert. It checks retained intake,
 category payloads, multiple distinct needs, scoped guidance and knowledge
 availability. It does **not** prove that a configured model selects the right
@@ -35,7 +35,7 @@ corepack pnpm@10.34.3 exec tsx src/__tests__/staff-task-model-check.ts ambiguous
 ```
 
 This check incurs inference usage, uses fictional callers and an inert task
-transport, observes transfer selection without executing it, and blocks every
+transport, observes transfer selection without executing it, supplies synthetic knowledge-tool answers, and blocks every
 other tool execution. It creates no room, calls, messages or production Tasks.
 It checks category selection, clarification and supplied answers; it is not a
 complete semantic audit of every generated staff note. Missing credentials or
@@ -43,7 +43,7 @@ model-check failures are separate from offline runtime test results.
 
 ## Portal contract evidence
 
-`evals/fixtures/staff-task-payloads.json` contains 27 payloads captured from real
+`evals/fixtures/staff-task-payloads.json` contains 29 payloads captured from real
 registered `create_staff_task` execution. Regenerate without network access:
 
 ```sh
@@ -88,7 +88,7 @@ categories and legacy replay compatibility. Then use the existing reviewed
 agent/prompt release process. This local implementation does not publish a
 prompt, release, deploy, send calls/messages, or alter production data.
 
-## Implementation evidence
+## Earlier branch verification (before main integration)
 
 Validated locally with Node 22.23.2 and pnpm 10.34.3:
 
@@ -112,7 +112,7 @@ Validated locally with Node 22.23.2 and pnpm 10.34.3:
   behavior and deployed call behavior remain unverified.
 
 Copay/copayment questions use Insurance, including questions about a copay charge
-or a copay tied to glasses or medication. Office Knowledge prioritizes this
+or a copay tied to glasses or medication. The Abita role and task schema prioritize this
 intent over general billing routing; unresolved questions use an Insurance Task
 with caller agreement. Ordinary balance/billing questions retain their existing
 billing-contact path. Local scripted tests cover routing and transport, not
@@ -124,3 +124,20 @@ All 53 files / 1,156 tests pass; the Office Knowledge benchmark is 85.85 ms
 against the 250 ms budget. Routing regressions were observed failing before the
 fix. Standards review's duplicate-alias finding was fixed; its recheck has no
 remaining findings. No live model inference or production deployment was run.
+
+## Current-main integration
+
+Integrated main at `6747087`. The current portal knowledge search tool replaces
+removed static Office Knowledge hooks; tests use synthetic search responses.
+Copay precedence remains in the Abita role and task schema. No deleted knowledge
+files or full patient-model projection are restored.
+
+The current first-name/DOB identity resolver owns chart verification and patient
+switches. Staff Tasks preserve only the caller-reported fields accepted by that
+resolver while unresolved; full requester/patient details remain in the task
+message. An older identity operation cannot clear a newer Task patient context.
+
+Local validation uses Node 22.22.0 and pnpm 10.34.3: format, lint, typecheck,
+build, and the full 53-file / 999-test suite. The regenerated contract fixture
+contains 29 synthetic payloads, including both copay scenarios. Unscripted
+model behavior, CI, and deployed/provider behavior remain unverified here.

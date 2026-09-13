@@ -5,11 +5,6 @@ import { createLlmPair } from "../model-config.js";
 import { buildPrompt } from "../prompt.js";
 import { buildToolsForTrunk } from "../runtime/tool-registry.js";
 import { SPRING_HILL_OFFICE_PHONE } from "../customers/abita/profile.js";
-import { patientModelProjection } from "../identity/patient-identity.js";
-import {
-  resolveOfficeKnowledge,
-  officeKnowledgeReference,
-} from "../office-knowledge.js";
 import {
   createConfirmedPatientState,
   createTestCallState,
@@ -147,15 +142,11 @@ for (const model of [models.primary, models.fallback]) {
       });
       chatCtx.addMessage({
         role: "system",
-        content: patientModelProjection(state),
+        content: state.identity.activePatient
+          ? `Synthetic verified patient fixture: ${JSON.stringify(state.identity.activePatient)}.`
+          : "No patient identity has been verified.",
       });
       chatCtx.addMessage({ role: "user", content: scenario.caller });
-      const knowledge = resolveOfficeKnowledge("spring-hill", scenario.caller);
-      if (knowledge.outcome !== "skipped")
-        chatCtx.addMessage({
-          role: "assistant",
-          content: officeKnowledgeReference("spring-hill", knowledge),
-        });
       let text = "";
       let transfer = false;
       let blockedTool = false;
@@ -183,6 +174,20 @@ for (const model of [models.primary, models.fallback]) {
             if (call.name === "transfer_call") {
               transfer = true;
               break;
+            }
+            if (call.name === "search_office_knowledge") {
+              // Synthetic tool response only; never query a live knowledge source.
+              chatCtx.insert([
+                call,
+                llm.FunctionCallOutput.create({
+                  callId: call.callId,
+                  name: call.name,
+                  isError: false,
+                  output:
+                    "Synthetic office policy: new-patient self-pay medical visit $250; clarify medical versus routine and new versus established status before quoting.",
+                }),
+              ]);
+              continue;
             }
             if (call.name !== "create_staff_task") {
               blockedTool = true;

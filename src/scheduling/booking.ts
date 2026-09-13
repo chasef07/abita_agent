@@ -12,17 +12,18 @@ import {
 import {
   availabilityBookingToken,
   clearAvailabilitySelection,
-  currentWorkflowVisitType,
   latestAvailabilityRouting,
-} from "./state.js";
-import {
   publicProviderName,
   selectedAvailabilitySlot,
 } from "./availability.js";
 import { routingForAvailability } from "./routing.js";
 import { spokenAppointmentDate } from "./spoken-date.js";
-import type { BookingSuccess } from "./middleware.js";
 import { SchedulingInputRequired } from "./input-required.js";
+
+export type BookingSuccess = Extract<
+  BookAppointmentResult,
+  { status: "booked" | "partial" }
+>;
 
 export type AppointmentPatientStatus = "new" | "established";
 
@@ -75,7 +76,7 @@ export function bookingRequestBodyForSlot(
   );
   if (!bookingToken) {
     clearAvailabilitySelection(state, {
-      invalidateReads: "booking_authorization_invalidated",
+      invalidateReads: true,
     });
     throw new SchedulingInputRequired(
       "Search availability again before booking because the selected slot expired.",
@@ -253,7 +254,7 @@ function visitCategoryForBooking(
 ): BookAppointmentInput["visitCategory"] {
   if (
     routing === "optical_only" ||
-    currentWorkflowVisitType(state) === "routine_vision"
+    state.workflow.visitType === "routine_vision"
   ) {
     return "routine_vision";
   }

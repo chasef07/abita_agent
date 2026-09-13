@@ -1,6 +1,6 @@
 {
   "name": "abita_agent",
-  "version": "5.1.1",
+  "version": "5.2.3",
   "type": "module",
   "scripts": {
     "dev": "tsx src/main.ts dev",
@@ -9,8 +9,7 @@
     "start": "node dist/main.js start",
     "download-files": "livekit-agents download-files",
     "greetings:generate": "node --env-file-if-exists=.env.local --import tsx scripts/generate-greetings.ts",
-    "test": "vitest run && pnpm test:office-knowledge-benchmark",
-    "test:office-knowledge-benchmark": "tsx src/__tests__/office-knowledge-benchmark.ts",
+    "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
     "format": "prettier --write . --ignore-unknown",
@@ -50,5 +49,6 @@
       "esbuild": "0.28.2",
       "vite": "8.2.2"
     }
-  }
+  },
+  "packageManager": "pnpm@10.34.3"
 }

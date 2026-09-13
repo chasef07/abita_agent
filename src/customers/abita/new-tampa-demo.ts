@@ -6,12 +6,14 @@ import { spokenSlot } from "../../scheduling/booking.js";
 import { createSchedulingTools } from "../../scheduling/tools.js";
 import type { SchedulingMiddleware } from "../../scheduling/middleware.js";
 import type { SchedulingClock } from "../../scheduling/clock.js";
-import { selectedAvailabilitySlot } from "../../scheduling/availability.js";
+import {
+  selectedAvailabilitySlot,
+  clearAvailabilitySelection,
+} from "../../scheduling/availability.js";
 import { check_insurance } from "../../tools/check-insurance.js";
 import { isToolset, tool, type ToolContextEntry } from "@livekit/agents";
 import { z } from "zod";
 import { activePatientId, type CallState } from "../../state/call-state.js";
-import { clearAvailabilitySelection } from "../../scheduling/state.js";
 import { getState } from "../../tools/session.js";
 import {
   NEW_TAMPA_DEMO_TRUNK_PHONE,
@@ -99,7 +101,7 @@ export const triage_eye_care = tool({
     if (!isNewTampaDemo(state))
       return "This tool is only available for the New Tampa demo.";
     clearAvailabilitySelection(state, {
-      invalidateReads: "scheduling_context_changed",
+      invalidateReads: true,
     });
     const triage: DemoTriage = {
       patientGeneration: state.identity.transitionVersion,
@@ -200,7 +202,7 @@ export const notify_after_hours_physician = tool({
     if (!isNewTampaDemo(state))
       return "No physician notification was sent. This simulation is only available for the New Tampa demo.";
     clearAvailabilitySelection(state, {
-      invalidateReads: "scheduling_context_changed",
+      invalidateReads: true,
     });
     triageByCall.set(state, {
       patientGeneration: state.identity.transitionVersion,
