@@ -223,54 +223,61 @@ describe("create_staff_task", () => {
     ).toEqual({ name: "Morgan Example" });
   });
 
-  it("uses the created chart after the same registration is refreshed during creation", async () => {
-    const transport = vi.fn<typeof fetch>(async () =>
-      Response.json({ status: "created", taskId: "created-patient-task" }),
-    );
-    vi.stubGlobal("fetch", transport);
-    const state = createState();
-    const identity = {
-      firstName: "Morgan",
-      lastName: "Example",
-      dob: "02/03/1990",
-    };
-    beginNewPatientRegistration(state, identity);
-    const operation = beginPatientCreation(state)!;
-    beginNewPatientRegistration(state, identity);
-    expect(
-      commitPatientCreation(state, operation, {
-        status: "created",
-        patientId: "created-morgan",
+  it.each([
+    { firstName: "Morgan", lastName: "Example", dob: "02/03/1990" },
+    { firstName: "morgan", lastName: "EXAMPLE", dob: "02/03/1990" },
+    { firstName: "Mórgan", lastName: "Example", dob: "2/3/1990" },
+  ])(
+    "uses the created chart after an equivalent registration refresh: %j",
+    async (refresh) => {
+      const transport = vi.fn<typeof fetch>(async () =>
+        Response.json({ status: "created", taskId: "created-patient-task" }),
+      );
+      vi.stubGlobal("fetch", transport);
+      const state = createState();
+      const identity = {
+        firstName: "Morgan",
+        lastName: "Example",
+        dob: "02/03/1990",
+      };
+      beginNewPatientRegistration(state, identity);
+      const operation = beginPatientCreation(state)!;
+      beginNewPatientRegistration(state, refresh);
+      expect(
+        commitPatientCreation(state, operation, {
+          status: "created",
+          patientId: "created-morgan",
+          name: "Morgan Example",
+          dob: identity.dob,
+          phone: "+12025550147",
+          insuranceCarrier: null,
+          insPlanId: null,
+          respPartyId: null,
+          routing: null,
+          preauthRequired: false,
+        }).outcome,
+      ).toBe("activated");
+      await create_staff_task.execute(
+        {
+          category: "documentation",
+          urgency: "normal",
+          summary: "Records follow-up",
+          message: "Morgan requests records.",
+        },
+        {
+          ctx: createToolContext(state) as never,
+          toolCallId: "created-patient-task",
+        } as never,
+      );
+      expect(
+        JSON.parse(transport.mock.calls[0]![1]!.body as string).patient,
+      ).toEqual({
+        id: "created-morgan",
         name: "Morgan Example",
         dob: identity.dob,
-        phone: "+12025550147",
-        insuranceCarrier: null,
-        insPlanId: null,
-        respPartyId: null,
-        routing: null,
-        preauthRequired: false,
-      }).outcome,
-    ).toBe("activated");
-    await create_staff_task.execute(
-      {
-        category: "documentation",
-        urgency: "normal",
-        summary: "Records follow-up",
-        message: "Morgan requests records.",
-      },
-      {
-        ctx: createToolContext(state) as never,
-        toolCallId: "created-patient-task",
-      } as never,
-    );
-    expect(
-      JSON.parse(transport.mock.calls[0]![1]!.body as string).patient,
-    ).toEqual({
-      id: "created-morgan",
-      name: "Morgan Example",
-      dob: identity.dob,
-    });
-  });
+      });
+    },
+  );
 
   it("keeps verified chart identity when the same preloaded patient is resolved twice", async () => {
     const transport = vi.fn<typeof fetch>(async () =>

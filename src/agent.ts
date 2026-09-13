@@ -10,6 +10,7 @@ import {
 } from "@livekit/agents";
 import type { AudioFrame } from "@livekit/rtc-node";
 import type { ReadableStream } from "node:stream/web";
+import { staffTaskPatient } from "./identity/patient-identity.js";
 import { buildPrompt } from "./prompt.js";
 import type { OwnedMiddleware } from "./clients/owned-middleware.js";
 import type { CallState } from "./state/call-state.js";
@@ -88,8 +89,8 @@ export function createVoiceAgent(
             content: hint,
           }),
         );
-      const taskPatient = ctx.session.userData.identity.unresolvedTaskPatient;
-      if (taskPatient)
+      const taskPatient = staffTaskPatient(ctx.session.userData);
+      if (taskPatient && !taskPatient.id)
         context.push(
           ChatMessage.create({
             id: STAFF_TASK_PATIENT_MESSAGE_ID,

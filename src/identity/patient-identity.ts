@@ -8,6 +8,8 @@ import {
 import { getOfficeProfileByPhone } from "../customers/abita/profile.js";
 import { normalizeCallerAppointments } from "../state/appointments.js";
 import {
+  activePatientDob,
+  activePatientId,
   activePatientName,
   type ActivePatient,
   type AppointmentLoadStatus,
@@ -110,10 +112,30 @@ function clearTaskPatientContext(
   if (
     current &&
     expected &&
-    current.name === expected.name &&
-    current.dob === expected.dob
+    (current.name === expected.name ||
+      (current.name &&
+        expected.name &&
+        exactNamesMatch(current.name, expected.name))) &&
+    (current.dob === expected.dob || dobMatches(current.dob, expected.dob))
   )
     state.identity.unresolvedTaskPatient = null;
+}
+
+export function staffTaskPatient(
+  state: CallState,
+): { id?: string; name?: string; dob?: string } | undefined {
+  const unresolved = state.identity.unresolvedTaskPatient;
+  if (unresolved) return unresolved;
+  const id = activePatientId(state);
+  const name = activePatientName(state);
+  const dob = activePatientDob(state);
+  return id || name || dob
+    ? {
+        ...(id ? { id } : {}),
+        ...(name ? { name } : {}),
+        ...(dob ? { dob } : {}),
+      }
+    : undefined;
 }
 
 type PatientCreationOperationState = {

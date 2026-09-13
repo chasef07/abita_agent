@@ -1,11 +1,9 @@
 import { createHash } from "node:crypto";
 import { ToolError, tool } from "@livekit/agents";
 import { z } from "zod";
+import { staffTaskPatient } from "../identity/patient-identity.js";
 import { getProductTenantConfig } from "../runtime/portal-auth.js";
 import {
-  activePatientDob,
-  activePatientId,
-  activePatientName,
   type CallState,
   type StaffTaskCategory,
   STAFF_TASK_CATEGORIES,
@@ -38,7 +36,8 @@ const taskParameters = z.object({
       "optical includes glasses/contact prescriptions; medication includes refills and medication authorizations; " +
         "insurance includes copays, coverage, referral requirements and service authorizations; referrals means specialist/imaging orders. " +
         "pre_op/post_op mean surgical preparation/aftercare, not scheduling, refills or authorizations. " +
-        "Clarify ambiguous requests; use other if still unclear, including an unknown authorization subject.",
+        "For prior authorization, ask what it authorizes if unknown. If the caller still cannot specify medication versus service, category MUST be other, never insurance. " +
+        "Use other for any request still unclear after clarification.",
     ),
   urgency: z
     .enum(["high_priority", "normal", "non_urgent"])
@@ -57,7 +56,8 @@ const taskParameters = z.object({
     .min(1)
     .max(2500)
     .describe(
-      "Caller-reported details for this patient and need. Include medication/pharmacy, service/plan, authorization status and procedure timing when relevant. Preserve essential intake and list missing details.",
+      "Details of exactly ONE need for this patient; make another tool call for each additional need, even with the same category. " +
+        "Include medication/pharmacy, service/plan, authorization status and procedure timing when relevant. Preserve essential intake and list missing details.",
     ),
 });
 
@@ -73,10 +73,10 @@ class StaffTaskDeliveryError extends Error {}
 export const create_staff_task = tool({
   name: "create_staff_task",
   description:
-    "Send one safe, non-urgent caller-approved unresolved request for staff review. Collect applicable details; list gaps if incomplete. " +
-    "For records, search office knowledge for intake and delivery rules first. Include restrictions and missing prerequisites in your spoken confirmation, even when already approved. " +
-    "Follow Human Transfer policy for urgent or clinical concerns, medication guidance or reactions, returned calls and live-person requests. " +
-    "Confirm submission only after success; leave fulfillment and timing to staff.",
+    "Send one safe, non-urgent caller-approved unresolved request per invocation. Submit distinct needs separately, even within one category. " +
+    "For records, search office knowledge for intake and delivery rules; speak restrictions and missing prerequisites even when already approved. " +
+    "Collect details; list gaps if incomplete. Follow Human Transfer policy for urgent or clinical concerns. " +
+    "Confirm submission only after success; staff owns fulfillment and timing.",
   parameters: taskParameters,
   execute: async (input, { ctx, toolCallId }): Promise<string> => {
     const state = getState(ctx);
@@ -183,29 +183,14 @@ function buildStaffTaskPayload(
 ) {
   const officeKey = getProductOfficeKeyByPhone(state.runtime.trunkPhone);
   const officePhone = office.amdOfficePhone;
-  const unresolvedPatient = state.identity.unresolvedTaskPatient;
-  const patientId = unresolvedPatient ? null : activePatientId(state);
-  const patientName = unresolvedPatient
-    ? unresolvedPatient.name
-    : activePatientName(state);
-  const patientDob = unresolvedPatient
-    ? unresolvedPatient.dob
-    : activePatientDob(state);
-  const patient =
-    patientId || patientName || patientDob
-      ? {
-          ...(patientId ? { id: patientId } : {}),
-          ...(patientName ? { name: patientName } : {}),
-          ...(patientDob ? { dob: patientDob } : {}),
-        }
-      : undefined;
+  const patient = staffTaskPatient(state);
 
   const idempotencyKey = buildIdempotencyKey({
     callId: state.runtime.callId,
     category: input.category,
     message: input.message,
     officePhone,
-    patientIdentity: patientId ?? JSON.stringify(patient ?? {}),
+    patientIdentity: patient?.id ?? JSON.stringify(patient ?? {}),
     summary: input.summary,
   });
 
