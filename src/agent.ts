@@ -10,6 +10,7 @@ import {
 } from "@livekit/agents";
 import type { AudioFrame } from "@livekit/rtc-node";
 import type { ReadableStream } from "node:stream/web";
+import { staffTaskPatient } from "./identity/patient-identity.js";
 import { buildPrompt } from "./prompt.js";
 import type { OwnedMiddleware } from "./clients/owned-middleware.js";
 import type { CallState } from "./state/call-state.js";
@@ -33,6 +34,7 @@ type VoiceAgentOptions = {
 };
 
 const CLINIC_TIME_MESSAGE_ID = "clinic_time";
+const STAFF_TASK_PATIENT_MESSAGE_ID = "staff_task_patient";
 const PRECALL_LOOKUP_HINT_MESSAGE_ID = "precall_lookup_hint";
 
 export function createVoiceAgent(
@@ -68,7 +70,8 @@ export function createVoiceAgent(
       modelChatCtx.items = modelChatCtx.items.filter(
         (item) =>
           item.id !== CLINIC_TIME_MESSAGE_ID &&
-          item.id !== PRECALL_LOOKUP_HINT_MESSAGE_ID,
+          item.id !== PRECALL_LOOKUP_HINT_MESSAGE_ID &&
+          item.id !== STAFF_TASK_PATIENT_MESSAGE_ID,
       );
       const context = [
         ChatMessage.create({
@@ -84,6 +87,15 @@ export function createVoiceAgent(
             id: PRECALL_LOOKUP_HINT_MESSAGE_ID,
             role: "system",
             content: hint,
+          }),
+        );
+      const taskPatient = staffTaskPatient(ctx.session.userData);
+      if (taskPatient && !taskPatient.id)
+        context.push(
+          ChatMessage.create({
+            id: STAFF_TASK_PATIENT_MESSAGE_ID,
+            role: "system",
+            content: `Staff Task patient is caller-reported: ${JSON.stringify(taskPatient)}. No chart is verified for this request. Earlier active-chart details belong to earlier work; preserve missing details for staff review.`,
           }),
         );
       let latestUserIndex = -1;

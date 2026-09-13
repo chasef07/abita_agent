@@ -62,3 +62,26 @@ One local new-patient trial created a partial chart without insurance and booked
 nothing. It also exposed an incorrect callback number and an unsupported
 follow-up promise. Insurance integration and agent behavior fixes are deferred;
 the other five cases have not been run with this setup. No CI or deployment.
+
+## Staff task routing regressions
+
+Run the opt-in text evaluation separately from the EMR simulations:
+
+```sh
+node --env-file=.env.local --import tsx scripts/evaluate-staff-task-routing.ts
+```
+
+This uses the production primary model, agent context, tool registration, and
+three-tool-step limit. Eight synthetic cases cover Optical, medication and
+service authorizations, unknown authorization clarification, Pre-op, Post-op,
+and distinct requests across or within the same category. Assertions check actual
+submitted categories, chart identity, source call, distinct idempotency keys,
+and clarification before sending an ambiguous authorization request.
+
+The runner uses in-memory patient middleware, intercepts Task HTTP delivery and
+Human Transfer, and returns no office knowledge. It never delivers a Task or
+performs a live transfer. Only LiveKit inference requests may reach the network;
+model credentials and charges apply. JSON output includes synthetic payloads and
+failure transcripts; a failed assertion exits nonzero. Rerun to assess model
+variability. This verifies controlled text routing, not records policy retrieval,
+portal persistence, clinical safety, or spoken call behavior.

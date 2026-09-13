@@ -904,7 +904,7 @@ describe("model-facing tool definitions", () => {
       "before new-patient creation",
     );
     expect(check_insurance.description).toContain(
-      "A result requiring staff follow-up needs caller permission, then a normal referrals task",
+      "A result requiring staff follow-up needs caller permission, then a normal insurance task",
     );
     expect(check_insurance.description).toContain(
       "transfer only if task creation is unavailable, fails, or the caller declines",
@@ -945,26 +945,18 @@ describe("model-facing tool definitions", () => {
   });
 
   it("keeps staff task capture scoped to safe non-live work", () => {
-    expect(create_staff_task.description).not.toContain("Spring Hill");
     expect(create_staff_task.description).toContain(
-      "safe, non-urgent caller-approved work",
+      "one safe, non-urgent caller-approved unresolved request",
+    );
+    expect(create_staff_task.description).toContain("list gaps if incomplete");
+    expect(create_staff_task.description).toContain(
+      "search office knowledge for intake and delivery rules",
     );
     expect(create_staff_task.description).toContain(
-      "Do not use for completed appointment actions",
-    );
-    expect(create_staff_task.description).toContain("live-person requests");
-    expect(create_staff_task.description).toContain("returned calls");
-    expect(create_staff_task.description).toContain(
-      "medication guidance or reactions",
+      "Follow Human Transfer policy for urgent or clinical concerns",
     );
     expect(create_staff_task.description).toContain(
-      "urgent or clinical concerns",
-    );
-    expect(create_staff_task.description).toContain(
-      "without promising approval, completion, refill, or timing",
-    );
-    expect(create_staff_task.description).toContain(
-      "Success confirms staff submission only",
+      "Confirm submission only after success",
     );
     const taskParameters = create_staff_task.parameters as {
       shape: {
@@ -975,10 +967,10 @@ describe("model-facing tool definitions", () => {
       };
     };
     expect(taskParameters.shape.category.description).toContain(
-      "referrals including insurance prior authorization",
+      "medication includes refills and medication authorizations",
     );
     expect(taskParameters.shape.message.description).toContain(
-      "for prior authorization include patient, plan, visit type, and request",
+      "service/plan, authorization status",
     );
     expect(taskParameters.shape.urgency.description).toContain(
       "high_priority for time-sensitive non-clinical work",
@@ -990,7 +982,7 @@ describe("model-facing tool definitions", () => {
         summary: "Caller has a billing question.",
         message: "The caller wants billing to review a recent bill.",
       }).success,
-    ).toBe(true);
+    ).toBe(false);
     expect(
       objectSchema(create_staff_task.parameters).safeParse({
         category: "medication",

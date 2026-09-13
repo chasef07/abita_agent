@@ -230,14 +230,19 @@ export interface DomainOutcomeReceipt {
   evidence?: Record<string, unknown>;
 }
 
-export type StaffTaskCategory =
-  | "billing"
-  | "appointments"
-  | "documentation"
-  | "optical"
-  | "medication"
-  | "referrals"
-  | "other";
+export const STAFF_TASK_CATEGORIES = [
+  "appointments",
+  "documentation",
+  "medication",
+  "optical",
+  "referrals",
+  "other",
+  "insurance",
+  "pre_op",
+  "post_op",
+] as const;
+
+export type StaffTaskCategory = (typeof STAFF_TASK_CATEGORIES)[number];
 
 export interface StaffTaskReceipt {
   createdAt: string;
@@ -324,6 +329,8 @@ interface IdentitySessionState {
   activePatient: ActivePatient | null;
   registration: RegistrationDraft | null;
   unregisteredPatientReceipt: UnregisteredPatientReceipt | null;
+  // Caller-reported task context; never an Identity Promotion or verified chart.
+  unresolvedTaskPatient: { name?: string; dob?: string } | null;
   operationVersion: number;
   transitionVersion: number;
   completedBookingsByPatientId: Record<string, CompletedBookingState>;
@@ -424,6 +431,7 @@ export function createCanonicalCallState(
       pendingIdentity: null,
       nameSearch: null,
       unregisteredPatientReceipt: null,
+      unresolvedTaskPatient: null,
       completedBookingsByPatientId: {},
       operationVersion: 0,
       transitionVersion: 0,

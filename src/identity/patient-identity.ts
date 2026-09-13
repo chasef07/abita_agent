@@ -8,6 +8,8 @@ import {
 import { getOfficeProfileByPhone } from "../customers/abita/profile.js";
 import { normalizeCallerAppointments } from "../state/appointments.js";
 import {
+  activePatientDob,
+  activePatientId,
   activePatientName,
   type ActivePatient,
   type AppointmentLoadStatus,
@@ -89,6 +91,52 @@ declare const patientCreationOperationBrand: unique symbol;
 export type PatientCreationOperation = {
   readonly [patientCreationOperationBrand]: true;
 };
+
+type TaskPatientContext = CallState["identity"]["unresolvedTaskPatient"];
+
+function callerReportedTaskPatient(identity: ResolvePatientIdentityInput) {
+  const name = [identity.firstName, identity.lastName]
+    .filter(Boolean)
+    .join(" ");
+  return {
+    ...(name ? { name } : {}),
+    ...(identity.dob ? { dob: identity.dob } : {}),
+  };
+}
+
+function clearTaskPatientContext(
+  state: CallState,
+  expected: TaskPatientContext,
+) {
+  const current = state.identity.unresolvedTaskPatient;
+  if (
+    current &&
+    expected &&
+    (current.name === expected.name ||
+      (current.name &&
+        expected.name &&
+        exactNamesMatch(current.name, expected.name))) &&
+    (current.dob === expected.dob || dobMatches(current.dob, expected.dob))
+  )
+    state.identity.unresolvedTaskPatient = null;
+}
+
+export function staffTaskPatient(
+  state: CallState,
+): { id?: string; name?: string; dob?: string } | undefined {
+  const unresolved = state.identity.unresolvedTaskPatient;
+  if (unresolved) return unresolved;
+  const id = activePatientId(state);
+  const name = activePatientName(state);
+  const dob = activePatientDob(state);
+  return id || name || dob
+    ? {
+        ...(id ? { id } : {}),
+        ...(name ? { name } : {}),
+        ...(dob ? { dob } : {}),
+      }
+    : undefined;
+}
 
 type PatientCreationOperationState = {
   callState: CallState;
@@ -186,13 +234,18 @@ export async function resolveExistingPatient(
     excludePreviousPatient:
       explicitSwitch || pending?.excludePreviousPatient === true,
   };
+  const taskPatientContext = callerReportedTaskPatient(identity);
+  state.identity.unresolvedTaskPatient = taskPatientContext;
   const key = patientResolutionKey(state);
   const existing = patientResolutions.get(state);
   if (
     existing?.key === key &&
     existing.operationVersion === state.identity.operationVersion
   ) {
-    return existing.result;
+    const result = await existing.result;
+    if (result.outcome === "verified" || result.outcome === "switched")
+      clearTaskPatientContext(state, taskPatientContext);
+    return result;
   }
   const operationVersion = beginPatientIdentityOperation(state);
   const result = resolvePatientEvidence(
@@ -200,7 +253,11 @@ export async function resolveExistingPatient(
     identity,
     lookup,
     operationVersion,
-  );
+  ).then((outcome) => {
+    if (outcome.outcome === "verified" || outcome.outcome === "switched")
+      clearTaskPatientContext(state, taskPatientContext);
+    return outcome;
+  });
   const entry = { key, operationVersion, result };
   patientResolutions.set(state, entry);
   // Unexpected exceptions are not definitive lookup decisions.
@@ -431,6 +488,9 @@ export function beginNewPatientRegistration(
       ...state.identity.registration,
       ...draft,
     };
+    state.identity.unresolvedTaskPatient = callerReportedTaskPatient(
+      state.identity.registration,
+    );
     return;
   }
 
@@ -445,6 +505,7 @@ export function beginNewPatientRegistration(
   setInsuranceOnFile(state, null);
   state.identity.activePatient = null;
   state.identity.registration = draft;
+  state.identity.unresolvedTaskPatient = callerReportedTaskPatient(draft);
 }
 
 export function beginPatientCreation(
@@ -497,6 +558,10 @@ export function commitPatientCreation(
   ) {
     return { outcome: "invalid_receipt", result };
   }
+  clearTaskPatientContext(
+    state,
+    callerReportedTaskPatient(operationState.registration),
+  );
   return { outcome: "activated", receipt: result };
 }
 
