@@ -37,7 +37,8 @@ const taskParameters = z.object({
     .describe(
       "optical includes glasses/contact prescriptions; medication includes refills and medication authorizations; " +
         "insurance includes copays, coverage, referral requirements and service authorizations; referrals means specialist/imaging orders. " +
-        "pre_op/post_op mean surgical preparation/aftercare, not scheduling, refills or authorizations.",
+        "pre_op/post_op mean surgical preparation/aftercare, not scheduling, refills or authorizations. " +
+        "Clarify ambiguous requests; use other if still unclear.",
     ),
   urgency: z
     .enum(["high_priority", "normal", "non_urgent"])
@@ -72,10 +73,10 @@ class StaffTaskDeliveryError extends Error {}
 export const create_staff_task = tool({
   name: "create_staff_task",
   description:
-    "Send safe, non-urgent caller-approved work to staff after collecting the needed details. " +
-    "Do not use for completed appointment actions, urgent or clinical concerns, medication guidance or reactions, returned calls, or live-person requests; transfer those when policy requires. " +
-    "Call before claiming a message, note, callback, or waitlist request was sent. " +
-    "Success confirms staff submission only, without promising approval, completion, refill, or timing.",
+    "Send one safe, non-urgent caller-approved unresolved request for staff review. Collect applicable details; list gaps if incomplete. " +
+    "For records, search office knowledge for intake and delivery rules first. " +
+    "Follow Human Transfer policy for urgent or clinical concerns, medication guidance or reactions, returned calls and live-person requests. " +
+    "Confirm submission only after success; leave fulfillment and timing to staff.",
   parameters: taskParameters,
   execute: async (input, { ctx, toolCallId }): Promise<string> => {
     const state = getState(ctx);

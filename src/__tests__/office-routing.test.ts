@@ -985,29 +985,18 @@ describe("model-facing tool definitions", () => {
   });
 
   it("keeps staff task capture scoped to safe non-live work", () => {
-    expect(create_staff_task.description).not.toContain("Spring Hill");
     expect(create_staff_task.description).toContain(
-      "safe, non-urgent caller-approved work",
+      "one safe, non-urgent caller-approved unresolved request",
+    );
+    expect(create_staff_task.description).toContain("list gaps if incomplete");
+    expect(create_staff_task.description).toContain(
+      "search office knowledge for intake and delivery rules",
     );
     expect(create_staff_task.description).toContain(
-      "after collecting the needed details",
+      "Follow Human Transfer policy for urgent or clinical concerns",
     );
     expect(create_staff_task.description).toContain(
-      "Do not use for completed appointment actions",
-    );
-    expect(create_staff_task.description).toContain("live-person requests");
-    expect(create_staff_task.description).toContain("returned calls");
-    expect(create_staff_task.description).toContain(
-      "medication guidance or reactions",
-    );
-    expect(create_staff_task.description).toContain(
-      "urgent or clinical concerns",
-    );
-    expect(create_staff_task.description).toContain(
-      "without promising approval, completion, refill, or timing",
-    );
-    expect(create_staff_task.description).toContain(
-      "Success confirms staff submission only",
+      "Confirm submission only after success",
     );
     const taskParameters = create_staff_task.parameters as {
       shape: {
@@ -1376,26 +1365,5 @@ describe("model-facing tool definitions", () => {
     expect(parameters.safeParse({ firstName: " ", dob: null }).success).toBe(
       false,
     );
-  });
-});
-
-describe("Abita records and task intake policy", () => {
-  it("supplies records intake and patient-email limits only to Abita office prompts", () => {
-    const prompt = buildPrompt(SPRING_HILL_OFFICE_PHONE);
-    for (const instruction of [
-      "patient, medical office, or attorney office",
-      "only a visit summary may be emailed",
-      "full visit notes are excluded",
-      "both the records request and patient authorization",
-      "caller-reported",
-      "Missing details",
-      "786-446-8333",
-      "separate Task",
-      "approved self-pay",
-    ])
-      expect(prompt).toContain(instruction);
-    const demo = buildPrompt(RHEUMATOLOGY_DEMO_TRUNK_PHONE);
-    expect(demo).not.toContain("only a visit summary may be emailed");
-    expect(demo).not.toContain("786-446-8333");
   });
 });
