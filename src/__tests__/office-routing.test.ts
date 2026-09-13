@@ -1020,10 +1020,10 @@ describe("model-facing tool definitions", () => {
     expect(taskParameters.shape.category.description).toContain("medication");
     expect(taskParameters.shape.category.description).toContain("optical");
     expect(taskParameters.shape.category.description).toContain(
-      "medication PA/denial/status even when an insurer calls",
+      "medication includes refills and medication authorizations",
     );
     expect(taskParameters.shape.message.description).toContain(
-      "for authorization include the medication or service, plan and caller-reported status/reference",
+      "service/plan, authorization status",
     );
     expect(taskParameters.shape.urgency.description).toContain(
       "high_priority for time-sensitive non-clinical work",
@@ -1038,7 +1038,7 @@ describe("model-facing tool definitions", () => {
       "Short staff inbox title",
     );
     expect(taskParameters.shape.message.description).toContain(
-      "Include medication and pharmacy when known",
+      "Include medication/pharmacy",
     );
     expect(
       create_staff_task.parameters.safeParse({

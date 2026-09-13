@@ -35,7 +35,9 @@ const taskParameters = z.object({
   category: z
     .enum(STAFF_TASK_CATEGORIES)
     .describe(
-      "Classify the actual need: appointments = unfinished scheduling/confirmation work; documentation = full medical records, summaries, forms or records-release authorization; optical = glasses/contact orders, frames, repairs or prescription copies, including expedited copies; medication = medication prescriptions/refills, pharmacy fulfillment, medication PA/denial/status even when an insurer calls; insurance = copay/copayment questions (including disputed copay charges), coverage, referral requirements or visit/procedure/surgery/test authorization/status; referrals = actual specialist referral or imaging-order coordination; pre_op = preparation/instructions/clearance before surgery; post_op = recovery/aftercare; other = remaining administrative needs or unresolved subject/stage. Copay questions stay insurance even when described as billing or related to glasses or medication. Surgery alone does not change scheduling, refill or authorization categories. Clarify an ambiguous prescription, authorization subject or before/after surgery stage briefly; if still unknown, use other with the gap listed.",
+      "optical includes glasses/contact prescriptions; medication includes refills and medication authorizations; " +
+        "insurance includes copays, coverage, referral requirements and service authorizations; referrals means specialist/imaging orders. " +
+        "pre_op/post_op mean surgical preparation/aftercare, not scheduling, refills or authorizations.",
     ),
   urgency: z
     .enum(["high_priority", "normal", "non_urgent"])
@@ -47,16 +49,14 @@ const taskParameters = z.object({
     .trim()
     .min(1)
     .max(240)
-    .describe(
-      "Short staff inbox title naming this distinct unresolved need. Separate needs get separate Tasks even in the same category; never search or merge prior Tasks.",
-    ),
+    .describe("Short staff inbox title for one unresolved need."),
   message: z
     .string()
     .trim()
     .min(1)
     .max(2500)
     .describe(
-      "Ask for applicable details, but submit incomplete intake with explicit gaps if the caller cannot supply them. Preserve caller-provided details for this one need and current patient. Include medication and pharmacy when known; for authorization include the medication or service, plan and caller-reported status/reference. For records include requester type, document, applicable patient/requester details, delivery/destination and caller-reported fax/authorization status/date. Include procedure/timing for surgical care when known. Omit inapplicable fields; explicitly list missing details. Never invent verification, approval or delivery. Condense wording within 2500 characters without dropping essential intake; do not silently truncate.",
+      "Caller-reported details for this patient and need. Include medication/pharmacy, service/plan, authorization status and procedure timing when relevant. Preserve essential intake and list missing details.",
     ),
 });
 
