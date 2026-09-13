@@ -486,7 +486,11 @@ describe("call closeout", () => {
         action: "booked",
         externalPatientId: "patient-63",
         newAppointmentId: "appointment-63",
-        bookingResult: { status: "booked", appointmentId: 63 },
+        bookingResult: {
+          message: null,
+          status: "booked",
+          appointmentId: 63,
+        },
       },
     });
     const toolEvent = {
@@ -516,7 +520,11 @@ describe("call closeout", () => {
         action: "booked",
         externalPatientId: "patient-63",
         newAppointmentId: "appointment-63",
-        bookingResult: { status: "booked", appointmentId: 63 },
+        bookingResult: {
+          message: null,
+          status: "booked",
+          appointmentId: 63,
+        },
       },
     });
   });
@@ -628,7 +636,11 @@ describe("call closeout", () => {
       evidence: {
         action: "booked",
         newAppointmentId: "appointment-final",
-        bookingResult: { status: "booked", appointmentId: 63 },
+        bookingResult: {
+          message: null,
+          status: "booked",
+          appointmentId: 63,
+        },
       },
     });
 
@@ -642,7 +654,11 @@ describe("call closeout", () => {
       action: "booked",
       occurredAt: "2026-07-20T10:00:30.000Z",
       newAppointmentId: "appointment-final",
-      bookingResult: { status: "booked", appointmentId: 63 },
+      bookingResult: {
+        message: null,
+        status: "booked",
+        appointmentId: 63,
+      },
     });
   });
 
@@ -712,7 +728,11 @@ describe("call closeout", () => {
     const evidence = {
       action: "booked",
       newAppointmentId: "appointment-original",
-      bookingResult: { status: "booked", appointmentId: 63 },
+      bookingResult: {
+        message: null,
+        status: "booked",
+        appointmentId: 63,
+      },
     };
     recordDomainOutcome(state, {
       callId: "tool-call-original",
@@ -822,6 +842,13 @@ describe("call closeout", () => {
       events: [],
       jobId: "job-test",
       options: {
+        recordingOptions: {
+          audio: true,
+          traces: true,
+          logs: true,
+          transcript: true,
+          redaction: true,
+        },
         maxToolSteps: 3,
         turnHandling: { preemptiveGeneration: { enabled: false } },
         useTtsAlignedTranscript: true,
@@ -841,7 +868,18 @@ describe("call closeout", () => {
         sttProfiles: [],
         voiceLanguageRuntime: {
           snapshot: () => ({
-            language: {},
+            language: {
+              acceptedLanguages: ["en"],
+              candidateLanguage: null,
+              candidateTurns: 0,
+              currentLanguage: "en",
+              initialLanguage: "en",
+              keepEvents: [],
+              languageChanged: false,
+              languageSwitches: 0,
+              observedLanguages: [],
+              switchEvents: [],
+            },
             voiceLanguage: DEFAULT_CALL.initialVoiceLanguage,
           }),
         },
@@ -868,10 +906,27 @@ describe("call closeout", () => {
           provider: "openai",
           model: "gpt-test",
           inputTokens: 12,
+          inputCachedTokens: 0,
+          inputAudioTokens: 0,
+          inputCachedAudioTokens: 0,
+          inputTextTokens: 12,
+          inputCachedTextTokens: 0,
+          inputImageTokens: 0,
+          inputCachedImageTokens: 0,
           outputTokens: 4,
+          outputAudioTokens: 0,
+          outputTextTokens: 4,
+          sessionDurationMs: 0,
         },
       ],
       options: {
+        recordingOptions: {
+          audio: true,
+          traces: true,
+          logs: true,
+          transcript: true,
+          redaction: true,
+        },
         maxToolSteps: 3,
         turnHandling: { preemptiveGeneration: { enabled: false } },
         useTtsAlignedTranscript: true,
@@ -914,7 +969,18 @@ describe("call closeout", () => {
         sttProfiles: [],
         voiceLanguageRuntime: {
           snapshot: () => ({
-            language: {},
+            language: {
+              acceptedLanguages: ["en"],
+              candidateLanguage: null,
+              candidateTurns: 0,
+              currentLanguage: "en",
+              initialLanguage: "en",
+              keepEvents: [],
+              languageChanged: false,
+              languageSwitches: 0,
+              observedLanguages: [],
+              switchEvents: [],
+            },
             voiceLanguage: DEFAULT_CALL.initialVoiceLanguage,
           }),
         },
@@ -991,7 +1057,11 @@ describe("call closeout", () => {
         evidence: {
           action: "booked",
           newAppointmentId: "appointment-auth-proof",
-          bookingResult: { status: "booked", appointmentId: 63 },
+          bookingResult: {
+            message: null,
+            status: "booked",
+            appointmentId: 63,
+          },
         },
       });
       events.emit("toolsExecuted", {
@@ -1069,7 +1139,11 @@ describe("call closeout", () => {
           externalPatientId: "patient-63",
           oldAppointmentId: "appointment-old",
           newAppointmentId: "appointment-new",
-          bookingResult: { status: "booked", appointmentId: 6302 },
+          bookingResult: {
+            message: null,
+            status: "booked",
+            appointmentId: 6302,
+          },
           cancellationResult: { status: "cancelled" },
         },
       },
@@ -1099,7 +1173,11 @@ describe("call closeout", () => {
         externalPatientId: "patient-63",
         oldAppointmentId: "appointment-old",
         newAppointmentId: "appointment-new",
-        bookingResult: { status: "booked", appointmentId: 6302 },
+        bookingResult: {
+          message: null,
+          status: "booked",
+          appointmentId: 6302,
+        },
         cancellationResult: { status: "cancelled" },
       },
       closeoutPayload: {

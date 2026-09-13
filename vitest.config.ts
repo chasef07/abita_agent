@@ -3,8 +3,8 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     globals: true,
-    testTimeout: 60_000, // LLM calls take time
-    hookTimeout: 30_000,
+    testTimeout: 10_000,
+    hookTimeout: 10_000,
     exclude: ["dist/**", "node_modules/**"],
   },
 });

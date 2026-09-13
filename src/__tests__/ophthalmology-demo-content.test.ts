@@ -37,6 +37,7 @@ describe("ophthalmology demo content", () => {
     expect(prompt).toContain("a fictional ophthalmology clinic");
     expect(prompt).toContain("Clearbrook Eye Center");
     expect(prompt).not.toContain("Abita Eye Group");
+    expect(prompt).toContain("# Appointment Triage");
     expect(role).toContain(
       "New flashes or floaters require immediate transfer to office staff.",
     );

@@ -123,7 +123,10 @@ describe("generic inventory for rescheduling", () => {
       const tools = createSchedulingTools(middleware);
       for (let i = 0; i < 2; i++)
         await tools.list_available_appointments.execute(
-          { visitType: "medical" },
+          {
+            startDate: null,
+            visitType: "medical",
+          },
           options,
         );
       expect(middleware.operations).toHaveLength(1);
@@ -142,7 +145,10 @@ describe("generic inventory for rescheduling", () => {
       });
       const tools = createSchedulingTools(middleware);
       await tools.list_available_appointments.execute(
-        { visitType: "medical" },
+        {
+          startDate: null,
+          visitType: "medical",
+        },
         options,
       );
       await tools.reschedule_appointment.execute(
@@ -174,7 +180,13 @@ describe("generic inventory for rescheduling", () => {
         availability: [inventory()],
       });
       const tools = createSchedulingTools(middleware);
-      await tools.list_available_appointments.execute({ visitType }, options);
+      await tools.list_available_appointments.execute(
+        {
+          startDate: null,
+          visitType,
+        },
+        options,
+      );
       const result = await tools.reschedule_appointment.execute(
         {
           oldAppointmentRef:
@@ -239,6 +251,7 @@ describe("generic inventory for rescheduling", () => {
       for (const appointmentRef of [firstRef, secondRef]) {
         await tools.list_available_appointments.execute(
           {
+            startDate: null,
             visitType:
               appointmentRef === firstRef ? "medical" : "routine_vision",
           },

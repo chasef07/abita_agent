@@ -12,23 +12,21 @@ permissions:
   contents: read
 
 jobs:
-  format:
-    name: format
+  quality:
+    name: quality
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.release_sha }}
 
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 22
-          package-manager-cache: false
-
-      - name: Enable pnpm via Corepack
-        run: |
-          corepack enable
-          corepack prepare pnpm@10.34.3 --activate
+          cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -36,74 +34,59 @@ jobs:
       - name: Check formatting
         run: pnpm format:check
 
-  lint:
-    name: lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.release_sha }}
-
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
-        with:
-          node-version: 22
-          package-manager-cache: false
-
-      - name: Enable pnpm via Corepack
-        run: |
-          corepack enable
-          corepack prepare pnpm@10.34.3 --activate
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
       - name: Run lint
         run: pnpm lint
-
-  typecheck:
-    name: typecheck
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.release_sha }}
-
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
-        with:
-          node-version: 22
-          package-manager-cache: false
-
-      - name: Enable pnpm via Corepack
-        run: |
-          corepack enable
-          corepack prepare pnpm@10.34.3 --activate
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
 
       - name: Run typecheck
         run: pnpm typecheck
 
+      - name: Build production JavaScript
+        run: pnpm build
+
+      - name: Smoke test compiled runtime
+        run: node scripts/smoke-build.mjs
+
   unit:
     name: unit
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.release_sha }}
 
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 22
-          package-manager-cache: false
-
-      - name: Enable pnpm via Corepack
-        run: |
-          corepack enable
-          corepack prepare pnpm@10.34.3 --activate
+          cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Run unit tests
         run: pnpm test
+
+  container:
+    name: container
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release_sha }}
+
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Build production container
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          load: true
+          tags: abita-ci
+          cache-from: type=gha,scope=abita-ci
+          cache-to: type=gha,scope=abita-ci,mode=max
+
+      - name: Smoke test packaged runtime without network access
+        run: docker run --rm --network none --entrypoint node abita-ci scripts/smoke-build.mjs

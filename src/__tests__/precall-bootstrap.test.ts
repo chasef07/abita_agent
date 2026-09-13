@@ -270,6 +270,7 @@ describe("pre-call bootstrap", () => {
   it("maps lookup outcomes into session pre-call state", () => {
     const single = buildPreCallCandidates({
       status: "verified",
+      preauthRequired: false,
       patientId: "patient-1",
       name: "Doe, Jane",
       dob: "01/01/1980",
@@ -378,7 +379,6 @@ describe("pre-call bootstrap", () => {
   it("stores full multiple-match patient details in pre-call candidates", async () => {
     usePatientResult({
       status: "multiple_matches",
-      message: "Found 2 patients for this phone number.",
       matches: [
         verifiedPatient({
           appointmentsStatus: "found",

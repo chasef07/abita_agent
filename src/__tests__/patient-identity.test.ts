@@ -324,7 +324,7 @@ describe("patient identity", () => {
           lastName: "Doe",
           dob: "01/01/1980",
           patientId: "patient-1",
-          appointments: [],
+          appointments: [] as [],
         },
       ],
     });
@@ -349,9 +349,10 @@ describe("patient identity", () => {
           status: "candidate",
           ref: "one",
           firstName: "Emmy",
+          dob: "01/01/1980",
           lastName: "Example",
           patientId: "patient-1",
-          appointments: [],
+          appointments: [] as [],
         },
       ],
     });
@@ -588,7 +589,7 @@ function verifiedCandidate(ref: string, firstName: string, patientId: string) {
     lastName: "Doe",
     dob: "01/01/1980",
     patientId,
-    appointments: [],
+    appointments: [] as [],
     appointmentsStatus: "none" as const,
   };
 }
@@ -607,7 +608,7 @@ function verifiedResult(patientId: string, name: string, dob: string) {
     preauthRequired: false,
     appointmentsStatus: "none" as const,
     appointmentsMessage: null,
-    appointments: [],
+    appointments: [] as [],
     message: null,
   };
 }

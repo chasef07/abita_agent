@@ -1,3 +1,4 @@
+import { objectSchema } from "./support/tool-schema.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createSchedulingTools } from "../scheduling/tools.js";
 import {
@@ -49,8 +50,10 @@ describe("conversational appointment inventory", () => {
   });
 
   it("accepts a start date and rejects the removed range options", () => {
-    const schema = createSchedulingTools(new InMemorySchedulingMiddleware())
-      .list_available_appointments.parameters;
+    const schema = objectSchema(
+      createSchedulingTools(new InMemorySchedulingMiddleware())
+        .list_available_appointments.parameters,
+    );
     expect(
       schema.safeParse({ visitType: "medical", startDate: "2026-11-02" })
         .success,
@@ -268,7 +271,13 @@ describe("conversational appointment inventory", () => {
       const tool =
         createSchedulingTools(middleware).list_available_appointments;
       const { state, options } = context();
-      await tool.execute({ visitType: "medical" }, options);
+      await tool.execute(
+        {
+          startDate: null,
+          visitType: "medical",
+        },
+        options,
+      );
       vi.advanceTimersByTime(10_000);
       const result = await tool.execute(
         { startDate: "2026-09-20", visitType: "medical" },

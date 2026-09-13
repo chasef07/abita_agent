@@ -1,3 +1,4 @@
+import type { BookAppointmentResult } from "../clients/owned-middleware.js";
 import { createSchedulingTools } from "../scheduling/tools.js";
 import {
   recordCompletedBookingForPatient,
@@ -88,7 +89,11 @@ function prepareReschedule(
   );
 }
 
-function bookingReceipt(overrides: Record<string, unknown> = {}) {
+function bookingReceipt(
+  overrides: Partial<
+    Extract<BookAppointmentResult, { status: "booked" | "partial" }>
+  > = {},
+): Extract<BookAppointmentResult, { status: "booked" | "partial" }> {
   return {
     status: "booked",
     appointmentId: 456,
@@ -172,7 +177,7 @@ describe("New Tampa provider guards at appointment mutation", () => {
           locationName: "Demo account",
         }),
       ],
-      cancellations: [{ status: "cancelled" }],
+      cancellations: [{ status: "cancelled", message: null }],
     });
     const { reschedule_appointment } = createNewTampaDemoTools(middleware);
     const result = await reschedule_appointment.execute(
@@ -274,7 +279,7 @@ describe("New Tampa provider guards at appointment mutation", () => {
         appointmentSlotRef: "S1",
         appointmentReason: "retina follow-up",
         referringDoctor: "none",
-        readBack: true,
+        readBack: true as const,
       };
       const ctx = {
         ctx: createToolContext(state),

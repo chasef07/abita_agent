@@ -1,3 +1,4 @@
+import type { PatientResolveVerified } from "../clients/owned-middleware.js";
 import {
   AgentSession,
   type ChatContext,
@@ -788,7 +789,7 @@ function verifiedPatient(
   return { ...verifiedPatientBase(), ...overrides };
 }
 
-function verifiedPatientBase() {
+function verifiedPatientBase(): PatientResolveVerified {
   return {
     status: "verified" as const,
     patientId: "patient-1",

@@ -1,3 +1,4 @@
+import { objectSchema } from "./support/tool-schema.js";
 import { candidateSearchResult } from "./support/owned-middleware.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToolError } from "@livekit/agents";
@@ -20,6 +21,7 @@ import {
 } from "../tools/index.js";
 import { createResolvePatientTool } from "../tools/resolve-patient.js";
 import { createConfirmedPatientState } from "./support/call-state.js";
+import { createToolContext } from "./support/tool-context.js";
 import { deferredResult } from "./support/deferred-result.js";
 import {
   InMemoryOwnedMiddleware,
@@ -46,42 +48,6 @@ function createState(): TestCallState {
     },
   ];
   return state;
-}
-
-function createToolContext(state: TestCallState) {
-  const spokenHandle = {
-    waitForPlayout: vi.fn(async () => undefined),
-    interrupt: vi.fn(),
-    done: vi.fn(() => false),
-    interrupted: false,
-  };
-  const filler = vi.fn(
-    async (
-      _source: unknown,
-      optionsOrFn: unknown,
-      maybeFn?: () => Promise<unknown> | unknown,
-    ) => {
-      const fn = typeof optionsOrFn === "function" ? optionsOrFn : maybeFn;
-      if (!fn) throw new Error("Missing filler callback");
-      return fn();
-    },
-  );
-  const speechHandle = { allowInterruptions: true };
-  return {
-    session: {
-      userData: state,
-      say: vi.fn(() => spokenHandle),
-      generateReply: vi.fn(() => spokenHandle),
-    },
-    speechHandle,
-    disallowInterruptions: vi.fn(() => {
-      speechHandle.allowInterruptions = false;
-    }),
-    waitForPlayout: vi.fn(async () => undefined),
-    update: vi.fn(async () => undefined),
-    filler,
-    spokenHandle,
-  };
 }
 
 function markSchedulingTriaged(
@@ -130,8 +96,8 @@ function setPatientUnknown(state: TestCallState) {
 }
 
 function preCallCandidate(
-  overrides: Partial<PreCallCandidate> = {},
-): PreCallCandidate {
+  overrides: Partial<Extract<PreCallCandidate, { status: "verified" }>> = {},
+): Extract<PreCallCandidate, { status: "verified" }> {
   return {
     status: "verified",
     ref: CALLER_CANDIDATE_REF,
@@ -182,7 +148,7 @@ function stubPatientSearch(
   ...responses: PatientResolveResult[]
 ): InMemoryOwnedMiddleware {
   return stubPatient(
-    ...responses.flatMap((result) =>
+    ...responses.flatMap<PatientResolveResult>((result) =>
       result.status === "verified"
         ? [candidateSearchResult(result), result]
         : result.status === "not_found"
@@ -244,7 +210,7 @@ function updatedInsuranceResult(
 
 function createdPatientResult(
   overrides: Partial<Extract<CreatePatientResult, { status: "created" }>> = {},
-): CreatePatientResult {
+): Extract<CreatePatientResult, { status: "created" }> {
   return {
     status: "created",
     patientId: "patient-new",
@@ -278,10 +244,9 @@ describe("stateful call tools", () => {
   });
 
   it("keeps private patient references out of the resolve_patient schema", () => {
-    expect(Object.keys(resolve_patient.parameters.shape)).toEqual([
-      "firstName",
-      "dob",
-    ]);
+    expect(Object.keys(objectSchema(resolve_patient.parameters).shape)).toEqual(
+      ["firstName", "dob"],
+    );
   });
 
   it("creates directly from explicit new-patient confirmation", async () => {
@@ -294,6 +259,9 @@ describe("stateful call tools", () => {
 
     const result = await add_patient.execute(
       {
+        phone: null,
+        email: null,
+        ssnLast4: null,
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
@@ -358,6 +326,10 @@ describe("stateful call tools", () => {
     await expect(
       add_patient.execute(
         {
+          phone: null,
+          email: null,
+          aptSuite: null,
+          ssnLast4: null,
           firstName: "Jane",
           lastName: "Doe",
           dob: "01/01/1980",
@@ -391,6 +363,10 @@ describe("stateful call tools", () => {
 
     const failure = add_patient.execute(
       {
+        phone: null,
+        email: null,
+        aptSuite: null,
+        ssnLast4: null,
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
@@ -432,6 +408,10 @@ describe("stateful call tools", () => {
 
     const failure = add_patient.execute(
       {
+        phone: null,
+        email: null,
+        aptSuite: null,
+        ssnLast4: null,
         firstName: "Ana",
         lastName: "Doe",
         dob: "01/01/1980",
@@ -478,6 +458,10 @@ describe("stateful call tools", () => {
     await expect(
       add_patient.execute(
         {
+          phone: null,
+          email: null,
+          aptSuite: null,
+          ssnLast4: null,
           firstName: "Jane",
           lastName: "Doe",
           dob: "01/01/1980",
@@ -526,6 +510,9 @@ describe("stateful call tools", () => {
 
       const pendingCreation = add_patient.execute(
         {
+          phone: null,
+          email: null,
+          ssnLast4: null,
           firstName: "Jane",
           lastName: "Doe",
           dob: "01/01/1980",
@@ -607,6 +594,9 @@ describe("stateful call tools", () => {
       resolvePatient: [{ status: "error", reason: "network_error" }],
     });
     const params = {
+      phone: null,
+      email: null,
+      ssnLast4: null,
       firstName: "Jane",
       lastName: "Doe",
       dob: "01/01/1980",
@@ -618,9 +608,9 @@ describe("stateful call tools", () => {
       sex: "female" as const,
       subscriberName: "Jane Doe",
       insuranceMemberId: "self pay",
-      inboundPhoneConfirmed: true,
-      newPatientConfirmed: true,
-      readBack: true,
+      inboundPhoneConfirmed: true as const,
+      newPatientConfirmed: true as const,
+      readBack: true as const,
     };
 
     const pendingCreation = add_patient.execute(params, {
@@ -671,6 +661,9 @@ describe("stateful call tools", () => {
 
     const pendingCreation = add_patient.execute(
       {
+        phone: null,
+        email: null,
+        ssnLast4: null,
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
@@ -693,6 +686,10 @@ describe("stateful call tools", () => {
     );
     const newPatient = await add_patient.execute(
       {
+        inboundPhoneConfirmed: null,
+        email: null,
+        aptSuite: null,
+        ssnLast4: null,
         firstName: "Janet",
         lastName: "Doe",
         dob: "01/01/1980",
@@ -749,6 +746,9 @@ describe("stateful call tools", () => {
       preauthRequired: false,
     });
     const params = {
+      phone: null,
+      email: null,
+      ssnLast4: null,
       firstName: "Jane",
       lastName: "Doe",
       dob: "01/01/1980",
@@ -760,9 +760,9 @@ describe("stateful call tools", () => {
       sex: "female" as const,
       subscriberName: "Jane Doe",
       insuranceMemberId: "self pay",
-      inboundPhoneConfirmed: true,
-      newPatientConfirmed: true,
-      readBack: true,
+      inboundPhoneConfirmed: true as const,
+      newPatientConfirmed: true as const,
+      readBack: true as const,
     };
 
     const firstResult = await add_patient.execute(params, {
@@ -843,6 +843,9 @@ describe("stateful call tools", () => {
 
     await add_patient.execute(
       {
+        phone: null,
+        email: null,
+        ssnLast4: null,
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
@@ -901,6 +904,9 @@ describe("stateful call tools", () => {
 
     const result = await add_patient.execute(
       {
+        phone: null,
+        email: null,
+        ssnLast4: null,
         firstName: "Lisa",
         lastName: "Arshed",
         dob: "10/03/2020",
@@ -951,6 +957,10 @@ describe("stateful call tools", () => {
 
       const result = await add_patient.execute(
         {
+          inboundPhoneConfirmed: null,
+          email: null,
+          aptSuite: null,
+          ssnLast4: null,
           firstName: "Jane",
           lastName: "Doe",
           dob: "01/01/1980",
@@ -991,6 +1001,9 @@ describe("stateful call tools", () => {
 
     const result = await add_patient.execute(
       {
+        inboundPhoneConfirmed: null,
+        email: null,
+        ssnLast4: null,
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
@@ -1021,6 +1034,8 @@ describe("stateful call tools", () => {
 
   it("omits SSN from self-pay routine-vision creation", async () => {
     const baseParams = {
+      email: null,
+      inboundPhoneConfirmed: null,
       firstName: "Jane",
       lastName: "Doe",
       dob: "01/01/1980",
@@ -1034,8 +1049,8 @@ describe("stateful call tools", () => {
       insuranceMemberId: "self pay",
       ssnLast4: "1234",
       phone: "7275551212",
-      newPatientConfirmed: true,
-      readBack: true,
+      newPatientConfirmed: true as const,
+      readBack: true as const,
     };
 
     const routineState = createState();
@@ -1079,6 +1094,10 @@ describe("stateful call tools", () => {
 
     const result = await add_patient.execute(
       {
+        inboundPhoneConfirmed: null,
+        email: null,
+        aptSuite: null,
+        readBack: null,
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
@@ -1117,6 +1136,10 @@ describe("stateful call tools", () => {
 
     const result = await add_patient.execute(
       {
+        inboundPhoneConfirmed: null,
+        email: null,
+        aptSuite: null,
+        ssnLast4: null,
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
@@ -1154,6 +1177,9 @@ describe("stateful call tools", () => {
 
     const result = await add_patient.execute(
       {
+        inboundPhoneConfirmed: null,
+        ssnLast4: null,
+        readBack: null,
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
@@ -1191,6 +1217,10 @@ describe("stateful call tools", () => {
 
     const result = await add_patient.execute(
       {
+        inboundPhoneConfirmed: null,
+        email: null,
+        aptSuite: null,
+        readBack: null,
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
@@ -1224,6 +1254,10 @@ describe("stateful call tools", () => {
 
     const result = await add_patient.execute(
       {
+        phone: null,
+        inboundPhoneConfirmed: null,
+        email: null,
+        ssnLast4: null,
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
@@ -1259,6 +1293,8 @@ describe("stateful call tools", () => {
 
     await add_patient.execute(
       {
+        email: null,
+        ssnLast4: null,
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
@@ -1625,13 +1661,11 @@ describe("stateful call tools", () => {
         }),
       );
 
-      await resolve_patient.execute(
-        { firstName: "Ana", lastName, dob: "01/01/1980" },
-        {
-          ctx: createToolContext(state) as never,
-          toolCallId: "tool-1",
-        } as never,
-      );
+      const identity = { firstName: "Ana", lastName, dob: "01/01/1980" };
+      await resolve_patient.execute(identity, {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never);
 
       expect(state.identity.activePatient?.patientId).toBe("patient-1");
       expect(domainOutcomeReceipts(state)).toMatchObject([
@@ -1705,7 +1739,6 @@ describe("stateful call tools", () => {
     setSingleArshedPreCallCandidate(state);
     const middleware = stubPatientSearch({
       status: "not_found",
-      message: "No patient found matching that first name.",
     });
 
     const result = await resolve_patient.execute(
@@ -1782,7 +1815,6 @@ describe("stateful call tools", () => {
       tool.execute(
         {
           firstName: "Different",
-          lastName: "Patient",
           dob: "01/01/1980",
         },
         {
@@ -1815,7 +1847,6 @@ describe("stateful call tools", () => {
       tool.execute(
         {
           firstName: "Jane",
-          lastName: "Doe",
           dob: "01/01/1980",
         },
         {
@@ -1853,10 +1884,16 @@ describe("stateful call tools", () => {
     );
 
     await expect(
-      tool.execute({ firstName: "Jane" }, {
-        ctx: createToolContext(state) as never,
-        toolCallId: "tool-1",
-      } as never),
+      tool.execute(
+        {
+          dob: null,
+          firstName: "Jane",
+        },
+        {
+          ctx: createToolContext(state) as never,
+          toolCallId: "tool-1",
+        } as never,
+      ),
     ).rejects.toThrow("candidate hydration failed");
     expect(state.identity.activePatient).toBeNull();
     expect(domainOutcomeReceipts(state)).toMatchObject([
@@ -1991,10 +2028,16 @@ describe("stateful call tools", () => {
       accepted: true,
     };
 
-    const result = await resolve_patient.execute({ firstName: "Brandon" }, {
-      ctx: createToolContext(state) as never,
-      toolCallId: "tool-1",
-    } as never);
+    const result = await resolve_patient.execute(
+      {
+        dob: null,
+        firstName: "Brandon",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
 
     expect(testMiddleware.operations).toHaveLength(0);
     expect(result).toBe(
@@ -2017,10 +2060,16 @@ describe("stateful call tools", () => {
     const state = createState();
     setSingleArshedPreCallCandidate(state);
 
-    const result = await resolve_patient.execute({ firstName: "Esa" }, {
-      ctx: createToolContext(state) as never,
-      toolCallId: "tool-1",
-    } as never);
+    const result = await resolve_patient.execute(
+      {
+        dob: null,
+        firstName: "Esa",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
 
     expect(testMiddleware.operations).toHaveLength(0);
     expect(result).toBe(
@@ -2051,7 +2100,9 @@ describe("stateful call tools", () => {
         ],
       }),
     ];
-    const identity = resolve_patient.parameters.parse({
+    const identity = objectSchema<
+      Parameters<typeof resolve_patient.execute>[0]
+    >(resolve_patient.parameters).parse({
       firstName: "Amy",
       dob: null,
     });
@@ -2078,7 +2129,9 @@ describe("stateful call tools", () => {
   it("treats model-emitted empty surname and DOB as unknown", async () => {
     const state = createState();
     setSingleArshedPreCallCandidate(state);
-    const identity = resolve_patient.parameters.parse({
+    const identity = objectSchema<
+      Parameters<typeof resolve_patient.execute>[0]
+    >(resolve_patient.parameters).parse({
       firstName: "Esa",
       dob: "",
     });
@@ -2127,6 +2180,11 @@ describe("stateful call tools", () => {
 
     const result = await add_patient.execute(
       {
+        inboundPhoneConfirmed: null,
+        email: null,
+        aptSuite: null,
+        ssnLast4: null,
+        readBack: null,
         firstName: "Maria",
         lastName: "Santos",
         dob: "01/01/1980",
@@ -2181,6 +2239,10 @@ describe("stateful call tools", () => {
 
     const result = await add_patient.execute(
       {
+        inboundPhoneConfirmed: null,
+        email: null,
+        aptSuite: null,
+        ssnLast4: null,
         firstName: "Maria",
         lastName: "Santos",
         dob: "   ",
@@ -2227,6 +2289,10 @@ describe("stateful call tools", () => {
 
     const result = await add_patient.execute(
       {
+        inboundPhoneConfirmed: null,
+        email: null,
+        aptSuite: null,
+        ssnLast4: null,
         firstName: "Maria",
         lastName: "Santos",
         dob: "   ",
@@ -2275,6 +2341,11 @@ describe("stateful call tools", () => {
 
     const result = await add_patient.execute(
       {
+        inboundPhoneConfirmed: null,
+        email: null,
+        aptSuite: null,
+        ssnLast4: null,
+        readBack: null,
         firstName: "John",
         lastName: "Doe",
         dob: "02/02/1982",
@@ -2313,6 +2384,11 @@ describe("stateful call tools", () => {
 
     const result = await add_patient.execute(
       {
+        inboundPhoneConfirmed: null,
+        email: null,
+        aptSuite: null,
+        ssnLast4: null,
+        readBack: null,
         firstName: "Maria",
         lastName: "Santos",
         dob: "01/01/1980",
@@ -2355,6 +2431,10 @@ describe("stateful call tools", () => {
 
     const result = await add_patient.execute(
       {
+        inboundPhoneConfirmed: null,
+        email: null,
+        aptSuite: null,
+        ssnLast4: null,
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
@@ -2397,6 +2477,10 @@ describe("stateful call tools", () => {
 
     const result = await add_patient.execute(
       {
+        inboundPhoneConfirmed: null,
+        email: null,
+        aptSuite: null,
+        ssnLast4: null,
         firstName: "Chase",
         lastName: "Test",
         dob: "01/01/1980",
@@ -2442,6 +2526,10 @@ describe("stateful call tools", () => {
 
     const result = await add_patient.execute(
       {
+        inboundPhoneConfirmed: null,
+        email: null,
+        aptSuite: null,
+        ssnLast4: null,
         firstName: "John",
         lastName: "Doe",
         dob: "02/02/1982",
@@ -2495,6 +2583,9 @@ describe("stateful call tools", () => {
 
     const result = await add_patient.execute(
       {
+        phone: null,
+        email: null,
+        ssnLast4: null,
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
@@ -2633,6 +2724,8 @@ describe("stateful call tools", () => {
 
     await add_patient.execute(
       {
+        phone: null,
+        email: null,
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
@@ -2691,6 +2784,8 @@ describe("stateful call tools", () => {
 
     await add_patient.execute(
       {
+        phone: null,
+        email: null,
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
@@ -2739,6 +2834,9 @@ describe("stateful call tools", () => {
       }),
     );
     const params = {
+      phone: null,
+      email: null,
+      ssnLast4: null,
       firstName: "Maria",
       lastName: "Santos",
       dob: "01/01/1980",
@@ -2750,9 +2848,9 @@ describe("stateful call tools", () => {
       sex: "female" as const,
       subscriberName: "Maria Santos",
       insuranceMemberId: "ABC123",
-      inboundPhoneConfirmed: true,
-      newPatientConfirmed: true,
-      readBack: true,
+      inboundPhoneConfirmed: true as const,
+      newPatientConfirmed: true as const,
+      readBack: true as const,
     };
 
     await check_insurance.execute(
@@ -2795,6 +2893,9 @@ describe("stateful call tools", () => {
     markAcceptedInsurance(state);
     const middleware = stubCreatePatient(createdPatientResult());
     const params = {
+      phone: null,
+      email: null,
+      ssnLast4: null,
       firstName: "Jane",
       lastName: "Doe",
       dob: "01/01/1980",
@@ -2806,9 +2907,9 @@ describe("stateful call tools", () => {
       sex: "female" as const,
       subscriberName: "Jane Doe",
       insuranceMemberId: "self pay",
-      inboundPhoneConfirmed: true,
-      newPatientConfirmed: true,
-      readBack: true,
+      inboundPhoneConfirmed: true as const,
+      newPatientConfirmed: true as const,
+      readBack: true as const,
     };
 
     await add_patient.execute(params, {
@@ -3032,6 +3133,7 @@ describe("stateful call tools", () => {
 
   it("returns update-insurance prerequisites without a tool error", async () => {
     const state = createState();
+    // @ts-expect-error Verify rejection of a malformed active patient from runtime state.
     state.identity.activePatient!.patientId = null;
 
     await expect(

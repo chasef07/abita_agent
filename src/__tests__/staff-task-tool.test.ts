@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToolError } from "@livekit/agents";
+import type { PatientResolveResult } from "../clients/owned-middleware.js";
+import { objectSchema } from "./support/tool-schema.js";
 import {
   RHEUMATOLOGY_DEMO_TRUNK_PHONE,
   NEW_TAMPA_DEMO_TRUNK_PHONE,
@@ -40,7 +42,6 @@ function createToolContext(state: ReturnType<typeof createState>) {
 
 function createDevState(overrides: Partial<InitialCallStateInput> = {}) {
   return createState({
-    amdOfficePhone: RHEUMATOLOGY_DEMO_TRUNK_PHONE,
     officeKey: "rheumatology-demo",
     trunkPhone: RHEUMATOLOGY_DEMO_TRUNK_PHONE,
     ...overrides,
@@ -96,18 +97,23 @@ describe("create_staff_task", () => {
       "post_op",
     ]) {
       expect(
-        create_staff_task.parameters.safeParse({ ...input, category }).success,
+        objectSchema(create_staff_task.parameters).safeParse({
+          ...input,
+          category,
+        }).success,
         category,
       ).toBe(true);
     }
     expect(
-      create_staff_task.parameters.safeParse({ ...input, category: "billing" })
-        .success,
+      objectSchema(create_staff_task.parameters).safeParse({
+        ...input,
+        category: "billing",
+      }).success,
     ).toBe(false);
   });
 
   it("retains the intended unmatched patient without attaching the previous chart or deduplicating another patient", async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async (): Promise<Response> =>
       Response.json({
         status: "created",
         taskId: `task-${fetchMock.mock.calls.length}`,
@@ -122,8 +128,18 @@ describe("create_staff_task", () => {
     const resolve = createResolvePatientTool(
       new InMemoryOwnedMiddleware({
         resolvePatient: [
-          { status: "candidates", complete: true, matches: [] },
-          { status: "candidates", complete: true, matches: [] },
+          {
+            status: "candidates",
+            source: "first_name",
+            complete: true,
+            matches: [],
+          },
+          {
+            status: "candidates",
+            source: "first_name",
+            complete: true,
+            matches: [],
+          },
         ],
       }),
     );
@@ -134,15 +150,12 @@ describe("create_staff_task", () => {
       message: "Patient requests a visit summary for staff review.",
     };
     for (const firstName of ["Alex", "Morgan"]) {
-      await resolve.execute(
-        { firstName, lastName: "Example", dob: "02/03/1990" },
-        options,
-      );
+      await resolve.execute({ firstName, dob: "02/03/1990" }, options);
       await create_staff_task.execute(input, options);
     }
     expect(fetchMock).toHaveBeenCalledTimes(2);
     const bodies = fetchMock.mock.calls.map((call) =>
-      JSON.parse(call[1].body as string),
+      JSON.parse(call[1]!.body as string),
     );
     expect(bodies.map((body) => body.patient)).toEqual([
       { name: "Alex", dob: "02/03/1990" },
@@ -157,7 +170,7 @@ describe("create_staff_task", () => {
   });
 
   it("rejects over-limit intake without sending or truncating any details, then accepts a lossless revision", async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       Response.json({ status: "created", taskId: "complete-intake" }),
     );
     vi.stubGlobal("fetch", fetchMock);
@@ -178,13 +191,13 @@ describe("create_staff_task", () => {
     const message =
       "Requester: attorney office, Example Legal. Requested: full records. Delivery: fax, +12025550199. Records request faxed: caller reports yes, September 1. Patient authorization faxed: no. Not ready for fulfillment; both documents must be faxed first. Missing: patient DOB, authorization fax date.";
     await create_staff_task.execute({ ...input, message }, options);
-    expect(JSON.parse(fetchMock.mock.calls[0]![1].body as string).message).toBe(
-      message,
-    );
+    expect(
+      JSON.parse(fetchMock.mock.calls[0]![1]!.body as string).message,
+    ).toBe(message);
   });
 
   it("preserves an incomplete new-patient registration without inventing a chart", async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       Response.json({ status: "created", taskId: "registration-follow-up" }),
     );
     vi.stubGlobal("fetch", fetchMock);
@@ -206,12 +219,12 @@ describe("create_staff_task", () => {
       } as never,
     );
     expect(
-      JSON.parse(fetchMock.mock.calls[0]![1].body as string).patient,
+      JSON.parse(fetchMock.mock.calls[0]![1]!.body as string).patient,
     ).toEqual({ name: "Morgan Example" });
   });
 
   it("uses the created chart after the same registration is refreshed during creation", async () => {
-    const transport = vi.fn(async () =>
+    const transport = vi.fn<typeof fetch>(async () =>
       Response.json({ status: "created", taskId: "created-patient-task" }),
     );
     vi.stubGlobal("fetch", transport);
@@ -231,16 +244,10 @@ describe("create_staff_task", () => {
         name: "Morgan Example",
         dob: identity.dob,
         phone: "+12025550147",
-        appointments: [],
-        appointmentsStatus: "none",
-        appointmentsMessage: null,
-        message: null,
         insuranceCarrier: null,
         insPlanId: null,
         respPartyId: null,
         routing: null,
-        allowedProviders: [],
-        routingAmbiguous: false,
         preauthRequired: false,
       }).outcome,
     ).toBe("activated");
@@ -257,7 +264,7 @@ describe("create_staff_task", () => {
       } as never,
     );
     expect(
-      JSON.parse(transport.mock.calls[0]![1].body as string).patient,
+      JSON.parse(transport.mock.calls[0]![1]!.body as string).patient,
     ).toEqual({
       id: "created-morgan",
       name: "Morgan Example",
@@ -266,7 +273,7 @@ describe("create_staff_task", () => {
   });
 
   it("keeps verified chart identity when the same preloaded patient is resolved twice", async () => {
-    const transport = vi.fn(async () =>
+    const transport = vi.fn<typeof fetch>(async () =>
       Response.json({ status: "created", taskId: "verified-again" }),
     );
     vi.stubGlobal("fetch", transport);
@@ -290,10 +297,7 @@ describe("create_staff_task", () => {
     } as never;
     const resolve = createResolvePatientTool(new InMemoryOwnedMiddleware());
     for (let i = 0; i < 2; i++)
-      await resolve.execute(
-        { firstName: "Alex", lastName: null, dob: null },
-        options,
-      );
+      await resolve.execute({ firstName: "Alex", dob: null }, options);
     await create_staff_task.execute(
       {
         category: "optical",
@@ -304,7 +308,7 @@ describe("create_staff_task", () => {
       options,
     );
     expect(
-      JSON.parse(transport.mock.calls[0]![1].body as string).patient,
+      JSON.parse(transport.mock.calls[0]![1]!.body as string).patient,
     ).toEqual({
       id: "synthetic-alex",
       name: "Alex Example",
@@ -315,7 +319,7 @@ describe("create_staff_task", () => {
   it.each(["full lookup", "candidate hydration", "registration"])(
     "keeps the newer incomplete Task patient when an older %s completes",
     async (mode) => {
-      const transport = vi.fn(async () =>
+      const transport = vi.fn<typeof fetch>(async () =>
         Response.json({ status: "created", taskId: "newer-patient" }),
       );
       vi.stubGlobal("fetch", transport);
@@ -372,16 +376,13 @@ describe("create_staff_task", () => {
         registration = beginPatientCreation(state);
       } else {
         older = resolve.execute(
-          { firstName: "Alex", lastName: "Example", dob: "02/03/1990" },
+          { firstName: "Alex", dob: "02/03/1990" },
           options,
         );
         await Promise.resolve();
         await Promise.resolve();
       }
-      await resolve.execute(
-        { firstName: "Morgan", lastName: null, dob: null },
-        options,
-      );
+      await resolve.execute({ firstName: "Morgan", dob: null }, options);
       if (registration)
         commitPatientCreation(state, registration, {
           ...receipt,
@@ -401,7 +402,7 @@ describe("create_staff_task", () => {
         options,
       );
       expect(
-        JSON.parse(transport.mock.calls[0]![1].body as string).patient,
+        JSON.parse(transport.mock.calls[0]![1]!.body as string).patient,
       ).toEqual({ name: "Morgan" });
     },
   );
@@ -409,7 +410,7 @@ describe("create_staff_task", () => {
   it.each([false, true])(
     "preserves the current patient evidence when an older lookup completes (verified phone candidate=%s)",
     async (preloaded) => {
-      const transport = vi.fn(async () =>
+      const transport = vi.fn<typeof fetch>(async () =>
         Response.json({ status: "created", taskId: "reconfirmed" }),
       );
       vi.stubGlobal("fetch", transport);
@@ -427,8 +428,8 @@ describe("create_staff_task", () => {
             appointmentsStatus: "none",
           },
         ];
-      let finish!: (result: unknown) => void;
-      const pending = new Promise((resolve) => {
+      let finish!: (result: PatientResolveResult) => void;
+      const pending = new Promise<PatientResolveResult>((resolve) => {
         finish = resolve;
       });
       const middleware = new InMemoryOwnedMiddleware({
@@ -440,16 +441,13 @@ describe("create_staff_task", () => {
         toolCallId: "reconfirm",
       } as never;
       const oldLookup = resolve.execute(
-        { firstName: "Alex", lastName: "Example", dob: "02/03/1990" },
+        { firstName: "Alex", dob: "02/03/1990" },
         options,
       );
       await vi.waitFor(() =>
         expect(middleware.requests.resolvePatient).toHaveLength(1),
       );
-      await resolve.execute(
-        { firstName: "Jane", lastName: null, dob: null },
-        options,
-      );
+      await resolve.execute({ firstName: "Jane", dob: null }, options);
       finish({
         status: "verified",
         patientId: "synthetic-alex",
@@ -459,8 +457,12 @@ describe("create_staff_task", () => {
         appointments: [],
         appointmentsStatus: "none",
         insuranceCarrier: null,
-        allowedProviders: [],
         routing: null,
+        insPlanId: null,
+        respPartyId: null,
+        preauthRequired: false,
+        appointmentsMessage: null,
+        message: null,
       });
       await oldLookup;
       await create_staff_task.execute(
@@ -473,7 +475,7 @@ describe("create_staff_task", () => {
         options,
       );
       expect(
-        JSON.parse(transport.mock.calls[0]![1].body as string).patient,
+        JSON.parse(transport.mock.calls[0]![1]!.body as string).patient,
       ).toEqual(
         preloaded
           ? { id: "patient-1", name: "Jane Doe", dob: "01/01/1980" }
@@ -497,7 +499,7 @@ describe("create_staff_task", () => {
   });
 
   it("routes a production task to Product with the production tenant credential", async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       Response.json({
         status: "created",
         taskId: "task-1",
@@ -507,7 +509,6 @@ describe("create_staff_task", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
     const state = createState({
-      amdOfficePhone: SWEETWATER_OFFICE_PHONE,
       officeKey: "sweetwater",
       trunkPhone: SWEETWATER_TRUNK_PHONES[1],
     });
@@ -577,7 +578,7 @@ describe("create_staff_task", () => {
   });
 
   it("records a prior-authorization task after the insurance check requires staff follow-up", async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       Response.json({
         status: "created",
         taskId: "prior-auth-task-1",
@@ -587,7 +588,6 @@ describe("create_staff_task", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
     const state = createState({
-      amdOfficePhone: SWEETWATER_OFFICE_PHONE,
       officeKey: "sweetwater",
       trunkPhone: SWEETWATER_TRUNK_PHONES[1],
     });
@@ -648,7 +648,7 @@ describe("create_staff_task", () => {
   });
 
   it("blocks staff tasks for sandbox demos even if active office changes", async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       Response.json(
         {
           status: "created",
@@ -689,7 +689,7 @@ describe("create_staff_task", () => {
   });
 
   it("blocks staff tasks on a dedicated demo trunk", async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       Response.json(
         {
           status: "created",
@@ -725,7 +725,7 @@ describe("create_staff_task", () => {
   });
 
   it("preserves the sweetwater-optical Product route from the inbound trunk", async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       Response.json(
         { status: "created", taskId: PRODUCT_TASK_ID },
         { status: 201 },
@@ -733,7 +733,6 @@ describe("create_staff_task", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
     const state = createState({
-      amdOfficePhone: SWEETWATER_OFFICE_PHONE,
       officeKey: "sweetwater",
       trunkPhone: SWEETWATER_OPTICAL_TRUNK_PHONE,
     });
@@ -770,7 +769,7 @@ describe("create_staff_task", () => {
   });
 
   it("returns the existing receipt for a duplicate task in one call", async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       Response.json({ status: "created", taskId: "task-1" }),
     );
     vi.stubGlobal("fetch", fetchMock);
@@ -817,7 +816,7 @@ describe("create_staff_task", () => {
 
   it("leaves missing delivery configuration as an internal error", async () => {
     vi.stubEnv("ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET", "");
-    const fetchMock = vi.fn();
+    const fetchMock = vi.fn<typeof fetch>();
     vi.stubGlobal("fetch", fetchMock);
     const state = createState();
 
@@ -920,7 +919,9 @@ describe("create_staff_task", () => {
   });
 
   it("returns a safe ToolError after one retryable failure retry", async () => {
-    const fetchMock = vi.fn(async () => new Response(null, { status: 503 }));
+    const fetchMock = vi.fn<typeof fetch>(
+      async () => new Response(null, { status: 503 }),
+    );
     vi.stubGlobal("fetch", fetchMock);
     const state = createState();
 
@@ -956,7 +957,9 @@ describe("create_staff_task", () => {
   it.each([400, 401, 403, 409])(
     "does not retry permanent status %i",
     async (status) => {
-      const fetchMock = vi.fn(async () => new Response(null, { status }));
+      const fetchMock = vi.fn<typeof fetch>(
+        async () => new Response(null, { status }),
+      );
       vi.stubGlobal("fetch", fetchMock);
       const state = createState({ trunkPhone: SPRING_HILL_OFFICE_PHONE });
 

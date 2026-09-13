@@ -1,4 +1,4 @@
-import { isToolset, llm } from "@livekit/agents";
+import { isFunctionTool, isToolset, llm } from "@livekit/agents";
 import { describe, expect, it } from "vitest";
 import { getOfficeProfiles } from "../customers/abita/profile.js";
 import { buildToolsForTrunk } from "../runtime/tool-registry.js";
@@ -22,6 +22,8 @@ describe("New Tampa isolation from other numbers", () => {
         const middleware = new InMemoryOwnedMiddleware({
           getAvailability: [
             {
+              dateShifted: false,
+              shouldRetrySameSearch: false,
               status: "found",
               requestedDate: "2026-09-08",
               actualDate: "2026-09-08",
@@ -40,9 +42,11 @@ describe("New Tampa isolation from other numbers", () => {
         const registered = buildToolsForTrunk(middleware, trunkPhone).flatMap(
           (entry) => (isToolset(entry) ? entry.tools : [entry]),
         );
-        expect(registered.find((entry) => entry.id === "check_insurance")).toBe(
-          check_insurance,
-        );
+        expect(
+          registered
+            .filter(isFunctionTool)
+            .find((entry) => entry.id === "check_insurance"),
+        ).toBe(check_insurance);
         expect(
           registered
             .map((entry) => entry.id)
@@ -55,7 +59,9 @@ describe("New Tampa isolation from other numbers", () => {
               : "omitted",
         });
         for (const original of Object.values(base)) {
-          const actual = registered.find((entry) => entry.id === original.id)!;
+          const actual = registered
+            .filter(isFunctionTool)
+            .find((entry) => entry.id === original.id)!;
           expect(actual.description).toBe(original.description);
           expect(actual.onDuplicate).toBe(original.onDuplicate);
           expect(llm.toJsonSchema(actual.parameters, true, true)).toEqual(
@@ -68,13 +74,12 @@ describe("New Tampa isolation from other numbers", () => {
         const state = createConfirmedPatientState({
           officeKey: office.key,
           trunkPhone,
-          amdOfficePhone: office.amdOfficePhone,
           checkedInsuranceCoverageType: visitType,
           routing: visitType === "medical" ? "all_three" : "optical_only",
         });
-        const tool = registered.find(
-          (entry) => entry.id === "list_available_appointments",
-        )!;
+        const tool = registered
+          .filter(isFunctionTool)
+          .find((entry) => entry.id === "list_available_appointments")!;
         const result = await tool.execute(
           {
             visitType,

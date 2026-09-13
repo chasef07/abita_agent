@@ -1,4 +1,8 @@
-import { DEFAULT_API_CONNECT_OPTIONS, initializeLogger } from "@livekit/agents";
+import {
+  DEFAULT_API_CONNECT_OPTIONS,
+  initializeLogger,
+  tts as livekitTts,
+} from "@livekit/agents";
 import * as rime from "@livekit/agents-plugin-rime";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
@@ -30,6 +34,7 @@ for (const office of getOfficeProfiles()) {
     stream.pushText(office.greeting);
     stream.endInput();
     for await (const event of stream) {
+      if (event === livekitTts.SynthesizeStream.END_OF_STREAM) continue;
       const { frame } = event;
       complete = event.final;
       if (frame.sampleRate !== options.samplingRate || frame.channels !== 1) {

@@ -33,7 +33,6 @@ describe("completed user turn context", () => {
     sessions.push(session);
     session.userData = createTestCallState({
       officeKey: "spring-hill",
-      amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
       trunkPhone: SPRING_HILL_OFFICE_PHONE,
     });
     await session.start({
@@ -80,7 +79,6 @@ describe("completed user turn context", () => {
     async (transcript) => {
       const state = createTestCallState({
         officeKey: "spring-hill",
-        amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
         trunkPhone: SPRING_HILL_OFFICE_PHONE,
         preCallCandidates: [
           {
@@ -125,7 +123,6 @@ describe("completed user turn context", () => {
   it("does not hydrate a candidate before a resolver tool call", async () => {
     const state = createTestCallState({
       officeKey: "spring-hill",
-      amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
       trunkPhone: SPRING_HILL_OFFICE_PHONE,
       preCallCandidates: [
         {
@@ -133,6 +130,9 @@ describe("completed user turn context", () => {
           ref: CALLER_CANDIDATE_REF,
           firstName: "LARRY",
           patientId: "patient-larry",
+          lastName: "Doe",
+          dob: "01/01/1980",
+          appointments: [],
         },
       ],
     });
@@ -163,6 +163,6 @@ describe("completed user turn context", () => {
 function systemText(chatCtx: ChatContext): string {
   return chatCtx.items
     .filter((item) => item.type === "message" && item.role === "system")
-    .map((item) => item.textContent ?? "")
+    .map((item) => (item.type === "message" ? (item.textContent ?? "") : ""))
     .join(" ");
 }

@@ -1,3 +1,5 @@
+import { ToolContext } from "@livekit/agents";
+import { objectSchema } from "./support/tool-schema.js";
 // Opt-in, paid LLM check. Uses synthetic records and never executes middleware.
 // Load LiveKit credentials in the environment before running with tsx.
 // Pass scenario IDs as arguments to run a focused subset.
@@ -254,14 +256,18 @@ for (const model of [primary, fallback]) {
         const response = await model
           .chat({
             chatCtx,
-            toolCtx: tools,
+            toolCtx: new ToolContext(tools),
             ...(model === fallback ? { inferenceClass: "low" as const } : {}),
             connOptions: { maxRetry: 0, timeoutMs: 20_000, retryIntervalMs: 0 },
           })
           .collect();
         const call = response.toolCalls[0];
         const identity = call
-          ? parameters.safeParse(JSON.parse(call.args))
+          ? objectSchema<
+              Parameters<
+                ReturnType<typeof createResolvePatientTool>["execute"]
+              >[0]
+            >(parameters).safeParse(JSON.parse(call.args))
           : null;
         const asks =
           response.toolCalls.length === 0 && response.text.includes("?");

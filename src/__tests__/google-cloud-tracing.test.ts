@@ -68,7 +68,9 @@ describe("Google Cloud trace export", () => {
     expect(provider).toBeDefined();
     expect(transport.options).toBeUndefined();
     const destination = new InMemorySpanExporter();
-    add.mock.contexts[0].add(new SimpleSpanProcessor(destination));
+    (add.mock.contexts[0] as telemetry.FanoutSpanProcessor).add(
+      new SimpleSpanProcessor(destination),
+    );
     telemetry.tracer
       .startSpan({
         name: "function_tool",
@@ -266,6 +268,8 @@ describe("Google Cloud trace export", () => {
       GOOGLE_CLOUD_TRACE_TOKEN: "test-token",
     })!;
     const fanout = add.mock.contexts[0];
+    if (!(fanout instanceof telemetry.FanoutSpanProcessor))
+      throw new Error("Missing span processor");
     const additionalDestination = new InMemorySpanExporter();
     fanout.add(new SimpleSpanProcessor(additionalDestination));
     telemetry.tracer.startSpan({ name: "shared-session" }).end();
