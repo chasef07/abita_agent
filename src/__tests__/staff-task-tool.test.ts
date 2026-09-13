@@ -18,10 +18,7 @@ import {
 import { createResolvePatientTool } from "../tools/resolve-patient.js";
 import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
 import { check_insurance, create_staff_task } from "../tools/index.js";
-import {
-  createStaffTaskTool,
-  getAcuityProductStaffTasksUrl,
-} from "../tools/create-staff-task.js";
+import { getAcuityProductStaffTasksUrl } from "../tools/create-staff-task.js";
 import { createConfirmedPatientState } from "./support/call-state.js";
 
 const PRODUCT_TASK_URL = "https://acuity-product.example/v1/tasks";
@@ -186,37 +183,6 @@ describe("create_staff_task", () => {
     );
   });
 
-  it("can capture the real tool payload through an inert transport without reaching global fetch", async () => {
-    const network = vi.fn(() => {
-      throw new Error("Network forbidden");
-    });
-    vi.stubGlobal("fetch", network);
-    const capture = vi.fn(async () =>
-      Response.json({ status: "created", taskId: "synthetic-capture" }),
-    );
-    const task = createStaffTaskTool(capture);
-    const result = await task.execute(
-      {
-        category: "pre_op",
-        urgency: "normal",
-        summary: "Clearance coordination",
-        message:
-          "Caller requests pre-op clearance coordination for cataract surgery next month. Missing details: surgery date.",
-      },
-      {
-        ctx: createToolContext(createState()) as never,
-        toolCallId: "capture",
-      } as never,
-    );
-    expect(result).toContain("review");
-    expect(network).not.toHaveBeenCalled();
-    expect(JSON.parse(capture.mock.calls[0]![1].body as string)).toMatchObject({
-      category: "pre_op",
-      callId: "call-test",
-      source: "agent",
-    });
-  });
-
   it("preserves an incomplete new-patient registration without inventing a chart", async () => {
     const fetchMock = vi.fn(async () =>
       Response.json({ status: "created", taskId: "registration-follow-up" }),
@@ -242,6 +208,61 @@ describe("create_staff_task", () => {
     expect(
       JSON.parse(fetchMock.mock.calls[0]![1].body as string).patient,
     ).toEqual({ name: "Morgan Example" });
+  });
+
+  it("uses the created chart after the same registration is refreshed during creation", async () => {
+    const transport = vi.fn(async () =>
+      Response.json({ status: "created", taskId: "created-patient-task" }),
+    );
+    vi.stubGlobal("fetch", transport);
+    const state = createState();
+    const identity = {
+      firstName: "Morgan",
+      lastName: "Example",
+      dob: "02/03/1990",
+    };
+    beginNewPatientRegistration(state, identity);
+    const operation = beginPatientCreation(state)!;
+    beginNewPatientRegistration(state, identity);
+    expect(
+      commitPatientCreation(state, operation, {
+        status: "created",
+        patientId: "created-morgan",
+        name: "Morgan Example",
+        dob: identity.dob,
+        phone: "+12025550147",
+        appointments: [],
+        appointmentsStatus: "none",
+        appointmentsMessage: null,
+        message: null,
+        insuranceCarrier: null,
+        insPlanId: null,
+        respPartyId: null,
+        routing: null,
+        allowedProviders: [],
+        routingAmbiguous: false,
+        preauthRequired: false,
+      }).outcome,
+    ).toBe("activated");
+    await create_staff_task.execute(
+      {
+        category: "documentation",
+        urgency: "normal",
+        summary: "Records follow-up",
+        message: "Morgan requests records.",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "created-patient-task",
+      } as never,
+    );
+    expect(
+      JSON.parse(transport.mock.calls[0]![1].body as string).patient,
+    ).toEqual({
+      id: "created-morgan",
+      name: "Morgan Example",
+      dob: identity.dob,
+    });
   });
 
   it("keeps verified chart identity when the same preloaded patient is resolved twice", async () => {

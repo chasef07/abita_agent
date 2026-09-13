@@ -106,12 +106,17 @@ function clearTaskPatientContext(
   state: CallState,
   expected: TaskPatientContext,
 ) {
-  if (state.identity.unresolvedTaskPatient === expected)
+  const current = state.identity.unresolvedTaskPatient;
+  if (
+    current &&
+    expected &&
+    current.name === expected.name &&
+    current.dob === expected.dob
+  )
     state.identity.unresolvedTaskPatient = null;
 }
 
 type PatientCreationOperationState = {
-  taskPatientContext: TaskPatientContext;
   callState: CallState;
   eligibilityCheck: InsuranceEligibilityCheck | null;
   operationVersion: number;
@@ -489,7 +494,6 @@ export function beginPatientCreation(
   const operation = {} as PatientCreationOperation;
   patientCreationOperations.set(operation, {
     callState: state,
-    taskPatientContext: state.identity.unresolvedTaskPatient,
     eligibilityCheck: cloneEligibilityCheck(
       lastInsuranceEligibilityCheck(state),
     ),
@@ -532,7 +536,10 @@ export function commitPatientCreation(
   ) {
     return { outcome: "invalid_receipt", result };
   }
-  clearTaskPatientContext(state, operationState.taskPatientContext);
+  clearTaskPatientContext(
+    state,
+    callerReportedTaskPatient(operationState.registration),
+  );
   return { outcome: "activated", receipt: result };
 }
 

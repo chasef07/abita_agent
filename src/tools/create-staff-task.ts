@@ -69,99 +69,92 @@ type PortalTaskResponse = {
 
 class StaffTaskDeliveryError extends Error {}
 
-export function createStaffTaskTool(
-  fetchImpl: typeof fetch = (input, init) => fetch(input, init),
-) {
-  return tool({
-    name: "create_staff_task",
-    description:
-      "Send safe, non-urgent caller-approved work to staff after collecting the needed details. " +
-      "Do not use for completed appointment actions, urgent or clinical concerns, medication guidance or reactions, returned calls, or live-person requests; transfer those when policy requires. " +
-      "Call before claiming a message, note, callback, or waitlist request was sent. " +
-      "Success confirms staff submission only, without promising approval, completion, refill, or timing.",
-    parameters: taskParameters,
-    execute: async (input, { ctx, toolCallId }): Promise<string> => {
-      const state = getState(ctx);
-      ctx.disallowInterruptions();
-      const outcomes = domainOutcomesForTool(
-        state,
-        toolCallId,
-        "create_staff_task",
+export const create_staff_task = tool({
+  name: "create_staff_task",
+  description:
+    "Send safe, non-urgent caller-approved work to staff after collecting the needed details. " +
+    "Do not use for completed appointment actions, urgent or clinical concerns, medication guidance or reactions, returned calls, or live-person requests; transfer those when policy requires. " +
+    "Call before claiming a message, note, callback, or waitlist request was sent. " +
+    "Success confirms staff submission only, without promising approval, completion, refill, or timing.",
+  parameters: taskParameters,
+  execute: async (input, { ctx, toolCallId }): Promise<string> => {
+    const state = getState(ctx);
+    ctx.disallowInterruptions();
+    const outcomes = domainOutcomesForTool(
+      state,
+      toolCallId,
+      "create_staff_task",
+    );
+    const office = getOfficeProfileByPhone(state.runtime.trunkPhone);
+    if (usesSandboxMiddleware(office.key)) {
+      return outcomes.reply(
+        { outcome: "staff_task_failed", status: "blocked" },
+        "Staff tasks are unavailable in this sandbox call. No message was sent; do not promise staff follow-up.",
       );
-      const office = getOfficeProfileByPhone(state.runtime.trunkPhone);
-      if (usesSandboxMiddleware(office.key)) {
-        return outcomes.reply(
-          { outcome: "staff_task_failed", status: "blocked" },
-          "Staff tasks are unavailable in this sandbox call. No message was sent; do not promise staff follow-up.",
-        );
-      }
-      const validated = taskParameters.safeParse(input);
-      if (!validated.success) {
-        outcomes.record({ outcome: "staff_task_failed", status: "blocked" });
-        throw new ToolError(
-          "No request was sent. Use a supported non-billing category, a summary up to 240 characters and a message up to 2500 characters. Condense wording without losing collected details or missing prerequisites, then retry. Never silently truncate essential intake.",
-        );
-      }
-      const payload = buildStaffTaskPayload(state, office, validated.data);
-      const existing = findStaffTaskReceipt(state, payload.idempotencyKey);
-      if (existing) {
-        return outcomes.reply(
-          {
-            outcome: "staff_task_duplicate",
-            status: "success",
-            evidence: { ...existing },
-          },
-          TASK_DUPLICATE_REPLY,
-        );
-      }
-
-      const destination = getStaffTaskDestination(office.key);
-      if (!destination) {
-        outcomes.record({ outcome: "staff_task_failed", status: "failed" });
-        throw new Error("Staff task delivery is not configured.");
-      }
-
-      let response: PortalTaskResponse;
-      try {
-        response = await postStaffTask(
-          fetchImpl,
-          destination.url,
-          destination.secret,
-          payload,
-        );
-      } catch (error) {
-        console.error("[tools] Staff task POST failed:", error);
-        outcomes.record({ outcome: "staff_task_failed", status: "failed" });
-        if (error instanceof StaffTaskDeliveryError) {
-          throw new ToolError(TASK_FAILED_REPLY);
-        }
-        throw error;
-      }
-      const receipt = {
-        createdAt: new Date().toISOString(),
-        idempotencyKey: payload.idempotencyKey,
-        status: response.status,
-        taskId: response.taskId,
-      };
-      recordStaffTaskReceipt(state, receipt);
+    }
+    const validated = taskParameters.safeParse(input);
+    if (!validated.success) {
+      outcomes.record({ outcome: "staff_task_failed", status: "blocked" });
+      throw new ToolError(
+        "No request was sent. Use a supported non-billing category, a summary up to 240 characters and a message up to 2500 characters. Condense wording without losing collected details or missing prerequisites, then retry. Never silently truncate essential intake.",
+      );
+    }
+    const payload = buildStaffTaskPayload(state, office, validated.data);
+    const existing = findStaffTaskReceipt(state, payload.idempotencyKey);
+    if (existing) {
       return outcomes.reply(
         {
-          outcome:
-            response.status === "duplicate"
-              ? "staff_task_duplicate"
-              : "staff_task_created",
+          outcome: "staff_task_duplicate",
           status: "success",
-          evidence: receipt,
+          evidence: { ...existing },
         },
-        response.status === "duplicate"
-          ? TASK_DUPLICATE_REPLY
-          : TASK_CREATED_REPLY,
+        TASK_DUPLICATE_REPLY,
       );
-    },
-  });
-}
+    }
 
-export const create_staff_task = createStaffTaskTool();
+    const destination = getStaffTaskDestination(office.key);
+    if (!destination) {
+      outcomes.record({ outcome: "staff_task_failed", status: "failed" });
+      throw new Error("Staff task delivery is not configured.");
+    }
+
+    let response: PortalTaskResponse;
+    try {
+      response = await postStaffTask(
+        destination.url,
+        destination.secret,
+        payload,
+      );
+    } catch (error) {
+      console.error("[tools] Staff task POST failed:", error);
+      outcomes.record({ outcome: "staff_task_failed", status: "failed" });
+      if (error instanceof StaffTaskDeliveryError) {
+        throw new ToolError(TASK_FAILED_REPLY);
+      }
+      throw error;
+    }
+    const receipt = {
+      createdAt: new Date().toISOString(),
+      idempotencyKey: payload.idempotencyKey,
+      status: response.status,
+      taskId: response.taskId,
+    };
+    recordStaffTaskReceipt(state, receipt);
+    return outcomes.reply(
+      {
+        outcome:
+          response.status === "duplicate"
+            ? "staff_task_duplicate"
+            : "staff_task_created",
+        status: "success",
+        evidence: receipt,
+      },
+      response.status === "duplicate"
+        ? TASK_DUPLICATE_REPLY
+        : TASK_CREATED_REPLY,
+    );
+  },
+});
 
 export function getAcuityProductStaffTasksUrl(
   env: NodeJS.ProcessEnv = process.env,
@@ -258,7 +251,6 @@ function normalizeText(value: string): string {
 }
 
 async function postStaffTask(
-  fetchImpl: typeof fetch,
   url: string,
   secret: string,
   payload: ReturnType<typeof buildStaffTaskPayload>,
@@ -266,7 +258,7 @@ async function postStaffTask(
   const body = JSON.stringify(payload);
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
-      return await postStaffTaskOnce(fetchImpl, url, secret, body);
+      return await postStaffTaskOnce(url, secret, body);
     } catch (error) {
       if (!(error instanceof StaffTaskDeliveryError) || attempt === 1) {
         throw error;
@@ -278,14 +270,13 @@ async function postStaffTask(
 }
 
 async function postStaffTaskOnce(
-  fetchImpl: typeof fetch,
   url: string,
   secret: string,
   body: string,
 ): Promise<PortalTaskResponse> {
   let response: Response;
   try {
-    response = await fetchImpl(url, {
+    response = await fetch(url, {
       body,
       headers: {
         Authorization: `Bearer ${secret}`,

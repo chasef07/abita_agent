@@ -9,10 +9,10 @@ import { createSchedulingTools } from "../scheduling/tools.js";
 import {
   check_insurance,
   createAddPatientTool,
+  create_staff_task,
   transfer_call,
   createUpdateInsuranceTool,
 } from "../tools/index.js";
-import { createStaffTaskTool } from "../tools/create-staff-task.js";
 import { createResolvePatientTool } from "../tools/resolve-patient.js";
 
 const end_call = beta.createEndCallTool<CallState>({
@@ -26,7 +26,6 @@ export type AgentTools = readonly ToolContextEntry<CallState>[];
 function buildUnobservedToolsForTrunk(
   middleware: OwnedMiddleware,
   trunkPhone?: string,
-  staffTaskFetch?: typeof fetch,
 ): AgentTools {
   const office = getOfficeProfileByPhone(trunkPhone ?? "");
   const availabilityOfficeMode =
@@ -51,7 +50,6 @@ function buildUnobservedToolsForTrunk(
     reschedule_appointment,
     check_insurance,
   ] as const satisfies readonly ToolContextEntry<CallState>[];
-  const create_staff_task = createStaffTaskTool(staffTaskFetch);
   const commonTools = [
     ...coreTools,
     createSearchOfficeKnowledgeTool(),
@@ -73,11 +71,8 @@ function buildUnobservedToolsForTrunk(
 export function buildToolsForTrunk(
   middleware: OwnedMiddleware,
   trunkPhone?: string,
-  staffTaskFetch?: typeof fetch,
 ): AgentTools {
-  return buildUnobservedToolsForTrunk(
-    middleware,
-    trunkPhone,
-    staffTaskFetch,
-  ).map(withMiddlewareToolDiagnostics);
+  return buildUnobservedToolsForTrunk(middleware, trunkPhone).map(
+    withMiddlewareToolDiagnostics,
+  );
 }
