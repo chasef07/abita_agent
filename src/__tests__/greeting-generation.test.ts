@@ -1,3 +1,4 @@
+import { tts } from "@livekit/agents";
 import { AudioFrame } from "@livekit/rtc-node";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { writeFile } from "node:fs/promises";
@@ -32,6 +33,7 @@ vi.mock("@livekit/agents-plugin-rime", () => ({
             frame: new AudioFrame(new Int16Array(32000), 16000, 1, 32000),
             final: state.final,
           };
+          yield tts.SynthesizeStream.END_OF_STREAM;
           if (state.failure) state.onError();
         },
       };
@@ -59,4 +61,11 @@ it.each([
   expect(state.streamOptions).toHaveBeenCalledWith({
     connOptions: expect.objectContaining({ maxRetry: 0 }),
   });
+});
+
+it("packages completed audio followed by the SDK end-of-stream marker", async () => {
+  state.final = true;
+  state.failure = false;
+  await import("../../scripts/generate-greetings.js");
+  expect(writeFile).toHaveBeenCalled();
 });

@@ -148,7 +148,9 @@ describe("phone-first and spelled-first-name/DOB policy", () => {
           },
         ],
       });
-      const lookup = vi.fn(async () => search);
+      const lookup = vi.fn<Parameters<typeof resolveExistingPatient>[2]>(
+        async () => search,
+      );
       expect(
         (await resolveExistingPatient(state, supplied, lookup)).outcome,
       ).toBe("not_found");
@@ -258,9 +260,9 @@ describe("phone-first and spelled-first-name/DOB policy", () => {
     ).toBe("verified");
     expect(lookup).toHaveBeenCalledTimes(2);
   });
-  it.each([[], [candidate]])(
+  it.each([{ matches: [] }, { matches: [candidate] }])(
     "refuses incomplete candidate sets %#",
-    async (matches) => {
+    async ({ matches }) => {
       const state = createTestCallState();
       const lookup = vi.fn(async () => ({
         ...search,

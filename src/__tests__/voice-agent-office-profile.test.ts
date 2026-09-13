@@ -63,7 +63,6 @@ function toolNames(entries: readonly ToolContextEntry[]): string[] {
 }
 
 type OfficeBehavior = {
-  amdOfficePhone: string;
   displayName: string;
   englishSpeaker: string;
   greeting: string;
@@ -112,7 +111,6 @@ const COMMON_TOOL_NAMES = [
 
 const officeBehaviors: OfficeBehavior[] = [
   {
-    amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
     displayName: "Abita Eye Group",
     englishSpeaker: "wawona",
     greeting: "Hi, this is Maya at Abeeta Eye Group. How can I help?",
@@ -140,7 +138,6 @@ const officeBehaviors: OfficeBehavior[] = [
     trunks: [SPRING_HILL_OFFICE_PHONE, SPRING_HILL_813_TRUNK_PHONE],
   },
   {
-    amdOfficePhone: CRYSTAL_RIVER_OFFICE_PHONE,
     displayName: "Eye Radiance",
     englishSpeaker: "wawona",
     greeting:
@@ -170,7 +167,6 @@ const officeBehaviors: OfficeBehavior[] = [
     trunks: [CRYSTAL_RIVER_OFFICE_PHONE],
   },
   {
-    amdOfficePhone: HOLLYWOOD_OFFICE_PHONE,
     displayName: "Abita Eye Group Hollywood",
     englishSpeaker: "luz",
     greeting: "Hi, this is Maya at Abeeta Eye Group. How can I help?",
@@ -198,7 +194,6 @@ const officeBehaviors: OfficeBehavior[] = [
     trunks: [HOLLYWOOD_OFFICE_PHONE],
   },
   {
-    amdOfficePhone: SWEETWATER_OFFICE_PHONE,
     displayName: "Abita Eye Group Sweetwater",
     englishSpeaker: "luz",
     greeting: "Hi, this is Maya at Abeeta Eye Group. How can I help?",
@@ -226,7 +221,6 @@ const officeBehaviors: OfficeBehavior[] = [
     trunks: SWEETWATER_TRUNK_PHONES,
   },
   {
-    amdOfficePhone: NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
     displayName: "North Miami Beach Optical",
     englishSpeaker: "luz",
     greeting: "Hi, this is Maya at Abeeta Eye Group. How can I help?",
@@ -258,7 +252,6 @@ const officeBehaviors: OfficeBehavior[] = [
     trunks: [NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE],
   },
   {
-    amdOfficePhone: RHEUMATOLOGY_DEMO_TRUNK_PHONE,
     displayName: "Clearbrook Eye Center",
     englishSpeaker: "wawona",
     greeting: "Hi, this is Maya at Clearbrook Eye Center. How can I help?",
@@ -286,7 +279,6 @@ const officeBehaviors: OfficeBehavior[] = [
     trunks: [OPHTHALMOLOGY_DEMO_TRUNK_PHONE],
   },
   {
-    amdOfficePhone: RHEUMATOLOGY_DEMO_TRUNK_PHONE,
     displayName: "New Tampa Eye Institute",
     englishSpeaker: "wawona",
     greeting:
@@ -317,7 +309,6 @@ const officeBehaviors: OfficeBehavior[] = [
     trunks: [NEW_TAMPA_DEMO_TRUNK_PHONE],
   },
   {
-    amdOfficePhone: RHEUMATOLOGY_DEMO_TRUNK_PHONE,
     displayName: "Juniper Ridge Rheumatology & Arthritis Care",
     englishSpeaker: "wawona",
     greeting:
@@ -378,6 +369,7 @@ async function spokenGreeting(
 
 function jsonResponse(body: unknown): Response {
   return {
+    body: null,
     ok: true,
     status: 200,
     json: async () => body,
@@ -439,20 +431,17 @@ describe("Voice Agent office profile", () => {
         const instructions = String(voiceAgent.agent.instructions);
         const tools = toolNames(voiceAgent.agent.toolCtx.tools);
         const medicalState = createTestCallState({
-          amdOfficePhone: office.amdOfficePhone,
           officeKey: office.key,
           trunkPhone,
         });
         medicalState.workflow.visitType = "medical";
         const routineVisionState = createTestCallState({
-          amdOfficePhone: office.amdOfficePhone,
           officeKey: office.key,
           trunkPhone,
         });
         routineVisionState.workflow.visitType = "routine_vision";
 
         expect({
-          amdOfficePhone: office.amdOfficePhone,
           displayName: office.displayName,
           greeting: await spokenGreeting(voiceAgent.agent),
           handoff: await selectedHandoff(trunkPhone, office.key),
@@ -492,7 +481,6 @@ describe("Voice Agent office profile", () => {
           staffTaskEnabled: office.staffTaskEnabled,
           tools: tools.sort(),
         }).toEqual({
-          amdOfficePhone: expected.amdOfficePhone,
           displayName: expected.displayName,
           greeting: [expected.greeting],
           handoff: {

@@ -52,7 +52,7 @@ function requestText(context: ChatContext) {
 
 describe("production LiveKit turn pipeline", () => {
   initializeLogger({ pretty: false, level: "silent" });
-  const sessions: AgentSession[] = [];
+  const sessions: AgentSession<CallState>[] = [];
 
   afterEach(async () => {
     await Promise.all(sessions.splice(0).map((session) => session.close()));

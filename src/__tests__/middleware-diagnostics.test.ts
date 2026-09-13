@@ -64,6 +64,7 @@ it("preserves both read attempts through tool normalization, trace and persisted
   const entry = withMiddlewareToolDiagnostics(
     tool({
       name: "resolve_patient",
+      description: "Resolve the patient for diagnostics testing.",
       parameters: z.object({}),
       execute: async () => {
         const result = await middleware.resolvePatient({
@@ -258,6 +259,7 @@ it("retains a recovered retry and the independent appointment-load status withou
   const entry = withMiddlewareToolDiagnostics(
     tool({
       name: "resolve_patient",
+      description: "Resolve the patient for diagnostics testing.",
       parameters: z.object({}),
       execute: async () => {
         const result = await middleware.resolvePatient({
@@ -299,6 +301,7 @@ it("records diagnostics alone when a tool has no domain receipt, without inventi
   const entry = withMiddlewareToolDiagnostics(
     tool({
       name: "list_available_appointments",
+      description: "List appointments for diagnostics testing.",
       parameters: z.object({}),
       execute: async () => {
         await middleware.resolvePatient({

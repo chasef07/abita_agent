@@ -34,6 +34,7 @@ describe("tool interruption policy", () => {
             {
               ctx: ctx as unknown as RunContext<CallState>,
               toolCallId: registeredTool.id,
+              abortSignal: new AbortController().signal,
             },
           ),
           registeredTool.id,

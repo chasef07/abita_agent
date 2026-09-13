@@ -33,7 +33,6 @@ function createToolContext(state: ReturnType<typeof createState>) {
 
 function createDevState(overrides: Partial<InitialCallStateInput> = {}) {
   return createState({
-    amdOfficePhone: RHEUMATOLOGY_DEMO_TRUNK_PHONE,
     officeKey: "rheumatology-demo",
     trunkPhone: RHEUMATOLOGY_DEMO_TRUNK_PHONE,
     ...overrides,
@@ -86,7 +85,7 @@ describe("create_staff_task", () => {
   });
 
   it("routes a production task to Product with the production tenant credential", async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       Response.json({
         status: "created",
         taskId: "task-1",
@@ -96,7 +95,6 @@ describe("create_staff_task", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
     const state = createState({
-      amdOfficePhone: SWEETWATER_OFFICE_PHONE,
       officeKey: "sweetwater",
       trunkPhone: SWEETWATER_TRUNK_PHONES[1],
     });
@@ -165,7 +163,7 @@ describe("create_staff_task", () => {
   });
 
   it("records a prior-authorization task after the insurance check requires staff follow-up", async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       Response.json({
         status: "created",
         taskId: "prior-auth-task-1",
@@ -175,7 +173,6 @@ describe("create_staff_task", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
     const state = createState({
-      amdOfficePhone: SWEETWATER_OFFICE_PHONE,
       officeKey: "sweetwater",
       trunkPhone: SWEETWATER_TRUNK_PHONES[1],
     });
@@ -236,7 +233,7 @@ describe("create_staff_task", () => {
   });
 
   it("blocks staff tasks for sandbox demos even if active office changes", async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       Response.json(
         {
           status: "created",
@@ -277,7 +274,7 @@ describe("create_staff_task", () => {
   });
 
   it("blocks staff tasks on a dedicated demo trunk", async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       Response.json(
         {
           status: "created",
@@ -313,7 +310,7 @@ describe("create_staff_task", () => {
   });
 
   it("preserves the sweetwater-optical Product route from the inbound trunk", async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       Response.json(
         { status: "created", taskId: PRODUCT_TASK_ID },
         { status: 201 },
@@ -321,7 +318,6 @@ describe("create_staff_task", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
     const state = createState({
-      amdOfficePhone: SWEETWATER_OFFICE_PHONE,
       officeKey: "sweetwater",
       trunkPhone: SWEETWATER_OPTICAL_TRUNK_PHONE,
     });
@@ -358,7 +354,7 @@ describe("create_staff_task", () => {
   });
 
   it("returns the existing receipt for a duplicate task in one call", async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       Response.json({ status: "created", taskId: "task-1" }),
     );
     vi.stubGlobal("fetch", fetchMock);
@@ -405,7 +401,7 @@ describe("create_staff_task", () => {
 
   it("leaves missing delivery configuration as an internal error", async () => {
     vi.stubEnv("ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET", "");
-    const fetchMock = vi.fn();
+    const fetchMock = vi.fn<typeof fetch>();
     vi.stubGlobal("fetch", fetchMock);
     const state = createState();
 
@@ -508,7 +504,9 @@ describe("create_staff_task", () => {
   });
 
   it("returns a safe ToolError after one retryable failure retry", async () => {
-    const fetchMock = vi.fn(async () => new Response(null, { status: 503 }));
+    const fetchMock = vi.fn<typeof fetch>(
+      async () => new Response(null, { status: 503 }),
+    );
     vi.stubGlobal("fetch", fetchMock);
     const state = createState();
 
@@ -544,7 +542,9 @@ describe("create_staff_task", () => {
   it.each([400, 401, 403, 409])(
     "does not retry permanent status %i",
     async (status) => {
-      const fetchMock = vi.fn(async () => new Response(null, { status }));
+      const fetchMock = vi.fn<typeof fetch>(
+        async () => new Response(null, { status }),
+      );
       vi.stubGlobal("fetch", fetchMock);
       const state = createState({ trunkPhone: SPRING_HILL_OFFICE_PHONE });
 

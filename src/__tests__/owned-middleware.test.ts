@@ -261,6 +261,7 @@ describe.each([
       new HttpOwnedMiddleware({
         fetch: vi.fn(async () =>
           Response.json({
+            message: null,
             status: "booked",
             appointmentId: 12345,
             appointmentTypeId: 1005,
@@ -521,7 +522,9 @@ describe("HTTP owned middleware transport", () => {
   });
 
   it("uses the configured middleware URL for production and demo offices", async () => {
-    const fetchMock = vi.fn(async () => Response.json(verifiedPatient));
+    const fetchMock = vi.fn<typeof globalThis.fetch>(async () =>
+      Response.json(verifiedPatient),
+    );
     const middleware = new HttpOwnedMiddleware({
       fetch: fetchMock,
       middlewareBaseUrl: "https://middleware.test",
@@ -633,7 +636,7 @@ describe("HTTP owned middleware transport", () => {
   });
 
   it("reports missing middleware configuration as a middleware failure", async () => {
-    const fetchMock = vi.fn();
+    const fetchMock = vi.fn<typeof globalThis.fetch>();
     const middleware = new HttpOwnedMiddleware({
       fetch: fetchMock,
       middlewareBaseUrl: "",
@@ -788,7 +791,9 @@ describe("HTTP owned middleware transport", () => {
   });
 
   it("serializes private candidate hydration by patient ID only", async () => {
-    const fetchMock = vi.fn(async () => Response.json(verifiedPatient));
+    const fetchMock = vi.fn<typeof globalThis.fetch>(async () =>
+      Response.json(verifiedPatient),
+    );
     const middleware = new HttpOwnedMiddleware({
       fetch: fetchMock,
       middlewareBaseUrl: "https://middleware.test",
@@ -806,7 +811,9 @@ describe("HTTP owned middleware transport", () => {
   });
 
   it("serializes a private cancellation token without backend identity fields", async () => {
-    const fetchMock = vi.fn(async () => Response.json(cancelledAppointment));
+    const fetchMock = vi.fn<typeof globalThis.fetch>(async () =>
+      Response.json(cancelledAppointment),
+    );
     const middleware = new HttpOwnedMiddleware({
       fetch: fetchMock,
       middlewareBaseUrl: "https://middleware.test",
@@ -876,6 +883,8 @@ describe("HTTP owned middleware transport", () => {
     });
 
     expect(result).toMatchObject({
+      dateShifted: false,
+      shouldRetrySameSearch: false,
       status: "found",
       slots: [
         {
@@ -2275,7 +2284,9 @@ describe("in-memory owned middleware", () => {
 });
 
 it("fails closed when the inventory endpoint is unavailable instead of using two-slot search", async () => {
-  const fetch = vi.fn(async () => new Response("not found", { status: 404 }));
+  const fetch = vi.fn<typeof globalThis.fetch>(
+    async () => new Response("not found", { status: 404 }),
+  );
   const middleware = new HttpOwnedMiddleware({
     middlewareBaseUrl: "https://middleware.test",
     fetch,

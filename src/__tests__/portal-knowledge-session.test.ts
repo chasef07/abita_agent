@@ -67,7 +67,6 @@ describe("Portal knowledge through AgentSession", () => {
       session.userData = createTestCallState({
         officeKey: office.key,
         trunkPhone: office.trunkPhones[0]!,
-        amdOfficePhone: office.amdOfficePhone,
       });
       await session.start({
         agent: createVoiceAgent(office.trunkPhones[0]!, {

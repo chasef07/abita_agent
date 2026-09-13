@@ -91,7 +91,6 @@ describe("Portal office knowledge tool", () => {
     vi.stubGlobal("fetch", fetch);
     const state = createTestCallState({
       officeKey: first.key,
-      amdOfficePhone: first.amdOfficePhone,
     });
     const tool = createSearchOfficeKnowledgeTool();
     const firstResult = await tool.execute(

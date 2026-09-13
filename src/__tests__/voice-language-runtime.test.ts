@@ -23,7 +23,9 @@ function speechEvent(
       {
         confidence: 0.95,
         endTime: 1,
-        language,
+        language: language as NonNullable<
+          stt.SpeechEvent["alternatives"]
+        >[number]["language"],
         ...(confidence === null
           ? {}
           : { metadata: { assemblyai: { languageConfidence: confidence } } }),

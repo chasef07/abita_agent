@@ -1,3 +1,4 @@
+import type { CallState } from "../state/call-state.js";
 import { EventEmitter } from "node:events";
 import { AgentSession, type JobContext } from "@livekit/agents";
 import { STT } from "@livekit/agents-plugin-assemblyai";
@@ -179,11 +180,11 @@ describe("production call startup", () => {
           : { ok: true };
       },
     );
-    vi.mocked(AgentSession.prototype.start).mockImplementation(
-      async function () {
-        expect(this.userData.runtime.preCallLookup.status).toBe("no_match");
-      },
-    );
+    vi.mocked(AgentSession.prototype.start).mockImplementation(async function (
+      this: AgentSession<CallState>,
+    ) {
+      expect(this.userData.runtime.preCallLookup.status).toBe("no_match");
+    });
     const current = call();
     const starting = current.start();
     await vi.waitFor(() => expect(portal.deliveries).toHaveLength(1));
