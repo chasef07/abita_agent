@@ -50,7 +50,7 @@ export function createSearchOfficeKnowledgeTool() {
   return tool({
     name: "search_office_knowledge",
     description:
-      "Searches the office knowledge base for practice-specific information such as providers, hours, location, and policies. Always call this tool for practice-related knowledge questions.",
+      "Searches this office's records intake and delivery rules, billing contacts, pricing, providers, hours, and policies. Always call for medical-records requests, including visit-summary emails, even when already approved, and before answering office-specific questions. Explain applicable restrictions to the caller without implying exceptions.",
     parameters,
     execute: async (
       { query }: z.infer<typeof parameters>,

@@ -38,7 +38,7 @@ const taskParameters = z.object({
       "optical includes glasses/contact prescriptions; medication includes refills and medication authorizations; " +
         "insurance includes copays, coverage, referral requirements and service authorizations; referrals means specialist/imaging orders. " +
         "pre_op/post_op mean surgical preparation/aftercare, not scheduling, refills or authorizations. " +
-        "Clarify ambiguous requests; use other if still unclear.",
+        "Clarify ambiguous requests; use other if still unclear, including an unknown authorization subject.",
     ),
   urgency: z
     .enum(["high_priority", "normal", "non_urgent"])
@@ -74,7 +74,7 @@ export const create_staff_task = tool({
   name: "create_staff_task",
   description:
     "Send one safe, non-urgent caller-approved unresolved request for staff review. Collect applicable details; list gaps if incomplete. " +
-    "For records, search office knowledge for intake and delivery rules first. " +
+    "For records, search office knowledge for intake and delivery rules first. Include restrictions and missing prerequisites in your spoken confirmation, even when already approved. " +
     "Follow Human Transfer policy for urgent or clinical concerns, medication guidance or reactions, returned calls and live-person requests. " +
     "Confirm submission only after success; leave fulfillment and timing to staff.",
   parameters: taskParameters,
