@@ -28,7 +28,6 @@ function stateForDemo() {
   const state = createConfirmedPatientState({
     officeKey: "new-tampa-demo",
     trunkPhone: NEW_TAMPA_DEMO_TRUNK_PHONE,
-    amdOfficePhone: DEMO_BOOKING_OFFICE_PHONE,
   });
   state.workflow.visitType = "medical";
   return state;
@@ -38,6 +37,8 @@ const context = (state: ReturnType<typeof stateForDemo>) =>
 const clock = { now: () => new Date("2026-09-07T12:00:00Z") };
 function openings(providers: string[]): AvailabilityResult {
   return {
+    dateShifted: false,
+    shouldRetrySameSearch: false,
     status: "found",
     requestedDate: "2026-09-07",
     actualDate: "2026-12-07",
@@ -59,7 +60,6 @@ describe("New Tampa 320 demo", () => {
     expect(office).toMatchObject({
       displayName: "New Tampa Eye Institute",
       key: "new-tampa-demo",
-      amdOfficePhone: DEMO_BOOKING_OFFICE_PHONE,
     });
     const prompt = buildPrompt(NEW_TAMPA_DEMO_TRUNK_PHONE);
     expect(prompt).toContain("New Tampa Eye Institute");

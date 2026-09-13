@@ -1,3 +1,4 @@
+import { objectSchema } from "./support/tool-schema.js";
 import { describe, expect, it } from "vitest";
 import { createResolvePatientTool } from "../tools/resolve-patient.js";
 import { createTestCallState } from "./support/call-state.js";
@@ -18,9 +19,13 @@ const candidate = {
 describe("patient resolution conversation contract", () => {
   it("accepts first name and DOB without exposing surname", () => {
     const tool = createResolvePatientTool(new InMemoryOwnedMiddleware());
-    expect(Object.keys(tool.parameters.shape)).toEqual(["firstName", "dob"]);
+    expect(Object.keys(objectSchema(tool.parameters).shape)).toEqual([
+      "firstName",
+      "dob",
+    ]);
     expect(
-      tool.parameters.safeParse({ firstName: "Jane", dob: null }).success,
+      objectSchema(tool.parameters).safeParse({ firstName: "Jane", dob: null })
+        .success,
     ).toBe(true);
   });
 
@@ -120,8 +125,8 @@ describe("patient resolution conversation contract", () => {
           source: "first_name",
           complete: true,
           matches: [
-            candidate,
-            { ...candidate, patientId: "synthetic-2", ref: "second" },
+            { ...candidate, status: "candidate" },
+            { ...candidate, status: "candidate", patientId: "synthetic-2" },
           ],
         },
       ],

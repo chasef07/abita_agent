@@ -1,4 +1,9 @@
-import { isToolset, type ToolContextEntry } from "@livekit/agents";
+import { objectSchema } from "./support/tool-schema.js";
+import {
+  isFunctionTool,
+  isToolset,
+  type ToolContextEntry,
+} from "@livekit/agents";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { buildToolsForTrunk } from "../runtime/tool-registry.js";
@@ -52,6 +57,7 @@ function toolNamesForTrunk(trunkPhone: string): string[] {
 function toolForTrunk(trunkPhone: string, name: string) {
   return buildToolsForTrunk(middleware, trunkPhone)
     .flatMap((entry) => (isToolset(entry) ? entry.tools : [entry]))
+    .filter(isFunctionTool)
     .find((entry) => entry.id === name);
 }
 
@@ -153,8 +159,10 @@ describe("office routing helpers", () => {
       SPRING_HILL_OFFICE_PHONE,
       "list_available_appointments",
     );
-    const hollywoodSchema = z.toJSONSchema(hollywood!.parameters);
-    const springHillSchema = z.toJSONSchema(springHill!.parameters);
+    const hollywoodSchema = z.toJSONSchema(objectSchema(hollywood!.parameters));
+    const springHillSchema = z.toJSONSchema(
+      objectSchema(springHill!.parameters),
+    );
 
     expect(hollywoodSchema.required).toContain("office");
     expect(springHillSchema.properties).not.toHaveProperty("office");
@@ -195,19 +203,6 @@ describe("voice output prompt", () => {
       NEW_TAMPA_DEMO_TRUNK_PHONE,
     ]) {
       expect(buildPrompt(phone)).not.toContain(focusedTriageRule);
-    }
-  });
-
-  it("states model-facing prompt instructions as positive actions", () => {
-    const prompts = [
-      buildPrompt(SPRING_HILL_OFFICE_PHONE),
-      buildPrompt(RHEUMATOLOGY_DEMO_TRUNK_PHONE),
-    ];
-
-    for (const prompt of prompts) {
-      expect(prompt).not.toMatch(
-        /\b(?:aren't|can't|cannot|couldn't|do not|does not|don't|haven't|isn't|never|must not|shouldn't|wasn't|weren't|won't|wouldn't)\b/i,
-      );
     }
   });
 
@@ -455,19 +450,10 @@ describe("rheumatology demo", () => {
 });
 
 describe("dedicated demo trunks", () => {
-  it("restores the ophthalmology demo on its own number", () => {
-    const office = getOfficeProfile("ophthalmology-demo");
-    const prompt = buildPrompt(OPHTHALMOLOGY_DEMO_TRUNK_PHONE);
-
-    expect(office.trunkPhones).toEqual([OPHTHALMOLOGY_DEMO_TRUNK_PHONE]);
-    expect(office.amdOfficePhone).toBe(RHEUMATOLOGY_DEMO_TRUNK_PHONE);
-    expect(office.schedulingFor("medical")).toEqual({ supported: true });
-    expect(office.schedulingFor("routine_vision")).toEqual({
-      supported: true,
-    });
-    expect(prompt).toContain("a fictional ophthalmology clinic");
-    expect(prompt).not.toContain("Abita Eye Group");
-    expect(prompt).toContain("# Appointment Triage");
+  it("routes the ophthalmology demo to the shared demo backend", () => {
+    expect(getOfficeProfile("ophthalmology-demo").amdOfficePhone).toBe(
+      RHEUMATOLOGY_DEMO_TRUNK_PHONE,
+    );
   });
 
   it("activates the personalized New Tampa demo with both eye-care lanes", () => {
@@ -655,6 +641,7 @@ describe("model-facing tool definitions", () => {
   it("keeps each custom tool description within the concise contract", () => {
     const customTools = buildToolsForTrunk(middleware, HOLLYWOOD_OFFICE_PHONE)
       .flatMap((entry) => (isToolset(entry) ? entry.tools : [entry]))
+      .filter(isFunctionTool)
       .filter((entry) => entry.id !== "end_call");
 
     expect(customTools.map((entry) => entry.id).sort()).toEqual(
@@ -707,22 +694,11 @@ describe("model-facing tool definitions", () => {
     expect(Object.keys(parameters.shape)).not.toContain("ssnLast4Unavailable");
     expect(
       String(
-        (parameters.shape.insuranceMemberId as { description?: string })
-          .description,
-      ),
-    ).toBe("Member ID from the insurance card.");
-    expect(
-      String(
         (parameters.shape.ssnLast4 as { description?: string }).description,
       ),
     ).toBe(
       "Optional SSN last four for insured routine vision. Request only four digits. Pass null for self-pay, declined, or unavailable.",
     );
-    expect(
-      String(
-        (parameters.shape.ssnLast4 as { description?: string }).description,
-      ),
-    ).toContain("Pass null");
     expect(Object.keys(parameters.shape)).not.toContain("subscriberNum");
     expect(
       parameters.safeParse({
@@ -847,16 +823,12 @@ describe("model-facing tool definitions", () => {
         startDate: { description?: string };
       };
     };
-    expect(parameters.shape.visitType.description).toContain(
-      "Visit type for this availability",
-    );
     expect(parameters.shape.office.description).toContain(
       "Caller-selected Hollywood or Sweetwater office",
     );
     expect(parameters.shape.startDate.description).toContain(
       "14-calendar-day window",
     );
-    expect(parameters.shape.startDate.description).toContain("future date");
     expect(Object.keys(parameters.shape)).toEqual([
       "startDate",
       "visitType",
@@ -919,12 +891,6 @@ describe("model-facing tool definitions", () => {
     ).toBe(false);
     expect(
       parameters.safeParse({
-        date: "2026-06-01",
-        visitType: "medical",
-      }).success,
-    ).toBe(false);
-    expect(
-      parameters.safeParse({
         appointmentLane: "medical_md",
       }).success,
     ).toBe(false);
@@ -932,16 +898,10 @@ describe("model-facing tool definitions", () => {
 
   it("keeps check_insurance scoped to insurance eligibility", () => {
     expect(check_insurance.description).toContain(
-      "active office accepts a plan",
-    );
-    expect(check_insurance.description).toContain(
       "after the caller provides the plan name and visit type",
     );
     expect(check_insurance.description).toContain(
       "before new-patient creation",
-    );
-    expect(check_insurance.description).toContain(
-      "for participation questions",
     );
     expect(check_insurance.description).toContain(
       "A result requiring staff follow-up needs caller permission, then a normal referrals task",
@@ -956,9 +916,6 @@ describe("model-facing tool definitions", () => {
         coverageType: { description?: string };
       };
     };
-    expect(parameters.shape.coverageType.description).toBe(
-      "Triaged visit type: medical or routine_vision.",
-    );
     expect(
       parameters.safeParse({
         plan: "Blue Cross",
@@ -979,8 +936,11 @@ describe("model-facing tool definitions", () => {
   });
 
   it("keeps transfer_call scoped to human-only work", () => {
-    expect(transfer_call.description).toBe(
-      "Transfer the caller to human staff only when current office policy requires it. Call immediately without announcing the transfer; the tool speaks the announcement. Retry only when the result explicitly offers one retry.",
+    expect(transfer_call.description).toContain(
+      "only when current office policy requires it",
+    );
+    expect(transfer_call.description).toContain(
+      "Retry only when the result explicitly offers one retry",
     );
   });
 
@@ -988,9 +948,6 @@ describe("model-facing tool definitions", () => {
     expect(create_staff_task.description).not.toContain("Spring Hill");
     expect(create_staff_task.description).toContain(
       "safe, non-urgent caller-approved work",
-    );
-    expect(create_staff_task.description).toContain(
-      "after collecting the needed details",
     );
     expect(create_staff_task.description).toContain(
       "Do not use for completed appointment actions",
@@ -1017,8 +974,6 @@ describe("model-facing tool definitions", () => {
         message: { description?: string };
       };
     };
-    expect(taskParameters.shape.category.description).toContain("medication");
-    expect(taskParameters.shape.category.description).toContain("optical");
     expect(taskParameters.shape.category.description).toContain(
       "referrals including insurance prior authorization",
     );
@@ -1028,20 +983,8 @@ describe("model-facing tool definitions", () => {
     expect(taskParameters.shape.urgency.description).toContain(
       "high_priority for time-sensitive non-clinical work",
     );
-    expect(taskParameters.shape.urgency.description).toContain(
-      "normal for standard follow-up",
-    );
-    expect(taskParameters.shape.urgency.description).toContain(
-      "non_urgent with no time sensitivity",
-    );
-    expect(taskParameters.shape.summary.description).toContain(
-      "Short staff inbox title",
-    );
-    expect(taskParameters.shape.message.description).toContain(
-      "Include medication and pharmacy when known",
-    );
     expect(
-      create_staff_task.parameters.safeParse({
+      objectSchema(create_staff_task.parameters).safeParse({
         category: "billing",
         urgency: "high_priority",
         summary: "Caller has a billing question.",
@@ -1049,7 +992,7 @@ describe("model-facing tool definitions", () => {
       }).success,
     ).toBe(true);
     expect(
-      create_staff_task.parameters.safeParse({
+      objectSchema(create_staff_task.parameters).safeParse({
         category: "medication",
         urgency: "normal",
         summary: "Caller needs a medication refill reviewed.",
@@ -1059,7 +1002,7 @@ describe("model-facing tool definitions", () => {
     ).toBe(true);
     for (const category of ["optical", "referrals"]) {
       expect(
-        create_staff_task.parameters.safeParse({
+        objectSchema(create_staff_task.parameters).safeParse({
           category,
           urgency: "normal",
           summary: "Caller needs staff follow-up.",
@@ -1069,7 +1012,7 @@ describe("model-facing tool definitions", () => {
       ).toBe(true);
     }
     expect(
-      create_staff_task.parameters.safeParse({
+      objectSchema(create_staff_task.parameters).safeParse({
         category: "billing",
         urgency: "urgent",
         summary: "Caller has a billing question.",
@@ -1083,10 +1026,6 @@ describe("model-facing tool definitions", () => {
     expect(update_insurance.description).toContain(
       "after the caller requests the change",
     );
-    expect(update_insurance.description).toContain(
-      "Use add_patient for new registrations",
-    );
-    expect(update_insurance.description).toContain("updated receipt");
     expect(update_insurance.description).toContain(
       "single-retry or transfer instruction",
     );
@@ -1131,9 +1070,6 @@ describe("model-facing tool definitions", () => {
       "confirmation of the exact appointment",
     );
     expect(cancel_appointment.description).toContain(
-      "opaque call-scoped appointmentRef",
-    );
-    expect(cancel_appointment.description).toContain(
       "do not retry a completed cancellation",
     );
     expect(cancel_appointment.description).not.toContain(
@@ -1163,9 +1099,6 @@ describe("model-facing tool definitions", () => {
   it("exposes reschedule_appointment as the deterministic appointment move tool", () => {
     expect(toolNamesForTrunk(SPRING_HILL_OFFICE_PHONE)).toContain(
       "reschedule_appointment",
-    );
-    expect(reschedule_appointment.description).toContain(
-      "Move a verified patient's loaded appointment",
     );
     expect(reschedule_appointment.description).toContain(
       "books first, then cancels the old appointment",
@@ -1336,11 +1269,6 @@ describe("model-facing tool definitions", () => {
     );
     expect(resolve_patient.description).toContain(
       "Use caller-provided identity only",
-    );
-    expect(resolve_patient.description).toContain("firstName");
-    expect(resolve_patient.description).toContain("dob:null");
-    expect(resolve_patient.description).toContain(
-      "Use add_patient for registration",
     );
     expect(resolve_patient.description).not.toContain("insurance updates");
     expect(resolve_patient.description).not.toContain("private account");

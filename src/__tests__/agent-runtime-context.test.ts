@@ -1,3 +1,4 @@
+import type { CallState } from "../state/call-state.js";
 import {
   AgentSession,
   initializeLogger,
@@ -21,7 +22,7 @@ const ownedMiddleware = new InMemoryOwnedMiddleware();
 
 describe("agent runtime context", () => {
   initializeLogger({ pretty: false, level: "silent" });
-  const sessions: AgentSession[] = [];
+  const sessions: AgentSession<CallState>[] = [];
 
   afterEach(async () => {
     await Promise.all(sessions.splice(0).map((session) => session.close()));
@@ -33,7 +34,7 @@ describe("agent runtime context", () => {
       const model = new ContextCapturingFakeLLM([
         { input: "I need an appointment.", content: "Who is it for?" },
       ]);
-      const session = new AgentSession({ llm: model });
+      const session = new AgentSession<CallState>({ llm: model });
       sessions.push(session);
       session.userData = createTestCallState({
         preCallCandidates: [
@@ -117,7 +118,10 @@ describe("agent runtime context", () => {
     const model = new ContextCapturingFakeLLM([
       { input: "I need help.", content: "How can I help?" },
     ]);
-    const session = new AgentSession({ llm: model, userData: state });
+    const session = new AgentSession<CallState>({
+      llm: model,
+      userData: state,
+    });
     sessions.push(session);
     await session.start({
       agent: createVoiceAgent(SPRING_HILL_OFFICE_PHONE, {
@@ -133,7 +137,7 @@ describe("agent runtime context", () => {
     const model = new ContextCapturingFakeLLM([
       { input: "What appointments work now?", content: "Let me check." },
     ]);
-    const session = new AgentSession({ llm: model });
+    const session = new AgentSession<CallState>({ llm: model });
     sessions.push(session);
     const state = createConfirmedPatientState();
     session.userData = state;
@@ -186,7 +190,7 @@ describe("agent runtime context", () => {
         ],
       },
     ]);
-    const session = new AgentSession({ llm: model });
+    const session = new AgentSession<CallState>({ llm: model });
     sessions.push(session);
     const state = createTestCallState({
       preCallCandidates: [

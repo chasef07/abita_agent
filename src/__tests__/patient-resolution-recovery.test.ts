@@ -21,7 +21,7 @@ const candidate = (
   firstName: "Jane",
   lastName,
   dob,
-  appointments: [],
+  appointments: [] as [],
   appointmentsStatus: "none" as const,
 });
 const receipt = (
@@ -41,7 +41,7 @@ const receipt = (
   preauthRequired: false,
   appointmentsStatus: "none" as const,
   appointmentsMessage: null,
-  appointments: [],
+  appointments: [] as [],
   message: null,
 });
 const fullIdentity = {

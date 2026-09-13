@@ -60,6 +60,7 @@ function createState() {
 
 function jsonResponse(body: unknown, status = 200): Response {
   return {
+    body: null,
     ok: status >= 200 && status < 300,
     status,
     json: async () => body,
@@ -107,7 +108,7 @@ describe("call-center handoff", () => {
   });
 
   it("fails closed when direct handoff is not configured", async () => {
-    const fetchMock = vi.fn();
+    const fetchMock = vi.fn<typeof fetch>();
     vi.stubGlobal("fetch", fetchMock);
     const state = createState();
 
@@ -127,7 +128,7 @@ describe("call-center handoff", () => {
     vi.stubEnv("ACUITY_HANDOFF_URL", "https://handoff.example/internal");
     vi.stubEnv("ACUITY_HANDOFF_SECRET", "test-secret");
     configureProductHandoff();
-    const fetchMock = vi.fn();
+    const fetchMock = vi.fn<typeof fetch>();
     vi.stubGlobal("fetch", fetchMock);
     const state = createState();
     state.runtime.trunkPhone = CRYSTAL_RIVER_OFFICE_PHONE;
@@ -160,7 +161,7 @@ describe("call-center handoff", () => {
   it("routes the demo directly to the configured demo cellphone", async () => {
     vi.stubEnv("ACUITY_HANDOFF_URL", "https://handoff.example/internal");
     vi.stubEnv("ACUITY_HANDOFF_SECRET", "test-secret");
-    const fetchMock = vi.fn();
+    const fetchMock = vi.fn<typeof fetch>();
     vi.stubGlobal("fetch", fetchMock);
     const state = createState();
     state.runtime.trunkPhone = RHEUMATOLOGY_DEMO_TRUNK_PHONE;
@@ -198,7 +199,9 @@ describe("call-center handoff", () => {
       vi.stubEnv("ACUITY_HANDOFF_URL", "https://legacy.example/internal");
       vi.stubEnv("ACUITY_HANDOFF_SECRET", "legacy-secret");
       configureProductHandoff();
-      const fetchMock = vi.fn(async () => jsonResponse(PRODUCT_RESPONSE, 201));
+      const fetchMock = vi.fn<typeof fetch>(async () =>
+        jsonResponse(PRODUCT_RESPONSE, 201),
+      );
       vi.stubGlobal("fetch", fetchMock);
       const state = createTestCallState({
         activePatient: confirmedActivePatient({ name: "Maria Alvarez" }),
@@ -277,7 +280,9 @@ describe("call-center handoff", () => {
 
   it("routes the Sweetwater optical trunk without changing its office profile", async () => {
     configureProductHandoff();
-    const fetchMock = vi.fn(async () => jsonResponse(PRODUCT_RESPONSE, 201));
+    const fetchMock = vi.fn<typeof fetch>(async () =>
+      jsonResponse(PRODUCT_RESPONSE, 201),
+    );
     vi.stubGlobal("fetch", fetchMock);
     const state = createState();
     state.runtime.trunkPhone = SWEETWATER_OPTICAL_TRUNK_PHONE;
@@ -300,7 +305,9 @@ describe("call-center handoff", () => {
 
   it("routes the demo through Product with the Demo tenant credential", async () => {
     configureDemoProductHandoff();
-    const fetchMock = vi.fn(async () => jsonResponse(PRODUCT_RESPONSE, 201));
+    const fetchMock = vi.fn<typeof fetch>(async () =>
+      jsonResponse(PRODUCT_RESPONSE, 201),
+    );
     vi.stubGlobal("fetch", fetchMock);
     const state = createState();
     state.runtime.trunkPhone = RHEUMATOLOGY_DEMO_TRUNK_PHONE;
@@ -337,7 +344,9 @@ describe("call-center handoff", () => {
     "routes the %s demo profile through its matching Product office",
     async (trunkPhone, profileOfficeKey) => {
       configureDemoProductHandoff();
-      const fetchMock = vi.fn(async () => jsonResponse(PRODUCT_RESPONSE, 201));
+      const fetchMock = vi.fn<typeof fetch>(async () =>
+        jsonResponse(PRODUCT_RESPONSE, 201),
+      );
       vi.stubGlobal("fetch", fetchMock);
       const state = createState();
       state.runtime.trunkPhone = trunkPhone;
@@ -361,7 +370,7 @@ describe("call-center handoff", () => {
       "ACUITY_PRODUCT_HANDOFF_URL",
       "https://acuity-product.example/v1/handoffs",
     );
-    const fetchMock = vi.fn();
+    const fetchMock = vi.fn<typeof fetch>();
     vi.stubGlobal("fetch", fetchMock);
     const state = createState();
     state.runtime.trunkPhone = RHEUMATOLOGY_DEMO_TRUNK_PHONE;
@@ -377,7 +386,7 @@ describe("call-center handoff", () => {
       "ACUITY_PRODUCT_HANDOFF_URL",
       "https://acuity-product.example/v1/handoffs",
     );
-    const fetchMock = vi.fn();
+    const fetchMock = vi.fn<typeof fetch>();
     vi.stubGlobal("fetch", fetchMock);
     const state = createState();
     state.runtime.trunkPhone = HOLLYWOOD_OFFICE_PHONE;
@@ -391,7 +400,7 @@ describe("call-center handoff", () => {
 
   it("rejects an unstable Product source call identity", async () => {
     configureProductHandoff();
-    const fetchMock = vi.fn();
+    const fetchMock = vi.fn<typeof fetch>();
     vi.stubGlobal("fetch", fetchMock);
     const state = createState();
     state.runtime.trunkPhone = HOLLYWOOD_OFFICE_PHONE;
@@ -409,7 +418,7 @@ describe("call-center handoff", () => {
       "ACUITY_PRODUCT_HANDOFF_URL",
       "http://acuity-product.example/v1/handoffs",
     );
-    const fetchMock = vi.fn();
+    const fetchMock = vi.fn<typeof fetch>();
     vi.stubGlobal("fetch", fetchMock);
     const state = createState();
     state.runtime.trunkPhone = HOLLYWOOD_OFFICE_PHONE;
@@ -592,7 +601,9 @@ describe("call-center handoff", () => {
     const { transferCallerToOffice } = await import("../tools/handoff.js");
     vi.stubEnv("ACUITY_HANDOFF_URL", "https://handoff.example/internal");
     vi.stubEnv("ACUITY_HANDOFF_SECRET", "test-secret");
-    const fetchMock = vi.fn(async () => jsonResponse(DIRECT_RESPONSE));
+    const fetchMock = vi.fn<typeof fetch>(async () =>
+      jsonResponse(DIRECT_RESPONSE),
+    );
     vi.stubGlobal("fetch", fetchMock);
     const payload = {
       sourceCallId: "call-test",
@@ -750,7 +761,7 @@ describe("call-center handoff", () => {
   it("rejects an insecure handoff API URL before sending data", async () => {
     vi.stubEnv("ACUITY_HANDOFF_URL", "http://handoff.example/internal");
     vi.stubEnv("ACUITY_HANDOFF_SECRET", "test-secret");
-    const fetchMock = vi.fn();
+    const fetchMock = vi.fn<typeof fetch>();
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(transferCallerToOffice(createState())).rejects.toThrow(
