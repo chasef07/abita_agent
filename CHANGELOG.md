@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.2.4](https://github.com/chasef07/abita_agent/compare/5.2.3...5.2.4) (2026-09-13)
+
+
+### Bug Fixes
+
+* align staff task routing and records intake ([#476](https://github.com/chasef07/abita_agent/issues/476)) ([1fd2340](https://github.com/chasef07/abita_agent/commit/1fd23400c7546e3af85d141a8eebebaebe42635c))
+
 ## [5.2.3](https://github.com/chasef07/abita_agent/compare/5.2.2...5.2.3) (2026-09-11)
 
 
