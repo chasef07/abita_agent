@@ -16,18 +16,18 @@
     "format:check": "prettier --check . --ignore-unknown"
   },
   "dependencies": {
-    "@livekit/agents": "1.8.0",
-    "@livekit/agents-plugin-assemblyai": "1.8.0",
-    "@livekit/agents-plugin-krisp": "1.8.0",
-    "@livekit/agents-plugin-rime": "1.8.0",
-    "@livekit/rtc-node": "^0.13.34",
+    "@livekit/agents": "1.8.1",
+    "@livekit/agents-plugin-assemblyai": "1.8.1",
+    "@livekit/agents-plugin-krisp": "1.8.1",
+    "@livekit/agents-plugin-rime": "1.8.1",
+    "@livekit/rtc-node": "^1.0.0",
     "@opentelemetry/api": "1.9.1",
     "@opentelemetry/exporter-trace-otlp-proto": "0.220.0",
     "@opentelemetry/resources": "2.11.0",
     "@opentelemetry/sdk-trace-node": "2.11.0",
     "double-metaphone": "2.0.1",
     "fast-fuzzy": "1.12.0",
-    "livekit-server-sdk": "^2.18.0",
+    "livekit-server-sdk": "^2.19.0",
     "zod": "^4.5.4"
   },
   "devDependencies": {
