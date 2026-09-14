@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  applySchedulingLaneToState,
-  applyTurnContextToState,
-  removeAvailabilitySlot,
-} from "../scheduling/state.js";
+import { setWorkflowVisitType } from "../scheduling/state.js";
+import { removeAvailabilitySlot } from "../scheduling/availability.js";
 import { createTestCallState } from "./support/call-state.js";
 
 function createState() {
@@ -25,61 +22,36 @@ function seedAvailability(state: ReturnType<typeof createState>) {
   ];
 }
 
-describe("turn context state", () => {
-  it("records scheduling lane from business tools", () => {
+describe("scheduling visit type", () => {
+  it("records visit type from business tools", () => {
     const state = createState();
 
-    applySchedulingLaneToState(state, "medical_md");
+    setWorkflowVisitType(state, "medical");
 
-    expect(state.workflow.current).toEqual({
-      intent: "schedule",
-      appointmentLane: "medical_md",
-    });
+    expect(state.workflow.visitType).toBe("medical");
   });
 
-  it("clears stale availability when scheduling lane changes", () => {
+  it("clears stale availability when visit type changes", () => {
     const state = createState();
-    applySchedulingLaneToState(state, "medical_md");
+    setWorkflowVisitType(state, "medical");
     seedAvailability(state);
 
-    applySchedulingLaneToState(state, "routine_od");
+    setWorkflowVisitType(state, "routine_vision");
 
-    expect(state.workflow.current?.appointmentLane).toBe("routine_od");
+    expect(state.workflow.visitType).toBe("routine_vision");
     expect(state.availability.slots).toEqual([]);
     expect(state.availability.latestRouting).toBeNull();
     expect(state.availability.bookingTokensBySlotId).toEqual({});
   });
 
-  it("clears stale availability when workflow intent changes", () => {
+  it("preserves loaded availability when visit type is unchanged", () => {
     const state = createState();
-    applySchedulingLaneToState(state, "medical_md");
+    setWorkflowVisitType(state, "medical");
     seedAvailability(state);
-
-    applyTurnContextToState(state, {
-      intent: "change_appointment",
-      appointmentLane: "not_applicable",
-    });
-
-    expect(state.workflow.current).toEqual({
-      intent: "change_appointment",
-      appointmentLane: "not_applicable",
-    });
-    expect(state.availability.slots).toEqual([]);
-    expect(state.availability.latestRouting).toBeNull();
-    expect(state.availability.bookingTokensBySlotId).toEqual({});
-  });
-
-  it("keeps appointment-change context distinct from new scheduling lane", () => {
-    const state = createState();
-
-    applyTurnContextToState(state, {
-      intent: "change_appointment",
-      appointmentLane: "not_applicable",
-    });
-
-    expect(state.workflow.current).toEqual({
-      intent: "change_appointment",
-      appointmentLane: "not_applicable",
+    setWorkflowVisitType(state, "medical");
+    expect(state.availability.slots).toHaveLength(1);
+    expect(state.availability.bookingTokensBySlotId).toEqual({
+      S1: "private-token",
     });
   });
 

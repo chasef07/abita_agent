@@ -1,7 +1,5 @@
 // Abita customer profile: office registry for trunk routing, prompts, and tool behavior.
 
-import { MENTAL_HEALTH_DEMO_CONTENT } from "./mental-health-demo.js";
-
 export type OfficeKey =
   | "spring-hill"
   | "crystal-river"
@@ -9,7 +7,7 @@ export type OfficeKey =
   | "sweetwater"
   | "north-miami-beach-optical"
   | "ophthalmology-demo"
-  | "mental-health-demo"
+  | "new-tampa-demo"
   | "rheumatology-demo";
 export type HandoffOfficeKey = OfficeKey | "sweetwater-optical";
 export type OfficeCare = "medical" | "routine_vision";
@@ -51,12 +49,13 @@ export const SWEETWATER_TRUNK_PHONES = [
 export const RHEUMATOLOGY_DEMO_TRUNK_PHONE = "+14843989071";
 export const DEMO_BOOKING_OFFICE_PHONE = RHEUMATOLOGY_DEMO_TRUNK_PHONE;
 export const OPHTHALMOLOGY_DEMO_TRUNK_PHONE = "+18027878312";
-export const MENTAL_HEALTH_DEMO_TRUNK_PHONE = "+13207388132";
+// The 320 demo uses the same canonical office key as Acuity Product.
+export const NEW_TAMPA_DEMO_TRUNK_PHONE = "+13207388132";
 export const DEMO_TRANSFER_NUMBER = "+17277092035";
 export const DEMO_OFFICE_KEYS = [
   "rheumatology-demo",
   "ophthalmology-demo",
-  "mental-health-demo",
+  "new-tampa-demo",
 ] as const satisfies readonly OfficeKey[];
 
 export interface OfficeProfile {
@@ -65,7 +64,6 @@ export interface OfficeProfile {
   trunkPhones: string[];
   greeting: string;
   amdOfficePhone: string;
-  knowledgeSource: string;
   staffTaskEnabled: boolean;
   availabilityOfficeFor(
     requestedOffice?: AvailabilityOfficeKey,
@@ -92,7 +90,6 @@ type OfficeProfileInput = {
   greeting: string;
   handoff?: () => OfficeHandoffPolicy;
   key: OfficeKey;
-  knowledgeSource: string;
   roleFile?: string;
   staffTaskEnabled: boolean;
   trunkPhones: string[];
@@ -107,7 +104,6 @@ function defineOffice(input: OfficeProfileInput): OfficeProfile {
     greeting,
     handoff = () => ({ mode: "call-center" }),
     key,
-    knowledgeSource,
     roleFile,
     staffTaskEnabled,
     trunkPhones,
@@ -131,7 +127,6 @@ function defineOffice(input: OfficeProfileInput): OfficeProfile {
     displayName,
     greeting,
     key,
-    knowledgeSource,
     staffTaskEnabled,
     trunkPhones,
     availabilityOfficeFor(requestedOffice) {
@@ -196,8 +191,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     key: "spring-hill",
     displayName: "Abita Eye Group",
     trunkPhones: [SPRING_HILL_OFFICE_PHONE, SPRING_HILL_813_TRUNK_PHONE],
-    greeting: "Hey this is Maya at Abeeta Eye Group. How are you doing today?",
-    knowledgeSource: "KNOWLEDGE_SPRINGHILL.md",
+    greeting: "Hi, this is Maya at Abeeta Eye Group. How can I help?",
     care: {
       medical: {
         supported: true,
@@ -216,8 +210,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     displayName: "Eye Radiance",
     trunkPhones: [CRYSTAL_RIVER_OFFICE_PHONE],
     greeting:
-      "Hey this is Maya at Eye Radiance, powered by Abeeta Eye Group. How are you doing today?",
-    knowledgeSource: "KNOWLEDGE_EYERADIANCE.md",
+      "Hi, this is Maya at Eye Radiance, powered by Abeeta Eye Group. How can I help?",
     care: {
       medical: {
         supported: true,
@@ -236,8 +229,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     key: "hollywood",
     displayName: "Abita Eye Group Hollywood",
     trunkPhones: [HOLLYWOOD_OFFICE_PHONE],
-    greeting: "Hey this is Maya at Abeeta Eye Group. How are you doing today?",
-    knowledgeSource: "KNOWLEDGE_HOLLYWOOD.md",
+    greeting: "Hi, this is Maya at Abeeta Eye Group. How can I help?",
     care: {
       medical: {
         supported: true,
@@ -249,14 +241,14 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
       },
     },
     amdOfficePhone: HOLLYWOOD_OFFICE_PHONE,
+    englishSpeaker: "luz",
     staffTaskEnabled: true,
   }),
   sweetwater: defineOffice({
     key: "sweetwater",
     displayName: "Abita Eye Group Sweetwater",
     trunkPhones: [...SWEETWATER_TRUNK_PHONES],
-    greeting: "Hey this is Maya at Abeeta Eye Group. How are you doing today?",
-    knowledgeSource: "KNOWLEDGE_SWEETWATER.md",
+    greeting: "Hi, this is Maya at Abeeta Eye Group. How can I help?",
     care: {
       medical: {
         supported: true,
@@ -275,8 +267,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     key: "north-miami-beach-optical",
     displayName: "North Miami Beach Optical",
     trunkPhones: [NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE],
-    greeting: "Hey this is Maya at Abeeta Eye Group. How are you doing today?",
-    knowledgeSource: "KNOWLEDGE_NORTH_MIAMI_BEACH_OPTICAL.md",
+    greeting: "Hi, this is Maya at Abeeta Eye Group. How can I help?",
     care: {
       medical: { supported: false },
       routine_vision: {
@@ -292,10 +283,8 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     key: "ophthalmology-demo",
     displayName: "Clearbrook Eye Center",
     trunkPhones: [OPHTHALMOLOGY_DEMO_TRUNK_PHONE],
-    greeting:
-      "Hey this is Maya at Clearbrook Eye Center. How are you doing today?",
+    greeting: "Hi, this is Maya at Clearbrook Eye Center. How can I help?",
     roleFile: "SOUL_OPHTHALMOLOGY_DEMO.md",
-    knowledgeSource: "KNOWLEDGE_OPHTHALMOLOGY_DEMO.md",
     care: {
       medical: {
         supported: true,
@@ -310,22 +299,21 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     staffTaskEnabled: true,
     handoff: demoHandoff,
   }),
-  "mental-health-demo": defineOffice({
-    key: "mental-health-demo",
-    displayName: MENTAL_HEALTH_DEMO_CONTENT.displayName,
-    trunkPhones: [MENTAL_HEALTH_DEMO_TRUNK_PHONE],
-    greeting: MENTAL_HEALTH_DEMO_CONTENT.greeting,
-    roleFile: MENTAL_HEALTH_DEMO_CONTENT.roleFile,
-    knowledgeSource: MENTAL_HEALTH_DEMO_CONTENT.knowledgeSource,
+  "new-tampa-demo": defineOffice({
+    key: "new-tampa-demo",
+    displayName: "New Tampa Eye Institute",
+    trunkPhones: [NEW_TAMPA_DEMO_TRUNK_PHONE],
+    greeting:
+      "Hi, this is Maya at the New Tampa Eye Institute demo. How can I help you today?",
+    roleFile: "SOUL_NEW_TAMPA_DEMO.md",
     care: {
       medical: {
         supported: true,
-        insuranceSource: MENTAL_HEALTH_DEMO_CONTENT.insuranceSource,
+        insuranceSource: "INSURANCE_NEW_TAMPA_DEMO_MEDICAL.json",
       },
       routine_vision: {
-        supported: false,
-        message:
-          "Willowmere Behavioral Health schedules behavioral-health care. Route routine eye exams, glasses prescriptions, and contact lens prescriptions through an eye-care practice.",
+        supported: true,
+        insuranceSource: "INSURANCE_NEW_TAMPA_DEMO_ROUTINE_VISION.json",
       },
     },
     amdOfficePhone: DEMO_BOOKING_OFFICE_PHONE,
@@ -339,7 +327,6 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
     greeting:
       "Hi, this is Julia, the virtual assistant at Juniper Ridge Rheumatology and Arthritis Care. How can I help you today?",
     roleFile: "SOUL_RHEUM_DEMO.md",
-    knowledgeSource: "KNOWLEDGE_RHEUM_DEMO.md",
     care: {
       medical: {
         supported: true,
@@ -427,7 +414,7 @@ export function getOfficeProfileByFacility(
     "hollywood",
     "sweetwater",
     "ophthalmology-demo",
-    "mental-health-demo",
+    "new-tampa-demo",
     "rheumatology-demo",
   ] satisfies OfficeKey[]) {
     const displayName = normalizeFacilityName(

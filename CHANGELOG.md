@@ -1,5 +1,213 @@
 # Changelog
 
+## [5.2.4](https://github.com/chasef07/abita_agent/compare/5.2.3...5.2.4) (2026-09-13)
+
+
+### Bug Fixes
+
+* align staff task routing and records intake ([#476](https://github.com/chasef07/abita_agent/issues/476)) ([1fd2340](https://github.com/chasef07/abita_agent/commit/1fd23400c7546e3af85d141a8eebebaebe42635c))
+
+## [5.2.3](https://github.com/chasef07/abita_agent/compare/5.2.2...5.2.3) (2026-09-11)
+
+
+### Bug Fixes
+
+* **knowledge:** return only office answer text to the agent ([#472](https://github.com/chasef07/abita_agent/issues/472)) ([0ed598d](https://github.com/chasef07/abita_agent/commit/0ed598d425d6b62d8191e03616f7e0f75d380029))
+* **startup:** centralize call startup and report failures accurately ([#473](https://github.com/chasef07/abita_agent/issues/473)) ([cc06005](https://github.com/chasef07/abita_agent/commit/cc06005f730a3358ea1ea94f44c363e3849090cb))
+
+## [5.2.2](https://github.com/chasef07/abita_agent/compare/5.2.1...5.2.2) (2026-09-10)
+
+
+### Bug Fixes
+
+* **knowledge:** retain search results in conversation context ([#469](https://github.com/chasef07/abita_agent/issues/469)) ([0e165eb](https://github.com/chasef07/abita_agent/commit/0e165eb6611787e9e172ac7aea6b0ef279ed96b9))
+
+## [5.2.1](https://github.com/chasef07/abita_agent/compare/5.2.0...5.2.1) (2026-09-10)
+
+
+### Bug Fixes
+
+* **knowledge:** preserve tool calls in reports ([#467](https://github.com/chasef07/abita_agent/issues/467)) ([51c0f50](https://github.com/chasef07/abita_agent/commit/51c0f5074ccee188ec076d7d54df69dfb9424d23))
+
+## [5.2.0](https://github.com/chasef07/abita_agent/compare/5.1.4...5.2.0) (2026-09-10)
+
+
+### Features
+
+* **knowledge:** replace knowledge hooks with vector search for every office ([#457](https://github.com/chasef07/abita_agent/issues/457)) ([8b31fe1](https://github.com/chasef07/abita_agent/commit/8b31fe11cb5b80af210d6aaf04f6b41acbb28919))
+
+## [5.1.4](https://github.com/chasef07/abita_agent/compare/5.1.3...5.1.4) (2026-09-10)
+
+
+### Bug Fixes
+
+* tell the model when patient DOB is on file ([#463](https://github.com/chasef07/abita_agent/issues/463)) ([c477590](https://github.com/chasef07/abita_agent/commit/c477590458a5154af74856212c7740178601465c))
+
+## [5.1.3](https://github.com/chasef07/abita_agent/compare/5.1.2...5.1.3) (2026-09-10)
+
+
+### Bug Fixes
+
+* **identity:** simplify patient lookup and skip DOB confirmation ([#459](https://github.com/chasef07/abita_agent/issues/459)) ([04ad1c1](https://github.com/chasef07/abita_agent/commit/04ad1c1c56a3c504b67a6fc1cd0e7fe8c0044338))
+
+## [5.1.2](https://github.com/chasef07/abita_agent/compare/5.1.1...5.1.2) (2026-09-10)
+
+
+### Bug Fixes
+
+* **identity:** simplify phone-first patient resolution ([#456](https://github.com/chasef07/abita_agent/issues/456)) ([8116a4f](https://github.com/chasef07/abita_agent/commit/8116a4f03d4c929c4f71c2b50ad2ba86d49569b6))
+
+## [5.1.1](https://github.com/chasef07/abita_agent/compare/5.1.0...5.1.1) (2026-09-10)
+
+
+### Bug Fixes
+
+* **voice:** make the opening greeting non-interruptible ([#452](https://github.com/chasef07/abita_agent/issues/452)) ([40c1470](https://github.com/chasef07/abita_agent/commit/40c1470856e2482204bca5e03205641cc540133b))
+
+## [5.1.0](https://github.com/chasef07/abita_agent/compare/5.0.3...5.1.0) (2026-09-09)
+
+
+### Features
+
+* package office greeting audio ([#449](https://github.com/chasef07/abita_agent/issues/449)) ([12dfa55](https://github.com/chasef07/abita_agent/commit/12dfa5573686fae8bf14e1a230cc74a8a0a07b0a))
+
+
+### Bug Fixes
+
+* **observability:** persist middleware diagnostics for tool calls ([#448](https://github.com/chasef07/abita_agent/issues/448)) ([d443f1f](https://github.com/chasef07/abita_agent/commit/d443f1f3ab3327929ae548ee1e2342b161ec0402))
+
+## [5.0.3](https://github.com/chasef07/abita_agent/compare/5.0.2...5.0.3) (2026-09-09)
+
+
+### Bug Fixes
+
+* recognize office knowledge questions and follow-ups ([#443](https://github.com/chasef07/abita_agent/issues/443)) ([72ae6f5](https://github.com/chasef07/abita_agent/commit/72ae6f532ce1740dfba88dbc2e1c9ebac8b5fb31))
+* require exact Florida Blue plan and HMO authorization ([#445](https://github.com/chasef07/abita_agent/issues/445)) ([d66a2b5](https://github.com/chasef07/abita_agent/commit/d66a2b50449e2ed0145e21411e4b3a4aa8a8c12b))
+
+## [5.0.2](https://github.com/chasef07/abita_agent/compare/5.0.1...5.0.2) (2026-09-09)
+
+
+### Bug Fixes
+
+* clarify staff submissions and bound availability retries ([#441](https://github.com/chasef07/abita_agent/issues/441)) ([48accf6](https://github.com/chasef07/abita_agent/commit/48accf64ad06e0695bc218c4c4e207a032ee34cd))
+
+## [5.0.1](https://github.com/chasef07/abita_agent/compare/5.0.0...5.0.1) (2026-09-09)
+
+
+### Bug Fixes
+
+* **voice:** migrate AssemblyAI plugin and correct turn context ([#435](https://github.com/chasef07/abita_agent/issues/435)) ([3699623](https://github.com/chasef07/abita_agent/commit/3699623e9300e064a6b147b3b8a2cb40bcec5376))
+
+## [5.0.0](https://github.com/chasef07/abita_agent/compare/4.19.4...5.0.0) (2026-09-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* **scheduling:** `list_available_appointments` replaces `range` with `startDate` and requires the updated middleware date-window contract.
+
+### Bug Fixes
+
+* **scheduling:** search availability in explicit 14-day windows ([#438](https://github.com/chasef07/abita_agent/issues/438)) ([f92c426](https://github.com/chasef07/abita_agent/commit/f92c4260efb66eaca1067847f703956666e86495))
+
+## [4.19.4](https://github.com/chasef07/abita_agent/compare/4.19.3...4.19.4) (2026-09-08)
+
+
+### Bug Fixes
+
+* allow Bach cataract care at Hollywood and Sweetwater ([#436](https://github.com/chasef07/abita_agent/issues/436)) ([9315bf5](https://github.com/chasef07/abita_agent/commit/9315bf5cec47ecd6b0990a100a9df3693d65cd1b))
+
+## [4.19.3](https://github.com/chasef07/abita_agent/compare/4.19.2...4.19.3) (2026-09-08)
+
+
+### Bug Fixes
+
+* **analytics:** persist phone lookup status in call closeout ([#432](https://github.com/chasef07/abita_agent/issues/432)) ([b852f62](https://github.com/chasef07/abita_agent/commit/b852f626f0462f4c11ddfb25c75144e7d5fb162f))
+
+## [4.19.2](https://github.com/chasef07/abita_agent/compare/4.19.1...4.19.2) (2026-09-07)
+
+
+### Bug Fixes
+
+* **voice:** wait ten seconds before transcription recovery ([#429](https://github.com/chasef07/abita_agent/issues/429)) ([88273b7](https://github.com/chasef07/abita_agent/commit/88273b73b3bd86ff5a75ce94ef8de6f9ea2c509b))
+
+## [4.19.1](https://github.com/chasef07/abita_agent/compare/4.19.0...4.19.1) (2026-09-07)
+
+
+### Bug Fixes
+
+* **observability:** retain recorded trace content for call investigations ([#427](https://github.com/chasef07/abita_agent/issues/427)) ([839791b](https://github.com/chasef07/abita_agent/commit/839791b90522dc99debbbd8ceebb1f219442ef38))
+
+## [4.19.0](https://github.com/chasef07/abita_agent/compare/4.18.0...4.19.0) (2026-09-07)
+
+
+### Features
+
+* **observability:** export agent traces to Google Cloud ([#425](https://github.com/chasef07/abita_agent/issues/425)) ([7907ea6](https://github.com/chasef07/abita_agent/commit/7907ea6c3f488e86333682f923f6d95ba98594ce))
+
+
+### Bug Fixes
+
+* **demo:** refine New Tampa provider and after-hours dialogue ([#424](https://github.com/chasef07/abita_agent/issues/424)) ([49ab0fd](https://github.com/chasef07/abita_agent/commit/49ab0fd1f78b7e5cf6f2d2be54e1c20f6bfec2d8))
+* **voice:** restore conversational phrasing and sparse disfluencies ([#422](https://github.com/chasef07/abita_agent/issues/422)) ([f2e862a](https://github.com/chasef07/abita_agent/commit/f2e862ad5aba146a372dfc9028ca30801c79e6db))
+
+## [4.18.0](https://github.com/chasef07/abita_agent/compare/4.17.0...4.18.0) (2026-09-07)
+
+
+### Features
+
+* isolate demo and staging middleware routing ([#393](https://github.com/chasef07/abita_agent/issues/393)) ([628b7fd](https://github.com/chasef07/abita_agent/commit/628b7fd106f429a91e4ced5989a5a782250c7215))
+
+
+### Bug Fixes
+
+* **identity:** accept first surname in compound patient names ([#420](https://github.com/chasef07/abita_agent/issues/420)) ([fbd642d](https://github.com/chasef07/abita_agent/commit/fbd642df0c778a922d7d3586c9332f1bbbaf8ff3))
+* **voice:** disable preemptive generation and improve referral wording ([#419](https://github.com/chasef07/abita_agent/issues/419)) ([ef29415](https://github.com/chasef07/abita_agent/commit/ef294153d89284f6726b405c53981714ae6724aa))
+
+## [4.17.0](https://github.com/chasef07/abita_agent/compare/4.16.0...4.17.0) (2026-09-07)
+
+
+### Features
+
+* **llm:** use Gemma with DeepSeek fallback through LiveKit ([#417](https://github.com/chasef07/abita_agent/issues/417)) ([421beb7](https://github.com/chasef07/abita_agent/commit/421beb73f7cf6a20c96ffb66f9d9068c800692ba))
+
+
+### Bug Fixes
+
+* **knowledge:** add NMB Labor Day closure ([#418](https://github.com/chasef07/abita_agent/issues/418)) ([5272b72](https://github.com/chasef07/abita_agent/commit/5272b72a4a483e84beb97c9315f040ba3bdc52ad))
+* **knowledge:** add North Miami Beach store hours ([#415](https://github.com/chasef07/abita_agent/issues/415)) ([23dc06c](https://github.com/chasef07/abita_agent/commit/23dc06c789fa68e348d9801966a2909c7e1fae79))
+
+## [4.16.0](https://github.com/chasef07/abita_agent/compare/4.15.0...4.16.0) (2026-09-06)
+
+
+### Features
+
+* **audio:** enable Krisp VIVA telephony voice isolation ([#413](https://github.com/chasef07/abita_agent/issues/413)) ([2ea7ca7](https://github.com/chasef07/abita_agent/commit/2ea7ca7413793b5b5e760efeb683b71d19c2372e))
+
+
+### Bug Fixes
+
+* **identity:** resolve fuzzy first-name phone matches ([#412](https://github.com/chasef07/abita_agent/issues/412)) ([e44bbfd](https://github.com/chasef07/abita_agent/commit/e44bbfdda28859ec0c0ee1038a99dd6119005eb8))
+
+## [4.15.0](https://github.com/chasef07/abita_agent/compare/4.14.1...4.15.0) (2026-09-06)
+
+
+### Features
+
+* **agent:** use Baseten GLM primary and Luz for Hollywood ([#407](https://github.com/chasef07/abita_agent/issues/407)) ([6a7b229](https://github.com/chasef07/abita_agent/commit/6a7b2294a5bdcec230ca4fba0d6c4ce575dd2d8a))
+
+
+### Bug Fixes
+
+* **identity:** ask for first name before resolving phone matches ([#406](https://github.com/chasef07/abita_agent/issues/406)) ([d404fb2](https://github.com/chasef07/abita_agent/commit/d404fb2672790554250c533ebf6f4835b82a92ce))
+
+## [4.14.1](https://github.com/chasef07/abita_agent/compare/4.14.0...4.14.1) (2026-09-06)
+
+
+### Bug Fixes
+
+* **identity:** resolve phone matches through one patient tool ([#401](https://github.com/chasef07/abita_agent/issues/401)) ([711817f](https://github.com/chasef07/abita_agent/commit/711817fefaca5d325ea76f6d6b6235dd644680e7))
+* **prompts:** make receptionist concise and proactive ([91c7f0d](https://github.com/chasef07/abita_agent/commit/91c7f0dec1a4de76353cbe32495a9f8caf7fe11d))
+
 ## [4.14.0](https://github.com/chasef07/abita_agent/compare/4.13.6...4.14.0) (2026-09-06)
 
 

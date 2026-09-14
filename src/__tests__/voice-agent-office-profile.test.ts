@@ -19,7 +19,7 @@ import {
   DEMO_TRANSFER_NUMBER,
   RHEUMATOLOGY_DEMO_TRUNK_PHONE,
   HOLLYWOOD_OFFICE_PHONE,
-  MENTAL_HEALTH_DEMO_TRUNK_PHONE,
+  NEW_TAMPA_DEMO_TRUNK_PHONE,
   NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
   OPHTHALMOLOGY_DEMO_TRUNK_PHONE,
   SPRING_HILL_813_TRUNK_PHONE,
@@ -63,7 +63,6 @@ function toolNames(entries: readonly ToolContextEntry[]): string[] {
 }
 
 type OfficeBehavior = {
-  amdOfficePhone: string;
   displayName: string;
   englishSpeaker: string;
   greeting: string;
@@ -76,7 +75,6 @@ type OfficeBehavior = {
     routineVision: InsuranceBehavior;
   };
   key: OfficeKey;
-  knowledgeSource: string;
   promptMarker: string;
   scheduling: {
     medical: OfficeSchedulingPolicy;
@@ -102,6 +100,7 @@ const COMMON_TOOL_NAMES = [
   "book_appointment",
   "cancel_appointment",
   "check_insurance",
+  "search_office_knowledge",
   "end_call",
   "list_available_appointments",
   "reschedule_appointment",
@@ -112,10 +111,9 @@ const COMMON_TOOL_NAMES = [
 
 const officeBehaviors: OfficeBehavior[] = [
   {
-    amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
     displayName: "Abita Eye Group",
     englishSpeaker: "wawona",
-    greeting: "Hey this is Maya at Abeeta Eye Group. How are you doing today?",
+    greeting: "Hi, this is Maya at Abeeta Eye Group. How can I help?",
     handoff: {
       mode: "call-center",
       target: DIRECT_HANDOFF_RESPONSE.sipUri,
@@ -131,7 +129,6 @@ const officeBehaviors: OfficeBehavior[] = [
       },
     },
     key: "spring-hill",
-    knowledgeSource: "KNOWLEDGE_SPRINGHILL.md",
     promptMarker: "an ophthalmology clinic",
     scheduling: {
       medical: { supported: true },
@@ -141,11 +138,10 @@ const officeBehaviors: OfficeBehavior[] = [
     trunks: [SPRING_HILL_OFFICE_PHONE, SPRING_HILL_813_TRUNK_PHONE],
   },
   {
-    amdOfficePhone: CRYSTAL_RIVER_OFFICE_PHONE,
     displayName: "Eye Radiance",
     englishSpeaker: "wawona",
     greeting:
-      "Hey this is Maya at Eye Radiance, powered by Abeeta Eye Group. How are you doing today?",
+      "Hi, this is Maya at Eye Radiance, powered by Abeeta Eye Group. How can I help?",
     handoff: { mode: "phone", target: "tel:+13527941244" },
     insurance: {
       medical: {
@@ -158,7 +154,6 @@ const officeBehaviors: OfficeBehavior[] = [
       },
     },
     key: "crystal-river",
-    knowledgeSource: "KNOWLEDGE_EYERADIANCE.md",
     promptMarker: "an ophthalmology clinic",
     scheduling: {
       medical: { supported: true },
@@ -172,10 +167,9 @@ const officeBehaviors: OfficeBehavior[] = [
     trunks: [CRYSTAL_RIVER_OFFICE_PHONE],
   },
   {
-    amdOfficePhone: HOLLYWOOD_OFFICE_PHONE,
     displayName: "Abita Eye Group Hollywood",
-    englishSpeaker: "wawona",
-    greeting: "Hey this is Maya at Abeeta Eye Group. How are you doing today?",
+    englishSpeaker: "luz",
+    greeting: "Hi, this is Maya at Abeeta Eye Group. How can I help?",
     handoff: {
       mode: "call-center",
       target: DIRECT_HANDOFF_RESPONSE.sipUri,
@@ -191,7 +185,6 @@ const officeBehaviors: OfficeBehavior[] = [
       },
     },
     key: "hollywood",
-    knowledgeSource: "KNOWLEDGE_HOLLYWOOD.md",
     promptMarker: "an ophthalmology clinic",
     scheduling: {
       medical: { supported: true },
@@ -201,10 +194,9 @@ const officeBehaviors: OfficeBehavior[] = [
     trunks: [HOLLYWOOD_OFFICE_PHONE],
   },
   {
-    amdOfficePhone: SWEETWATER_OFFICE_PHONE,
     displayName: "Abita Eye Group Sweetwater",
     englishSpeaker: "luz",
-    greeting: "Hey this is Maya at Abeeta Eye Group. How are you doing today?",
+    greeting: "Hi, this is Maya at Abeeta Eye Group. How can I help?",
     handoff: {
       mode: "call-center",
       target: DIRECT_HANDOFF_RESPONSE.sipUri,
@@ -220,7 +212,6 @@ const officeBehaviors: OfficeBehavior[] = [
       },
     },
     key: "sweetwater",
-    knowledgeSource: "KNOWLEDGE_SWEETWATER.md",
     promptMarker: "an ophthalmology clinic",
     scheduling: {
       medical: { supported: true },
@@ -230,10 +221,9 @@ const officeBehaviors: OfficeBehavior[] = [
     trunks: SWEETWATER_TRUNK_PHONES,
   },
   {
-    amdOfficePhone: NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE,
     displayName: "North Miami Beach Optical",
     englishSpeaker: "luz",
-    greeting: "Hey this is Maya at Abeeta Eye Group. How are you doing today?",
+    greeting: "Hi, this is Maya at Abeeta Eye Group. How can I help?",
     handoff: {
       mode: "call-center",
       target: DIRECT_HANDOFF_RESPONSE.sipUri,
@@ -249,7 +239,6 @@ const officeBehaviors: OfficeBehavior[] = [
       },
     },
     key: "north-miami-beach-optical",
-    knowledgeSource: "KNOWLEDGE_NORTH_MIAMI_BEACH_OPTICAL.md",
     promptMarker: "an ophthalmology clinic",
     scheduling: {
       medical: {
@@ -263,11 +252,9 @@ const officeBehaviors: OfficeBehavior[] = [
     trunks: [NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE],
   },
   {
-    amdOfficePhone: RHEUMATOLOGY_DEMO_TRUNK_PHONE,
     displayName: "Clearbrook Eye Center",
     englishSpeaker: "wawona",
-    greeting:
-      "Hey this is Maya at Clearbrook Eye Center. How are you doing today?",
+    greeting: "Hi, this is Maya at Clearbrook Eye Center. How can I help?",
     handoff: {
       mode: "phone",
       target: `tel:${DEMO_TRANSFER_NUMBER}`,
@@ -283,7 +270,6 @@ const officeBehaviors: OfficeBehavior[] = [
       },
     },
     key: "ophthalmology-demo",
-    knowledgeSource: "KNOWLEDGE_OPHTHALMOLOGY_DEMO.md",
     promptMarker: "a fictional ophthalmology clinic",
     scheduling: {
       medical: { supported: true },
@@ -293,43 +279,36 @@ const officeBehaviors: OfficeBehavior[] = [
     trunks: [OPHTHALMOLOGY_DEMO_TRUNK_PHONE],
   },
   {
-    amdOfficePhone: RHEUMATOLOGY_DEMO_TRUNK_PHONE,
-    displayName: "Willowmere Behavioral Health",
+    displayName: "New Tampa Eye Institute",
     englishSpeaker: "wawona",
     greeting:
-      "Hey this is Maya at Willowmere Behavioral Health. How are you doing today?",
+      "Hi, this is Maya at the New Tampa Eye Institute demo. How can I help you today?",
     handoff: {
       mode: "phone",
       target: `tel:${DEMO_TRANSFER_NUMBER}`,
     },
     insurance: {
       medical: {
-        query: "Aetna Choice POS II",
+        query: "Ambetter Premier",
         response:
-          "Yes, we take Aetna Choice POS II. This is a fictional demo participation match. Eligibility, benefits, provider network, service coverage, and cost sharing still need verification.",
+          "Yes, we take Ambetter Premier. This is a demo insurance match. The office still needs to verify your exact plan, provider network, benefits, and any referral or authorization.",
       },
       routineVision: {
         query: "VSP",
-        response: "No, we don't accept VSP.",
+        response:
+          "Yes, we take VSP. This is a demo insurance match. The office still needs to verify your exact plan, provider network, benefits, and any referral or authorization.",
       },
     },
-    key: "mental-health-demo",
-    knowledgeSource: "KNOWLEDGE_MENTAL_HEALTH_DEMO.md",
-    promptMarker:
-      "a clearly fictional multi-location outpatient behavioral-health clinic",
+    key: "new-tampa-demo",
+    promptMarker: "a personalized New Tampa Eye Institute demonstration",
     scheduling: {
       medical: { supported: true },
-      routineVision: {
-        supported: false,
-        message:
-          "Willowmere Behavioral Health schedules behavioral-health care. Route routine eye exams, glasses prescriptions, and contact lens prescriptions through an eye-care practice.",
-      },
+      routineVision: { supported: true },
     },
     staffTaskEnabled: true,
-    trunks: [MENTAL_HEALTH_DEMO_TRUNK_PHONE],
+    trunks: [NEW_TAMPA_DEMO_TRUNK_PHONE],
   },
   {
-    amdOfficePhone: RHEUMATOLOGY_DEMO_TRUNK_PHONE,
     displayName: "Juniper Ridge Rheumatology & Arthritis Care",
     englishSpeaker: "wawona",
     greeting:
@@ -349,7 +328,6 @@ const officeBehaviors: OfficeBehavior[] = [
       },
     },
     key: "rheumatology-demo",
-    knowledgeSource: "KNOWLEDGE_RHEUM_DEMO.md",
     promptMarker: "a fictional rheumatology practice",
     scheduling: {
       medical: { supported: true },
@@ -391,6 +369,7 @@ async function spokenGreeting(
 
 function jsonResponse(body: unknown): Response {
   return {
+    body: null,
     ok: true,
     status: 200,
     json: async () => body,
@@ -452,26 +431,17 @@ describe("Voice Agent office profile", () => {
         const instructions = String(voiceAgent.agent.instructions);
         const tools = toolNames(voiceAgent.agent.toolCtx.tools);
         const medicalState = createTestCallState({
-          amdOfficePhone: office.amdOfficePhone,
           officeKey: office.key,
           trunkPhone,
         });
-        medicalState.workflow.current = {
-          appointmentLane: "medical_md",
-          intent: "schedule",
-        };
+        medicalState.workflow.visitType = "medical";
         const routineVisionState = createTestCallState({
-          amdOfficePhone: office.amdOfficePhone,
           officeKey: office.key,
           trunkPhone,
         });
-        routineVisionState.workflow.current = {
-          appointmentLane: "routine_od",
-          intent: "schedule",
-        };
+        routineVisionState.workflow.visitType = "routine_vision";
 
         expect({
-          amdOfficePhone: office.amdOfficePhone,
           displayName: office.displayName,
           greeting: await spokenGreeting(voiceAgent.agent),
           handoff: await selectedHandoff(trunkPhone, office.key),
@@ -488,7 +458,6 @@ describe("Voice Agent office profile", () => {
             ),
           },
           key: office.key,
-          knowledgeSource: office.knowledgeSource,
           promptHasConfiguredRole: instructions.includes(expected.promptMarker),
           scheduling: {
             medical: office.schedulingFor("medical"),
@@ -512,7 +481,6 @@ describe("Voice Agent office profile", () => {
           staffTaskEnabled: office.staffTaskEnabled,
           tools: tools.sort(),
         }).toEqual({
-          amdOfficePhone: expected.amdOfficePhone,
           displayName: expected.displayName,
           greeting: [expected.greeting],
           handoff: {
@@ -525,7 +493,6 @@ describe("Voice Agent office profile", () => {
             routineVision: expected.insurance.routineVision.response,
           },
           key: expected.key,
-          knowledgeSource: expected.knowledgeSource,
           promptHasConfiguredRole: true,
           scheduling: expected.scheduling,
           schedulingBehavior: {
@@ -559,6 +526,9 @@ describe("Voice Agent office profile", () => {
           staffTaskEnabled: expected.staffTaskEnabled,
           tools: [
             ...COMMON_TOOL_NAMES,
+            ...(expected.key === "new-tampa-demo"
+              ? ["triage_eye_care", "notify_after_hours_physician"]
+              : []),
             ...(expected.staffTaskEnabled ? ["create_staff_task"] : []),
           ].sort(),
         });

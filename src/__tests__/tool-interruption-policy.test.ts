@@ -9,7 +9,7 @@ import { createToolContext } from "./support/tool-context.js";
 
 describe("tool interruption policy", () => {
   it.each(getOfficeProfiles())(
-    "$key tools disable interruptions before doing work",
+    "$key stateful tools disable interruptions before doing work",
     async (office) => {
       const tools = new ToolContext(
         buildToolsForTrunk(
@@ -24,14 +24,17 @@ describe("tool interruption policy", () => {
       });
 
       for (const registeredTool of Object.values(tools.functionTools)) {
-        // LiveKit owns end_call; this contract covers our custom tools.
-        if (registeredTool.id === "end_call") continue;
+        // LiveKit owns end_call. Knowledge search is read-only and cancellable;
+        // every existing stateful tool retains the interruption guard.
+        if (["end_call", "search_office_knowledge"].includes(registeredTool.id))
+          continue;
         await expect(
           registeredTool.execute(
             {},
             {
               ctx: ctx as unknown as RunContext<CallState>,
               toolCallId: registeredTool.id,
+              abortSignal: new AbortController().signal,
             },
           ),
           registeredTool.id,

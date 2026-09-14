@@ -14,12 +14,9 @@ import {
   patientRegistrationStatus,
 } from "../identity/patient-identity.js";
 import { runtimeCallerPhone } from "../state/call-lifecycle.js";
+import { domainOutcomesForTool } from "../state/observability.js";
 import {
-  domainOutcomesForTool,
-  recordOwnedMiddlewareFailure,
-} from "../state/observability.js";
-import {
-  applySchedulingLaneToState,
+  setWorkflowVisitType,
   lastInsuranceEligibilityCheck,
 } from "../scheduling/state.js";
 import {
@@ -170,9 +167,7 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
         preserveEligibilityCheck: confirmedUnregisteredPatient,
       });
 
-      const appointmentLane =
-        coverageType === "routine_vision" ? "routine_od" : "medical_md";
-      applySchedulingLaneToState(state, appointmentLane);
+      setWorkflowVisitType(state, coverageType);
       const unsupportedMedicalScheduling = medicalSchedulingUnavailable(state);
       if (unsupportedMedicalScheduling) return unsupportedMedicalScheduling;
       const unsupportedRoutineVisionScheduling =
@@ -243,9 +238,6 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
       } catch (error) {
         recordPatientCreationOutcome(outcomes, "failed");
         throw error;
-      }
-      if (result.status === "error") {
-        recordOwnedMiddlewareFailure(state, "createPatient", result);
       }
       const commit = commitPatientCreation(state, creation, result);
       if (commit.outcome === "superseded") {

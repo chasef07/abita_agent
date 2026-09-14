@@ -1,7 +1,9 @@
+import { createSearchOfficeKnowledgeTool } from "../tools/search-office-knowledge.js";
+import { withMiddlewareToolDiagnostics } from "./middleware-tool-diagnostics.js";
+import { withNewTampaDemoTools } from "../customers/abita/new-tampa-demo.js";
 import { beta, type ToolContextEntry } from "@livekit/agents";
 import { getOfficeProfileByPhone } from "../customers/abita/profile.js";
 import type { CallState } from "../state/call-state.js";
-import { bindSchedulingMiddleware } from "../scheduling/middleware.js";
 import type { OwnedMiddleware } from "../clients/owned-middleware.js";
 import { createSchedulingTools } from "../scheduling/tools.js";
 import {
@@ -21,7 +23,7 @@ const end_call = beta.createEndCallTool<CallState>({
 
 export type AgentTools = readonly ToolContextEntry<CallState>[];
 
-export function buildToolsForTrunk(
+function buildUnobservedToolsForTrunk(
   middleware: OwnedMiddleware,
   trunkPhone?: string,
 ): AgentTools {
@@ -35,7 +37,7 @@ export function buildToolsForTrunk(
     cancel_appointment,
     list_available_appointments,
     reschedule_appointment,
-  } = createSchedulingTools(bindSchedulingMiddleware(middleware), undefined, {
+  } = createSchedulingTools(middleware, undefined, {
     availabilityOfficeMode,
   });
   const coreTools = [
@@ -48,9 +50,29 @@ export function buildToolsForTrunk(
     reschedule_appointment,
     check_insurance,
   ] as const satisfies readonly ToolContextEntry<CallState>[];
-  const commonTools = [...coreTools, transfer_call, end_call] as const;
+  const commonTools = [
+    ...coreTools,
+    createSearchOfficeKnowledgeTool(),
+    transfer_call,
+    end_call,
+  ] as const;
+  if (office.key === "new-tampa-demo") {
+    return withNewTampaDemoTools(
+      [...commonTools, create_staff_task],
+      middleware,
+    );
+  }
   if (office.staffTaskEnabled) {
     return [...commonTools, create_staff_task];
   }
   return commonTools;
+}
+
+export function buildToolsForTrunk(
+  middleware: OwnedMiddleware,
+  trunkPhone?: string,
+): AgentTools {
+  return buildUnobservedToolsForTrunk(middleware, trunkPhone).map(
+    withMiddlewareToolDiagnostics,
+  );
 }

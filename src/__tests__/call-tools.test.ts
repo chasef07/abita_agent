@@ -1,3 +1,5 @@
+import { objectSchema } from "./support/tool-schema.js";
+import { candidateSearchResult } from "./support/owned-middleware.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToolError } from "@livekit/agents";
 
@@ -10,12 +12,8 @@ import {
   CALLER_CANDIDATE_REF,
   type PreCallPatientCandidate,
 } from "../state/call-state.js";
-import { patientModelProjection } from "../identity/patient-identity.js";
-import { storeAvailabilityBookingToken } from "../scheduling/state.js";
-import {
-  domainOutcomeReceipts,
-  ownedMiddlewareFailures,
-} from "../state/observability.js";
+import { storeAvailabilityBookingToken } from "../scheduling/availability.js";
+import { domainOutcomeReceipts } from "../state/observability.js";
 import {
   check_insurance,
   createAddPatientTool,
@@ -23,6 +21,7 @@ import {
 } from "../tools/index.js";
 import { createResolvePatientTool } from "../tools/resolve-patient.js";
 import { createConfirmedPatientState } from "./support/call-state.js";
+import { createToolContext } from "./support/tool-context.js";
 import { deferredResult } from "./support/deferred-result.js";
 import {
   InMemoryOwnedMiddleware,
@@ -51,50 +50,11 @@ function createState(): TestCallState {
   return state;
 }
 
-function createToolContext(state: TestCallState) {
-  const spokenHandle = {
-    waitForPlayout: vi.fn(async () => undefined),
-    interrupt: vi.fn(),
-    done: vi.fn(() => false),
-    interrupted: false,
-  };
-  const filler = vi.fn(
-    async (
-      _source: unknown,
-      optionsOrFn: unknown,
-      maybeFn?: () => Promise<unknown> | unknown,
-    ) => {
-      const fn = typeof optionsOrFn === "function" ? optionsOrFn : maybeFn;
-      if (!fn) throw new Error("Missing filler callback");
-      return fn();
-    },
-  );
-  const speechHandle = { allowInterruptions: true };
-  return {
-    session: {
-      userData: state,
-      say: vi.fn(() => spokenHandle),
-      generateReply: vi.fn(() => spokenHandle),
-    },
-    speechHandle,
-    disallowInterruptions: vi.fn(() => {
-      speechHandle.allowInterruptions = false;
-    }),
-    waitForPlayout: vi.fn(async () => undefined),
-    update: vi.fn(async () => undefined),
-    filler,
-    spokenHandle,
-  };
-}
-
 function markSchedulingTriaged(
   state: TestCallState,
-  appointmentLane: "medical_md" | "routine_od" = "medical_md",
+  visitType: "medical" | "routine_vision" = "medical",
 ) {
-  state.workflow.current = {
-    intent: "schedule",
-    appointmentLane,
-  };
+  state.workflow.visitType = visitType;
 }
 
 function markNewPatientPathConfirmed(state: TestCallState) {
@@ -103,7 +63,7 @@ function markNewPatientPathConfirmed(state: TestCallState) {
 }
 
 function clearSchedulingContext(state: TestCallState) {
-  state.workflow.current = undefined;
+  state.workflow.visitType = null;
   state.workflow.routing.routing = null;
   state.availability.latestRouting = null;
   state.insurance.onFile = null;
@@ -136,8 +96,8 @@ function setPatientUnknown(state: TestCallState) {
 }
 
 function preCallCandidate(
-  overrides: Partial<PreCallCandidate> = {},
-): PreCallCandidate {
+  overrides: Partial<Extract<PreCallCandidate, { status: "verified" }>> = {},
+): Extract<PreCallCandidate, { status: "verified" }> {
   return {
     status: "verified",
     ref: CALLER_CANDIDATE_REF,
@@ -150,8 +110,6 @@ function preCallCandidate(
     appointmentsStatus: "none",
     insuranceCarrier: "Florida Blue Shield",
     routing: "bach_only",
-    allowedProviders: ["Dr. Bach"],
-    routingAmbiguous: false,
     preauthRequired: false,
     ...overrides,
   };
@@ -186,6 +144,20 @@ function stubPatient(
   return useMiddleware({ resolvePatient: responses });
 }
 
+function stubPatientSearch(
+  ...responses: PatientResolveResult[]
+): InMemoryOwnedMiddleware {
+  return stubPatient(
+    ...responses.flatMap<PatientResolveResult>((result) =>
+      result.status === "verified"
+        ? [candidateSearchResult(result), result]
+        : result.status === "not_found"
+          ? [candidateSearchResult()]
+          : [result],
+    ),
+  );
+}
+
 function verifiedPatientResult(
   overrides: Partial<
     Extract<PatientResolveResult, { status: "verified" }>
@@ -201,8 +173,6 @@ function verifiedPatientResult(
     insPlanId: null,
     respPartyId: null,
     routing: "all_three",
-    allowedProviders: [],
-    routingAmbiguous: false,
     preauthRequired: false,
     appointmentsStatus: "none",
     appointmentsMessage: null,
@@ -233,8 +203,6 @@ function updatedInsuranceResult(
     status: "updated",
     newInsurance: "Aetna",
     routing: "all_three",
-    allowedProviders: [],
-    routingAmbiguous: false,
     preauthRequired: false,
     ...overrides,
   };
@@ -242,7 +210,7 @@ function updatedInsuranceResult(
 
 function createdPatientResult(
   overrides: Partial<Extract<CreatePatientResult, { status: "created" }>> = {},
-): CreatePatientResult {
+): Extract<CreatePatientResult, { status: "created" }> {
   return {
     status: "created",
     patientId: "patient-new",
@@ -253,8 +221,6 @@ function createdPatientResult(
     insPlanId: null,
     respPartyId: null,
     routing: "all_three",
-    allowedProviders: [],
-    routingAmbiguous: false,
     preauthRequired: false,
     ...overrides,
   };
@@ -278,11 +244,9 @@ describe("stateful call tools", () => {
   });
 
   it("keeps private patient references out of the resolve_patient schema", () => {
-    expect(Object.keys(resolve_patient.parameters.shape)).toEqual([
-      "firstName",
-      "lastName",
-      "dob",
-    ]);
+    expect(Object.keys(objectSchema(resolve_patient.parameters).shape)).toEqual(
+      ["firstName", "dob"],
+    );
   });
 
   it("creates directly from explicit new-patient confirmation", async () => {
@@ -295,6 +259,9 @@ describe("stateful call tools", () => {
 
     const result = await add_patient.execute(
       {
+        phone: null,
+        email: null,
+        ssnLast4: null,
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
@@ -328,7 +295,7 @@ describe("stateful call tools", () => {
       currentCarrier: "self pay",
     });
     expect(state.insurance.lastEligibilityCheck).toBeNull();
-    expect(state.workflow.current).toBeUndefined();
+    expect(state.workflow.visitType).toBeNull();
     expect(middleware.requests.createPatient[0]?.patient).toMatchObject({
       firstName: "Jane",
       lastName: "Doe",
@@ -359,6 +326,10 @@ describe("stateful call tools", () => {
     await expect(
       add_patient.execute(
         {
+          phone: null,
+          email: null,
+          aptSuite: null,
+          ssnLast4: null,
           firstName: "Jane",
           lastName: "Doe",
           dob: "01/01/1980",
@@ -381,9 +352,6 @@ describe("stateful call tools", () => {
     ).rejects.toThrow(
       "I couldn't create the patient chart. I can try once more or connect you with the office.",
     );
-    expect(ownedMiddlewareFailures(state)).toMatchObject([
-      { operation: "createPatient", reason: "middleware_error" },
-    ]);
   });
 
   it("leaves a malformed chart-creation response as an internal error", async () => {
@@ -395,6 +363,10 @@ describe("stateful call tools", () => {
 
     const failure = add_patient.execute(
       {
+        phone: null,
+        email: null,
+        aptSuite: null,
+        ssnLast4: null,
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
@@ -436,6 +408,10 @@ describe("stateful call tools", () => {
 
     const failure = add_patient.execute(
       {
+        phone: null,
+        email: null,
+        aptSuite: null,
+        ssnLast4: null,
         firstName: "Ana",
         lastName: "Doe",
         dob: "01/01/1980",
@@ -482,6 +458,10 @@ describe("stateful call tools", () => {
     await expect(
       add_patient.execute(
         {
+          phone: null,
+          email: null,
+          aptSuite: null,
+          ssnLast4: null,
           firstName: "Jane",
           lastName: "Doe",
           dob: "01/01/1980",
@@ -518,11 +498,21 @@ describe("stateful call tools", () => {
       markAcceptedInsurance(state);
       const middleware = useMiddleware({
         createPatient: [creation.promise],
-        resolvePatient: [lookup.promise],
+        resolvePatient: [
+          lookup.promise.then((result) =>
+            result.status === "verified"
+              ? candidateSearchResult(result)
+              : result,
+          ),
+          lookup.promise,
+        ],
       });
 
       const pendingCreation = add_patient.execute(
         {
+          phone: null,
+          email: null,
+          ssnLast4: null,
           firstName: "Jane",
           lastName: "Doe",
           dob: "01/01/1980",
@@ -544,7 +534,7 @@ describe("stateful call tools", () => {
         } as never,
       );
       const pendingResolution = resolve_patient.execute(
-        { firstName: "John", lastName: "Doe", dob: "02/02/1982" },
+        { firstName: "John", dob: "02/02/1982" },
         {
           ctx: createToolContext(state) as never,
           toolCallId: "tool-2",
@@ -572,7 +562,9 @@ describe("stateful call tools", () => {
         lookup.resolve(lookupResult);
       }
 
-      await expect(pendingResolution).resolves.toContain("I verified John Doe");
+      await expect(pendingResolution).resolves.toContain(
+        "I found you in our system, John Doe",
+      );
       await expect(pendingCreation).resolves.toContain(
         "I created a patient chart for Jane Doe, but insurance was not attached. Office staff needs to finish the registration.",
       );
@@ -585,6 +577,7 @@ describe("stateful call tools", () => {
       });
       expect(middleware.operations.map(({ name }) => name)).toEqual([
         "createPatient",
+        "resolvePatient",
         "resolvePatient",
       ]);
     },
@@ -601,6 +594,9 @@ describe("stateful call tools", () => {
       resolvePatient: [{ status: "error", reason: "network_error" }],
     });
     const params = {
+      phone: null,
+      email: null,
+      ssnLast4: null,
       firstName: "Jane",
       lastName: "Doe",
       dob: "01/01/1980",
@@ -612,9 +608,9 @@ describe("stateful call tools", () => {
       sex: "female" as const,
       subscriberName: "Jane Doe",
       insuranceMemberId: "self pay",
-      inboundPhoneConfirmed: true,
-      newPatientConfirmed: true,
-      readBack: true,
+      inboundPhoneConfirmed: true as const,
+      newPatientConfirmed: true as const,
+      readBack: true as const,
     };
 
     const pendingCreation = add_patient.execute(params, {
@@ -622,7 +618,7 @@ describe("stateful call tools", () => {
       toolCallId: "tool-1",
     } as never);
     const resolution = resolve_patient.execute(
-      { firstName: "John", lastName: "Doe", dob: "02/02/1982" },
+      { firstName: "John", dob: "02/02/1982" },
       {
         ctx: createToolContext(state) as never,
         toolCallId: "tool-2",
@@ -631,7 +627,7 @@ describe("stateful call tools", () => {
     deferred.resolve(createdPatientResult());
 
     await expect(resolution).rejects.toThrow(
-      "I couldn't look up the patient. Let me try once more.",
+      "The first-name search could not be verified.",
     );
     await expect(pendingCreation).resolves.toBe(
       "I created a patient chart for Jane Doe. We can continue with scheduling.",
@@ -665,6 +661,9 @@ describe("stateful call tools", () => {
 
     const pendingCreation = add_patient.execute(
       {
+        phone: null,
+        email: null,
+        ssnLast4: null,
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
@@ -687,6 +686,10 @@ describe("stateful call tools", () => {
     );
     const newPatient = await add_patient.execute(
       {
+        inboundPhoneConfirmed: null,
+        email: null,
+        aptSuite: null,
+        ssnLast4: null,
         firstName: "Janet",
         lastName: "Doe",
         dob: "01/01/1980",
@@ -740,11 +743,12 @@ describe("stateful call tools", () => {
       insPlanId: null,
       respPartyId: null,
       routing: null,
-      allowedProviders: [],
-      routingAmbiguous: false,
       preauthRequired: false,
     });
     const params = {
+      phone: null,
+      email: null,
+      ssnLast4: null,
       firstName: "Jane",
       lastName: "Doe",
       dob: "01/01/1980",
@@ -756,9 +760,9 @@ describe("stateful call tools", () => {
       sex: "female" as const,
       subscriberName: "Jane Doe",
       insuranceMemberId: "self pay",
-      inboundPhoneConfirmed: true,
-      newPatientConfirmed: true,
-      readBack: true,
+      inboundPhoneConfirmed: true as const,
+      newPatientConfirmed: true as const,
+      readBack: true as const,
     };
 
     const firstResult = await add_patient.execute(params, {
@@ -839,6 +843,9 @@ describe("stateful call tools", () => {
 
     await add_patient.execute(
       {
+        phone: null,
+        email: null,
+        ssnLast4: null,
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
@@ -897,6 +904,9 @@ describe("stateful call tools", () => {
 
     const result = await add_patient.execute(
       {
+        phone: null,
+        email: null,
+        ssnLast4: null,
         firstName: "Lisa",
         lastName: "Arshed",
         dob: "10/03/2020",
@@ -931,45 +941,56 @@ describe("stateful call tools", () => {
     );
   });
 
-  it("requires an accepted insurance check before creating a patient", async () => {
-    const state = createState();
-    markNewPatientPathConfirmed(state);
-    clearSchedulingContext(state);
+  it.each([null, "Florida Blue", "Florida Blue HMO"])(
+    "requires accepted coverage before creating a patient after checking %s",
+    async (plan) => {
+      const state = createState();
+      markNewPatientPathConfirmed(state);
+      clearSchedulingContext(state);
+      state.office.activeKey = "sweetwater";
+      if (plan) {
+        await check_insurance.execute({ plan, coverageType: "medical" }, {
+          ctx: createToolContext(state) as never,
+          toolCallId: "insurance-check",
+        } as never);
+      }
 
-    const result = await add_patient.execute(
-      {
-        firstName: "Jane",
-        lastName: "Doe",
-        dob: "01/01/1980",
-        street: "123 Main St",
-        city: "Spring Hill",
-        state: "FL",
-        zip: "34606",
-        sex: "female",
-        subscriberName: "Jane Doe",
-        insuranceMemberId: "self pay",
-        phone: "7275551212",
-        newPatientConfirmed: true,
-        readBack: true,
-      },
-      {
-        ctx: createToolContext(state) as never,
-        toolCallId: "tool-1",
-      } as never,
-    );
+      const result = await add_patient.execute(
+        {
+          inboundPhoneConfirmed: null,
+          email: null,
+          aptSuite: null,
+          ssnLast4: null,
+          firstName: "Jane",
+          lastName: "Doe",
+          dob: "01/01/1980",
+          street: "123 Main St",
+          city: "Spring Hill",
+          state: "FL",
+          zip: "34606",
+          sex: "female",
+          subscriberName: "Jane Doe",
+          insuranceMemberId: "self pay",
+          phone: "7275551212",
+          newPatientConfirmed: true,
+          readBack: true,
+        },
+        {
+          ctx: createToolContext(state) as never,
+          toolCallId: "tool-1",
+        } as never,
+      );
 
-    expect(result).toBe(
-      "I need to confirm accepted medical or routine vision coverage before creating the chart.",
-    );
-    expect(testMiddleware.operations).toHaveLength(0);
-  });
+      expect(result).toBe(
+        "I need to confirm accepted medical or routine vision coverage before creating the chart.",
+      );
+      expect(testMiddleware.operations).toHaveLength(0);
+    },
+  );
 
   it("blocks routine vision chart creation for Crystal River", async () => {
     const state = createState();
     state.office.activeKey = "crystal-river";
-    state.office.phoneOverrides = {
-      "crystal-river": "+13523202007",
-    };
     markNewPatientPathConfirmed(state);
     clearSchedulingContext(state);
     markAcceptedInsurance(state, {
@@ -980,6 +1001,9 @@ describe("stateful call tools", () => {
 
     const result = await add_patient.execute(
       {
+        inboundPhoneConfirmed: null,
+        email: null,
+        ssnLast4: null,
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
@@ -1005,12 +1029,13 @@ describe("stateful call tools", () => {
       "Eye Radiance handles medical eye care, including cataract evaluations. Route routine eye exams, glasses prescriptions, and contact lens prescriptions through a routine-vision office.",
     );
     expect(state.office.activeKey).toBe("crystal-river");
-    expect(state.office.phoneOverrides).not.toHaveProperty("spring-hill");
     expect(testMiddleware.operations).toHaveLength(0);
   });
 
   it("omits SSN from self-pay routine-vision creation", async () => {
     const baseParams = {
+      email: null,
+      inboundPhoneConfirmed: null,
       firstName: "Jane",
       lastName: "Doe",
       dob: "01/01/1980",
@@ -1024,8 +1049,8 @@ describe("stateful call tools", () => {
       insuranceMemberId: "self pay",
       ssnLast4: "1234",
       phone: "7275551212",
-      newPatientConfirmed: true,
-      readBack: true,
+      newPatientConfirmed: true as const,
+      readBack: true as const,
     };
 
     const routineState = createState();
@@ -1069,6 +1094,10 @@ describe("stateful call tools", () => {
 
     const result = await add_patient.execute(
       {
+        inboundPhoneConfirmed: null,
+        email: null,
+        aptSuite: null,
+        readBack: null,
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
@@ -1107,6 +1136,10 @@ describe("stateful call tools", () => {
 
     const result = await add_patient.execute(
       {
+        inboundPhoneConfirmed: null,
+        email: null,
+        aptSuite: null,
+        ssnLast4: null,
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
@@ -1144,6 +1177,9 @@ describe("stateful call tools", () => {
 
     const result = await add_patient.execute(
       {
+        inboundPhoneConfirmed: null,
+        ssnLast4: null,
+        readBack: null,
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
@@ -1172,7 +1208,7 @@ describe("stateful call tools", () => {
   it("keeps a provided SSN last four out of the read-back", async () => {
     const state = createState();
     markNewPatientPathConfirmed(state);
-    markSchedulingTriaged(state, "routine_od");
+    markSchedulingTriaged(state, "routine_vision");
     markAcceptedInsurance(state, {
       plan: "VSP",
       canonicalPlan: "VSP",
@@ -1181,6 +1217,10 @@ describe("stateful call tools", () => {
 
     const result = await add_patient.execute(
       {
+        inboundPhoneConfirmed: null,
+        email: null,
+        aptSuite: null,
+        readBack: null,
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
@@ -1214,6 +1254,10 @@ describe("stateful call tools", () => {
 
     const result = await add_patient.execute(
       {
+        phone: null,
+        inboundPhoneConfirmed: null,
+        email: null,
+        ssnLast4: null,
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
@@ -1249,6 +1293,8 @@ describe("stateful call tools", () => {
 
     await add_patient.execute(
       {
+        email: null,
+        ssnLast4: null,
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
@@ -1279,7 +1325,7 @@ describe("stateful call tools", () => {
   it("returns a speech-ready result after confirming identity by lookup", async () => {
     const state = createState();
     setPatientUnknown(state);
-    const middleware = stubPatient(
+    const middleware = stubPatientSearch(
       verifiedPatientResult({
         appointmentsStatus: "found",
         appointments: [
@@ -1301,19 +1347,15 @@ describe("stateful call tools", () => {
     const result = await resolve_patient.execute(
       {
         firstName: "Jane",
-        lastName: "Doe",
         dob: "01/01/1980",
       },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
-    expect(result).toBe(
-      "I verified Jane Doe. We have self pay on file. I found one upcoming appointment, Monday, July 27 at 9:00 AM with Dr. Bach.",
+    expect(result).toContain(
+      "I found you in our system, Jane Doe. We have self pay on file. I found one upcoming appointment, Monday, July 27 at 9:00 AM with Dr. Bach.\nInternal appointment references (do not read aloud):",
     );
-    expect(result).not.toContain("appointmentRef");
-    expect(patientModelProjection(state)).toMatch(
-      /appointmentRef appointment-[a-z0-9]+/,
-    );
+    expect(result).toMatch(/appointmentRef appointment-[a-z0-9]+/);
     expect(result).not.toContain("123");
     expect(result).not.toContain("private-cancellation-token");
     expect(result).not.toContain("private-reschedule-token");
@@ -1328,7 +1370,6 @@ describe("stateful call tools", () => {
     expect(middleware.requests.resolvePatient[0]).toMatchObject({
       identity: {
         firstName: "Jane",
-        lastName: "Doe",
         dob: "01/01/1980",
       },
     });
@@ -1345,10 +1386,94 @@ describe("stateful call tools", () => {
     ]);
   });
 
+  it.each(["verified", "candidate", "absent"] as const)(
+    "records a switch through %s phone candidates after conflicting identity is clarified",
+    async (status) => {
+      const state = createState();
+      if (status !== "absent")
+        state.identity.privateCandidates = [
+          {
+            status,
+            ref: "second",
+            patientId: "patient-2",
+            firstName: "John",
+            lastName: "Doe",
+            dob: "02/02/1982",
+            appointments: [],
+            appointmentsStatus: "none",
+          },
+        ];
+      const resolved = verifiedPatientResult({
+        patientId: "patient-2",
+        name: "John Doe",
+        dob: "02/02/1982",
+      });
+      if (status === "absent") stubPatientSearch(resolved);
+      else stubPatient(resolved, resolved);
+      const ctx = createToolContext(state);
+
+      await resolve_patient.execute({ firstName: "Different", dob: null }, {
+        ctx,
+        toolCallId: "switch-start",
+      } as never);
+      expect(state.identity.activePatient).toBeNull();
+      expect(state.availability.slots).toEqual([]);
+      await resolve_patient.execute({ firstName: "John", dob: "02/02/1982" }, {
+        ctx,
+        toolCallId: "switch-finish",
+      } as never);
+
+      expect(state.identity.activePatient?.patientId).toBe("patient-2");
+      await resolve_patient.execute({ firstName: "John", dob: "02/02/1982" }, {
+        ctx,
+        toolCallId: "same-patient",
+      } as never);
+      expect(domainOutcomeReceipts(state)).toMatchObject([
+        {
+          callId: "switch-start",
+          outcome: "patient_lookup_needs_identity",
+          status: "blocked",
+        },
+        {
+          callId: "switch-finish",
+          outcome: "patient_switched",
+          status: "success",
+        },
+        {
+          callId: "same-patient",
+          outcome: "patient_verified",
+          status: "success",
+        },
+      ]);
+    },
+  );
+
+  it("reports verification when a different-patient request has no previous chart", async () => {
+    const state = createState();
+    setPatientUnknown(state);
+    stubPatientSearch(verifiedPatientResult());
+
+    await resolve_patient.execute(
+      {
+        firstName: "Jane",
+        dob: "01/01/1980",
+      },
+      { ctx: createToolContext(state), toolCallId: "first-patient" } as never,
+    );
+
+    expect(domainOutcomeReceipts(state)).toMatchObject([
+      {
+        callId: "first-patient",
+        outcome: "patient_verified",
+        status: "success",
+      },
+    ]);
+  });
+
   it("keeps distinct loaded appointment references in state instead of the reply", async () => {
     const state = createState();
     setPatientUnknown(state);
-    const middleware = stubPatient(
+    const middleware = stubPatientSearch(
       verifiedPatientResult({
         appointmentsStatus: "found",
         appointments: [
@@ -1381,7 +1506,6 @@ describe("stateful call tools", () => {
     const result = await resolve_patient.execute(
       {
         firstName: "Jane",
-        lastName: "Doe",
         dob: "01/01/1980",
       },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
@@ -1393,9 +1517,8 @@ describe("stateful call tools", () => {
     );
     expect(storedRefs).toHaveLength(2);
     expect(new Set(storedRefs).size).toBe(2);
-    expect(result).not.toContain("appointmentRef");
-    expect(patientModelProjection(state)).toContain(storedRefs[0]);
-    expect(patientModelProjection(state)).toContain(storedRefs[1]);
+    expect(result).toContain(storedRefs[0]);
+    expect(result).toContain(storedRefs[1]);
     expect(result).not.toContain("123");
     expect(result).not.toContain("456");
     expect(result).not.toContain("private-token");
@@ -1411,13 +1534,13 @@ describe("stateful call tools", () => {
         rescheduleToken: "private-reschedule-token-two",
       }),
     ]);
-    expect(middleware.requests.resolvePatient).toHaveLength(1);
+    expect(middleware.requests.resolvePatient).toHaveLength(2);
   });
 
-  it("keeps every loaded appointment reference out of the direct reply", async () => {
+  it("returns every loaded appointment reference for subsequent appointment tools", async () => {
     const state = createState();
     setPatientUnknown(state);
-    stubPatient(
+    stubPatientSearch(
       verifiedPatientResult({
         appointmentsStatus: "found",
         appointments: [1, 2, 3, 4].map((day) => ({
@@ -1435,17 +1558,13 @@ describe("stateful call tools", () => {
     const result = await resolve_patient.execute(
       {
         firstName: "Jane",
-        lastName: "Doe",
         dob: "01/01/1980",
       },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
-    expect(result).not.toContain("appointmentRef");
     expect(
-      patientModelProjection(state).match(
-        /appointmentRef appointment-[a-z0-9]+/g,
-      ) ?? [],
+      result.match(/appointmentRef appointment-[a-z0-9]+/g) ?? [],
     ).toHaveLength(4);
     expect(result).not.toContain("and 1 more");
   });
@@ -1454,14 +1573,9 @@ describe("stateful call tools", () => {
     const state = createState();
     state.runtime.trunkPhone = "+13523202007";
     state.office.activeKey = "spring-hill";
-    state.office.phoneOverrides = {
-      "crystal-river": "+13523202007",
-      "spring-hill": "+17275919997",
-    };
-    markSchedulingTriaged(state, "routine_od");
+    markSchedulingTriaged(state, "routine_vision");
     state.availability.latestRouting = "optical_only";
     storeAvailabilityBookingToken(state, "S1", "stale-token");
-    state.identity.latestBookedAppointmentId = 123;
     state.insurance.lastEligibilityCheck = {
       plan: "Aetna",
       canonicalPlan: "Aetna",
@@ -1469,49 +1583,45 @@ describe("stateful call tools", () => {
       currentCarrier: "Aetna",
       accepted: true,
     };
-    const middleware = stubPatient(
+    const middleware = stubPatientSearch(
       verifiedPatientResult({
         patientId: "patient-2",
         name: "John Doe",
         dob: "02/02/1982",
         insuranceCarrier: "Aetna",
         routing: "bach_only",
-        allowedProviders: ["Dr. Bach"],
       }),
     );
 
     const result = await resolve_patient.execute(
       {
         firstName: "John",
-        lastName: "Doe",
         dob: "02/02/1982",
       },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
     expect(result).toBe(
-      "I verified John Doe. We have Aetna on file. I don't see any upcoming appointments.",
+      "I found you in our system, John Doe. We have Aetna on file. I don't see any upcoming appointments.\nDOB is on file. Do not ask for DOB.",
     );
     expect(middleware.requests.resolvePatient[0]).toMatchObject({
       identity: {
         firstName: "John",
-        lastName: "Doe",
         dob: "02/02/1982",
       },
       office: "+13523202007",
     });
     expect(state.identity.activePatient!.patientId).toBe("patient-2");
-    expect(state.workflow.current).toBeUndefined();
+    expect(state.workflow.visitType).toBeNull();
     expect(state.office.activeKey).toBe("crystal-river");
     expect(state.availability.slots).toEqual([]);
     expect(state.availability.bookingTokensBySlotId).toEqual({});
-    expect(state.identity.latestBookedAppointmentId).toBeUndefined();
     expect(state.insurance.lastEligibilityCheck).toBeNull();
   });
 
   it("clearly reports verified existing patients without insurance on file", async () => {
     const state = createState();
-    stubPatient(
+    stubPatientSearch(
       verifiedPatientResult({
         name: "TEST,CHASE",
         dob: "04/07/2000",
@@ -1525,14 +1635,13 @@ describe("stateful call tools", () => {
     const result = await resolve_patient.execute(
       {
         firstName: "Chase",
-        lastName: "Test",
         dob: "04/07/2000",
       },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
     expect(result).toBe(
-      "I verified TEST,CHASE. I don't see any upcoming appointments.",
+      "I found you in our system, CHASE TEST. I don't see any upcoming appointments.\nDOB is on file. Do not ask for DOB.",
     );
     expect(state.identity.activePatient!.patientId).toBe("patient-1");
     expect(state.identity.activePatient!.kind).toBe("existing");
@@ -1540,10 +1649,63 @@ describe("stateful call tools", () => {
     expect(state.insurance.lastEligibilityCheck).toBeNull();
   });
 
+  it.each(["Garcia", "Lopez", "Garcia Lopez"])(
+    "activates a verified compound-surname receipt using %s",
+    async (lastName) => {
+      const state = createState();
+      setPatientUnknown(state);
+      stubPatientSearch(
+        verifiedPatientResult({
+          name: "GARCIA LOPEZ,ANA",
+          dob: "01/01/1980",
+        }),
+      );
+
+      const identity = { firstName: "Ana", lastName, dob: "01/01/1980" };
+      await resolve_patient.execute(identity, {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never);
+
+      expect(state.identity.activePatient?.patientId).toBe("patient-1");
+      expect(domainOutcomeReceipts(state)).toMatchObject([
+        { callId: "tool-1", outcome: "patient_verified", status: "success" },
+      ]);
+    },
+  );
+
+  it.each([
+    { firstName: "Other", lastName: "Garcia", dob: "01/01/1980" },
+    { firstName: "Ana", lastName: "Garcia", dob: "02/02/1980" },
+  ])("rejects a mismatched compound-surname receipt: %j", async (identity) => {
+    const state = createState();
+    setPatientUnknown(state);
+    stubPatient(
+      candidateSearchResult(
+        verifiedPatientResult({
+          name: `${identity.lastName},${identity.firstName}`,
+          dob: identity.dob,
+        }),
+      ),
+      verifiedPatientResult({ name: "GARCIA LOPEZ,ANA", dob: "01/01/1980" }),
+    );
+
+    await expect(
+      resolve_patient.execute(identity, {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never),
+    ).rejects.toThrow("I couldn't verify the chart receipt.");
+    expect(state.identity.activePatient).toBeNull();
+  });
+
   it("does not activate a verified lookup receipt for a different identity", async () => {
     const state = createState();
     setPatientUnknown(state);
     stubPatient(
+      candidateSearchResult(
+        verifiedPatientResult({ name: "Doe,Ana", dob: "01/01/1980" }),
+      ),
       verifiedPatientResult({
         patientId: "patient-wrong",
         name: "ANNA,DOE",
@@ -1554,14 +1716,13 @@ describe("stateful call tools", () => {
     const result = resolve_patient.execute(
       {
         firstName: "Ana",
-        lastName: "Doe",
         dob: "01/01/1980",
       },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
     await expect(result).rejects.toThrow(
-      "Owned Middleware returned a non-retryable failure.",
+      "I couldn't verify the chart receipt.",
     );
     expect(state.identity.activePatient).toBeNull();
     expect(domainOutcomeReceipts(state)).toMatchObject([
@@ -1576,27 +1737,22 @@ describe("stateful call tools", () => {
   it("keeps a private candidate inactive after a full lookup finds no patient", async () => {
     const state = createState();
     setSingleArshedPreCallCandidate(state);
-    const middleware = stubPatient({
+    const middleware = stubPatientSearch({
       status: "not_found",
-      message: "No patient found matching that first name.",
     });
 
     const result = await resolve_patient.execute(
       {
         firstName: "Lisa",
-        lastName: "Arshed",
         dob: "10/03/2020",
       },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
-    expect(result).toBe(
-      "I couldn't find a matching patient. Could you confirm the spelling and date of birth, and whether the patient is already registered with us?",
-    );
+    expect(result).toBe("I couldn't find a matching patient.");
     expect(middleware.requests.resolvePatient[0]).toMatchObject({
       identity: {
         firstName: "Lisa",
-        lastName: "Arshed",
         dob: "10/03/2020",
       },
     });
@@ -1607,16 +1763,12 @@ describe("stateful call tools", () => {
   it("preserves lookup failures instead of using the pre-call spelling fallback", async () => {
     const state = createState();
     setSingleArshedPreCallCandidate(state);
-    stubPatient({
-      status: "error",
-      reason: "middleware_error",
-    });
+    stubPatient({ status: "error", reason: "middleware_error" });
 
     await expect(
       resolve_patient.execute(
         {
           firstName: "Lisa",
-          lastName: "Arshed",
           dob: "10/03/2020",
         },
         {
@@ -1624,15 +1776,12 @@ describe("stateful call tools", () => {
           toolCallId: "tool-1",
         } as never,
       ),
-    ).rejects.toThrow("I couldn't look up the patient. Let me try once more.");
+    ).rejects.toThrow("The first-name search could not be verified.");
     expect(state.identity.privateCandidates).toHaveLength(1);
     expect(state.identity.activePatient).toBeNull();
-    expect(ownedMiddlewareFailures(state)).toMatchObject([
-      { operation: "resolvePatient", reason: "middleware_error" },
-    ]);
   });
 
-  it("leaves an invalid patient response as an internal error", async () => {
+  it("returns an actionable failed lookup for an invalid patient response", async () => {
     const state = createState();
     setSingleArshedPreCallCandidate(state);
     stubPatient({ status: "error", reason: "invalid_response" });
@@ -1640,7 +1789,6 @@ describe("stateful call tools", () => {
     const failure = resolve_patient.execute(
       {
         firstName: "Lisa",
-        lastName: "Arshed",
         dob: "10/03/2020",
       },
       {
@@ -1650,9 +1798,9 @@ describe("stateful call tools", () => {
     );
 
     await expect(failure).rejects.toThrow(
-      "Owned Middleware returned a non-retryable failure.",
+      "The first-name search could not be verified.",
     );
-    await expect(failure).rejects.not.toBeInstanceOf(ToolError);
+    await expect(failure).rejects.toBeInstanceOf(ToolError);
   });
 
   it("records a lookup outcome when identity resolution throws early", async () => {
@@ -1667,7 +1815,6 @@ describe("stateful call tools", () => {
       tool.execute(
         {
           firstName: "Different",
-          lastName: "Patient",
           dob: "01/01/1980",
         },
         {
@@ -1689,7 +1836,10 @@ describe("stateful call tools", () => {
     const state = createState();
     setPatientUnknown(state);
     const middleware = new InMemoryOwnedMiddleware({
-      resolvePatient: [verifiedPatientResult()],
+      resolvePatient: [
+        candidateSearchResult(verifiedPatientResult()),
+        verifiedPatientResult(),
+      ],
     });
     const tool = createResolvePatientTool(middleware);
 
@@ -1697,7 +1847,6 @@ describe("stateful call tools", () => {
       tool.execute(
         {
           firstName: "Jane",
-          lastName: "Doe",
           dob: "01/01/1980",
         },
         {
@@ -1705,15 +1854,12 @@ describe("stateful call tools", () => {
           toolCallId: "tool-1",
         } as never,
       ),
-    ).resolves.toContain("I verified Jane Doe.");
-    expect(middleware.requests.resolvePatient).toEqual([
-      expect.objectContaining({
-        identity: {
-          firstName: "Jane",
-          lastName: "Doe",
-          dob: "01/01/1980",
-        },
-      }),
+    ).resolves.toContain("I found you in our system, Jane Doe.");
+    expect(
+      middleware.requests.resolvePatient.map((request) => request.identity),
+    ).toEqual([
+      { firstName: "Jane", dob: "01/01/1980" },
+      { patientId: "patient-1" },
     ]);
   });
 
@@ -1738,10 +1884,16 @@ describe("stateful call tools", () => {
     );
 
     await expect(
-      tool.execute({ firstName: "Jane" }, {
-        ctx: createToolContext(state) as never,
-        toolCallId: "tool-1",
-      } as never),
+      tool.execute(
+        {
+          dob: null,
+          firstName: "Jane",
+        },
+        {
+          ctx: createToolContext(state) as never,
+          toolCallId: "tool-1",
+        } as never,
+      ),
     ).rejects.toThrow("candidate hydration failed");
     expect(state.identity.activePatient).toBeNull();
     expect(domainOutcomeReceipts(state)).toMatchObject([
@@ -1756,7 +1908,7 @@ describe("stateful call tools", () => {
   it("verifies a backend patient before spelling fallback when a pre-call single match shares last name and DOB", async () => {
     const state = createState();
     setSingleArshedPreCallCandidate(state);
-    const middleware = stubPatient({
+    const middleware = stubPatientSearch({
       status: "verified",
       patientId: "patient-ella",
       name: "ELLA ARSHED",
@@ -1766,8 +1918,6 @@ describe("stateful call tools", () => {
       insPlanId: null,
       respPartyId: null,
       routing: "all_three",
-      allowedProviders: [],
-      routingAmbiguous: false,
       preauthRequired: false,
       appointmentsStatus: "none",
       appointmentsMessage: null,
@@ -1778,19 +1928,17 @@ describe("stateful call tools", () => {
     const result = await resolve_patient.execute(
       {
         firstName: "Ella",
-        lastName: "Arshed",
         dob: "10/03/2020",
       },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
     expect(result).toBe(
-      "I verified ELLA ARSHED. We have Aetna on file. I don't see any upcoming appointments.",
+      "I found you in our system, ELLA ARSHED. We have Aetna on file. I don't see any upcoming appointments.\nDOB is on file. Do not ask for DOB.",
     );
     expect(middleware.requests.resolvePatient[0]).toMatchObject({
       identity: {
         firstName: "Ella",
-        lastName: "Arshed",
         dob: "10/03/2020",
       },
     });
@@ -1819,7 +1967,6 @@ describe("stateful call tools", () => {
         patientId: "patient-brandon",
         insuranceCarrier: undefined,
         routing: undefined,
-        allowedProviders: undefined,
       }),
       preCallCandidate({
         ref: "precall:2",
@@ -1829,14 +1976,12 @@ describe("stateful call tools", () => {
         patientId: "patient-monique",
         insuranceCarrier: "HUMANA",
         routing: undefined,
-        allowedProviders: undefined,
       }),
     ]);
 
     const result = await resolve_patient.execute(
       {
         firstName: "Monique",
-        lastName: "Hamilton",
         dob: "12/21/2016",
       },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
@@ -1844,7 +1989,7 @@ describe("stateful call tools", () => {
 
     expect(testMiddleware.operations).toHaveLength(0);
     expect(result).toBe(
-      "I verified MONIQUE HAMILTON. We have HUMANA on file. I don't see any upcoming appointments.",
+      "I found you in our system, MONIQUE HAMILTON. We have HUMANA on file. I don't see any upcoming appointments.\nDOB is on file. Do not ask for DOB.",
     );
     expect(state.identity.activePatient!.patientId).toBe("patient-monique");
     expect(state.identity.activePatient!.name).toBe("MONIQUE HAMILTON");
@@ -1872,11 +2017,9 @@ describe("stateful call tools", () => {
         patientId: "patient-brandon",
         insuranceCarrier: undefined,
         routing: undefined,
-        allowedProviders: undefined,
       }),
     ]);
     storeAvailabilityBookingToken(state, "S1", "token-a");
-    state.identity.latestBookedAppointmentId = 123;
     state.insurance.lastEligibilityCheck = {
       plan: "Aetna",
       canonicalPlan: "Aetna",
@@ -1885,18 +2028,25 @@ describe("stateful call tools", () => {
       accepted: true,
     };
 
-    const result = await resolve_patient.execute({ firstName: "Brandon" }, {
-      ctx: createToolContext(state) as never,
-      toolCallId: "tool-1",
-    } as never);
+    const result = await resolve_patient.execute(
+      {
+        dob: null,
+        firstName: "Brandon",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
 
     expect(testMiddleware.operations).toHaveLength(0);
-    expect(result).toBe("BRANDON ANDERSON is already the active patient.");
+    expect(result).toBe(
+      "BRANDON ANDERSON is already the active patient.\nDOB is on file. Do not ask for DOB.",
+    );
     expect(state.availability.slots.map((slot) => slot.slotId)).toEqual(["S1"]);
     expect(state.availability.bookingTokensBySlotId).toEqual({
       S1: "token-a",
     });
-    expect(state.identity.latestBookedAppointmentId).toBe(123);
     expect(state.insurance.lastEligibilityCheck).toEqual({
       plan: "Aetna",
       canonicalPlan: "Aetna",
@@ -1910,24 +2060,79 @@ describe("stateful call tools", () => {
     const state = createState();
     setSingleArshedPreCallCandidate(state);
 
-    const result = await resolve_patient.execute({ firstName: "Esa" }, {
-      ctx: createToolContext(state) as never,
-      toolCallId: "tool-1",
-    } as never);
+    const result = await resolve_patient.execute(
+      {
+        dob: null,
+        firstName: "Esa",
+      },
+      {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never,
+    );
 
     expect(testMiddleware.operations).toHaveLength(0);
     expect(result).toBe(
-      "I verified ESA ARSHED. We have Florida Blue Shield on file. I don't see any upcoming appointments.",
+      "I found you in our system, ESA ARSHED. We have Florida Blue Shield on file. I don't see any upcoming appointments.\nDOB is on file. Do not ask for DOB.",
     );
     expect(state.identity.activePatient!.patientId).toBe("patient-esa");
+  });
+
+  it("promotes a fuzzy phone match and returns its loaded appointment through resolve_patient", async () => {
+    const state = createState();
+    setPatientUnknown(state);
+    state.identity.privateCandidates = [
+      preCallCandidate({
+        firstName: "Emmy",
+        lastName: "Example",
+        patientId: "patient-example",
+        appointmentsStatus: "found",
+        appointments: [
+          {
+            id: 1,
+            date: "2026-10-15",
+            time: "9:00 AM",
+            provider: "Dr. Example",
+            type: "Office Visit",
+            facility: "Example Clinic",
+            confirmed: false,
+          },
+        ],
+      }),
+    ];
+    const identity = objectSchema<
+      Parameters<typeof resolve_patient.execute>[0]
+    >(resolve_patient.parameters).parse({
+      firstName: "Amy",
+      dob: null,
+    });
+
+    const result = await resolve_patient.execute(identity, {
+      ctx: createToolContext(state),
+      toolCallId: "fuzzy-phone-match",
+    } as never);
+
+    expect(testMiddleware.operations).toHaveLength(0);
+    expect(state.identity.activePatient?.patientId).toBe("patient-example");
+    expect(state.identity.activePatient?.appointments).toHaveLength(1);
+    expect(result).toContain("one upcoming appointment");
+    expect(result).toContain("9:00 AM");
+    expect(domainOutcomeReceipts(state)).toMatchObject([
+      {
+        toolName: "resolve_patient",
+        outcome: "patient_verified",
+        status: "success",
+      },
+    ]);
   });
 
   it("treats model-emitted empty surname and DOB as unknown", async () => {
     const state = createState();
     setSingleArshedPreCallCandidate(state);
-    const identity = resolve_patient.parameters.parse({
+    const identity = objectSchema<
+      Parameters<typeof resolve_patient.execute>[0]
+    >(resolve_patient.parameters).parse({
       firstName: "Esa",
-      lastName: "",
       dob: "",
     });
     await resolve_patient.execute(identity, {
@@ -1945,7 +2150,6 @@ describe("stateful call tools", () => {
     const result = await resolve_patient.execute(
       {
         firstName: "Jane",
-        lastName: null,
         dob: null,
       },
       {
@@ -1953,7 +2157,7 @@ describe("stateful call tools", () => {
         toolCallId: "tool-1",
       } as never,
     );
-    expect(result).toBe("What is the patient's last name?");
+    expect(result).toContain("date of birth");
     expect(testMiddleware.operations).toHaveLength(0);
   });
 
@@ -1976,6 +2180,11 @@ describe("stateful call tools", () => {
 
     const result = await add_patient.execute(
       {
+        inboundPhoneConfirmed: null,
+        email: null,
+        aptSuite: null,
+        ssnLast4: null,
+        readBack: null,
         firstName: "Maria",
         lastName: "Santos",
         dob: "01/01/1980",
@@ -2030,6 +2239,10 @@ describe("stateful call tools", () => {
 
     const result = await add_patient.execute(
       {
+        inboundPhoneConfirmed: null,
+        email: null,
+        aptSuite: null,
+        ssnLast4: null,
         firstName: "Maria",
         lastName: "Santos",
         dob: "   ",
@@ -2076,6 +2289,10 @@ describe("stateful call tools", () => {
 
     const result = await add_patient.execute(
       {
+        inboundPhoneConfirmed: null,
+        email: null,
+        aptSuite: null,
+        ssnLast4: null,
         firstName: "Maria",
         lastName: "Santos",
         dob: "   ",
@@ -2124,6 +2341,11 @@ describe("stateful call tools", () => {
 
     const result = await add_patient.execute(
       {
+        inboundPhoneConfirmed: null,
+        email: null,
+        aptSuite: null,
+        ssnLast4: null,
+        readBack: null,
         firstName: "John",
         lastName: "Doe",
         dob: "02/02/1982",
@@ -2152,7 +2374,6 @@ describe("stateful call tools", () => {
     const state = createState();
     setPatientUnknown(state);
     storeAvailabilityBookingToken(state, "S1", "stale-token");
-    state.identity.latestBookedAppointmentId = 123;
     state.insurance.lastEligibilityCheck = {
       plan: "Aetna",
       canonicalPlan: "Aetna",
@@ -2163,6 +2384,11 @@ describe("stateful call tools", () => {
 
     const result = await add_patient.execute(
       {
+        inboundPhoneConfirmed: null,
+        email: null,
+        aptSuite: null,
+        ssnLast4: null,
+        readBack: null,
         firstName: "Maria",
         lastName: "Santos",
         dob: "01/01/1980",
@@ -2189,7 +2415,6 @@ describe("stateful call tools", () => {
       dob: "01/01/1980",
     });
     expect(state.availability.slots).toEqual([]);
-    expect(state.identity.latestBookedAppointmentId).toBeUndefined();
     expect(state.insurance.lastEligibilityCheck).toEqual({
       plan: "Aetna",
       canonicalPlan: "Aetna",
@@ -2206,6 +2431,10 @@ describe("stateful call tools", () => {
 
     const result = await add_patient.execute(
       {
+        inboundPhoneConfirmed: null,
+        email: null,
+        aptSuite: null,
+        ssnLast4: null,
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
@@ -2248,6 +2477,10 @@ describe("stateful call tools", () => {
 
     const result = await add_patient.execute(
       {
+        inboundPhoneConfirmed: null,
+        email: null,
+        aptSuite: null,
+        ssnLast4: null,
         firstName: "Chase",
         lastName: "Test",
         dob: "01/01/1980",
@@ -2280,24 +2513,23 @@ describe("stateful call tools", () => {
   it("preserves patient-scoped state when add_patient lacks accepted insurance", async () => {
     const state = createState();
     storeAvailabilityBookingToken(state, "S1", "private-token");
-    state.identity.latestBookedAppointmentId = 123;
-    state.workflow.current = {
-      intent: "schedule",
-      appointmentLane: "medical_md",
-    };
+    state.workflow.visitType = "medical";
     state.office.activeKey = "hollywood";
     const patientScopedStateBefore = structuredClone({
       activePatient: state.identity.activePatient,
       registration: state.identity.registration,
       insurance: state.insurance,
       availability: state.availability,
-      latestBookedAppointmentId: state.identity.latestBookedAppointmentId,
       workflow: state.workflow,
       office: state.office,
     });
 
     const result = await add_patient.execute(
       {
+        inboundPhoneConfirmed: null,
+        email: null,
+        aptSuite: null,
+        ssnLast4: null,
         firstName: "John",
         lastName: "Doe",
         dob: "02/02/1982",
@@ -2324,7 +2556,6 @@ describe("stateful call tools", () => {
       registration: state.identity.registration,
       insurance: state.insurance,
       availability: state.availability,
-      latestBookedAppointmentId: state.identity.latestBookedAppointmentId,
       workflow: state.workflow,
       office: state.office,
     }).toEqual(patientScopedStateBefore);
@@ -2352,6 +2583,9 @@ describe("stateful call tools", () => {
 
     const result = await add_patient.execute(
       {
+        phone: null,
+        email: null,
+        ssnLast4: null,
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
@@ -2399,7 +2633,7 @@ describe("stateful call tools", () => {
       currentCarrier: "Blue Cross Blue Shield",
       accepted: true,
     });
-    expect(state.workflow.current).toBeUndefined();
+    expect(state.workflow.visitType).toBeNull();
   });
 
   it("returns a staff-task result for preauth-required insurance checks", async () => {
@@ -2490,6 +2724,8 @@ describe("stateful call tools", () => {
 
     await add_patient.execute(
       {
+        phone: null,
+        email: null,
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
@@ -2523,14 +2759,14 @@ describe("stateful call tools", () => {
       currentCarrier: "Florida Blue",
     });
     expect(state.insurance.lastEligibilityCheck).toBeNull();
-    expect(state.workflow.current).toBeUndefined();
+    expect(state.workflow.visitType).toBeNull();
   });
 
   it("passes patient SSN last 4 to new patient creation for routine vision", async () => {
     const state = createState();
     markNewPatientPathConfirmed(state);
     state.insurance.onFile = null;
-    markSchedulingTriaged(state, "routine_od");
+    markSchedulingTriaged(state, "routine_vision");
     const middleware = stubCreatePatient(
       createdPatientResult({
         insuranceCarrier: "VSP",
@@ -2548,6 +2784,8 @@ describe("stateful call tools", () => {
 
     await add_patient.execute(
       {
+        phone: null,
+        email: null,
         firstName: "Jane",
         lastName: "Doe",
         dob: "01/01/1980",
@@ -2580,7 +2818,7 @@ describe("stateful call tools", () => {
       currentCarrier: "VSP",
     });
     expect(state.insurance.lastEligibilityCheck).toBeNull();
-    expect(state.workflow.current).toBeUndefined();
+    expect(state.workflow.visitType).toBeNull();
   });
 
   it("creates a chart directly after explicit new-patient confirmation", async () => {
@@ -2596,6 +2834,9 @@ describe("stateful call tools", () => {
       }),
     );
     const params = {
+      phone: null,
+      email: null,
+      ssnLast4: null,
       firstName: "Maria",
       lastName: "Santos",
       dob: "01/01/1980",
@@ -2607,9 +2848,9 @@ describe("stateful call tools", () => {
       sex: "female" as const,
       subscriberName: "Maria Santos",
       insuranceMemberId: "ABC123",
-      inboundPhoneConfirmed: true,
-      newPatientConfirmed: true,
-      readBack: true,
+      inboundPhoneConfirmed: true as const,
+      newPatientConfirmed: true as const,
+      readBack: true as const,
     };
 
     await check_insurance.execute(
@@ -2652,6 +2893,9 @@ describe("stateful call tools", () => {
     markAcceptedInsurance(state);
     const middleware = stubCreatePatient(createdPatientResult());
     const params = {
+      phone: null,
+      email: null,
+      ssnLast4: null,
       firstName: "Jane",
       lastName: "Doe",
       dob: "01/01/1980",
@@ -2663,9 +2907,9 @@ describe("stateful call tools", () => {
       sex: "female" as const,
       subscriberName: "Jane Doe",
       insuranceMemberId: "self pay",
-      inboundPhoneConfirmed: true,
-      newPatientConfirmed: true,
-      readBack: true,
+      inboundPhoneConfirmed: true as const,
+      newPatientConfirmed: true as const,
+      readBack: true as const,
     };
 
     await add_patient.execute(params, {
@@ -2837,7 +3081,6 @@ describe("stateful call tools", () => {
       updatedInsuranceResult({
         newInsurance: "United Healthcare",
         routing: "bach_only",
-        allowedProviders: ["Dr. Bach"],
         preauthRequired: true,
       }),
     );
@@ -2876,7 +3119,6 @@ describe("stateful call tools", () => {
       respPartyId: "resp-1",
     });
     expect(state.workflow.routing.routing).toBe("bach_only");
-    expect(state.workflow.routing.allowedProviders).toEqual(["Dr. Bach"]);
     expect(state.workflow.routing.preauthRequired).toBe(true);
     expect(state.availability.slots).toEqual([]);
     expect(domainOutcomeReceipts(state)).toMatchObject([
@@ -2891,6 +3133,7 @@ describe("stateful call tools", () => {
 
   it("returns update-insurance prerequisites without a tool error", async () => {
     const state = createState();
+    // @ts-expect-error Verify rejection of a malformed active patient from runtime state.
     state.identity.activePatient!.patientId = null;
 
     await expect(
@@ -2964,7 +3207,6 @@ describe("stateful call tools", () => {
       respPartyId: "resp-1",
     });
     expect(state.workflow.routing.routing).toBe("optical_only");
-    expect(state.workflow.routing.allowedProviders).toEqual([]);
     expect(state.workflow.routing.preauthRequired).toBe(false);
     expect(state.availability.slots).toEqual([]);
   });
@@ -2998,9 +3240,6 @@ describe("stateful call tools", () => {
       "I couldn't update the insurance. I can try once more or connect you with the office.",
     );
     expect(state.insurance.onFile).toBeNull();
-    expect(ownedMiddlewareFailures(state)).toMatchObject([
-      { operation: "updateInsurance", reason: "middleware_error" },
-    ]);
   });
 
   it("leaves an invalid insurance-update response as an internal error", async () => {

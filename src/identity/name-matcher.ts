@@ -1,4 +1,8 @@
-export type MatchStrength = "exact" | "prefix" | "edit_distance";
+import { doubleMetaphone } from "double-metaphone";
+import { fuzzy } from "fast-fuzzy";
+
+const FUZZY_NAME_THRESHOLD = 0.85;
+const PHONETIC_NAME_THRESHOLD = 0.65;
 
 export function namesMatch(
   provided: string | null | undefined,
@@ -53,30 +57,68 @@ export function normalizeName(value: string | null | undefined): string {
   );
 }
 
-export function nameMatchStrength(
+export function phoneCandidateFirstNameMatches(
   provided: string | null | undefined,
   expected: string | null | undefined,
-): MatchStrength | null {
+): boolean {
   const providedName = normalizeName(provided);
   const expectedName = normalizeName(expected);
-  if (!providedName || !expectedName) return null;
-  if (providedName === expectedName) return "exact";
+  if (!providedName || !expectedName) return false;
+  if (providedName === expectedName) return true;
 
+  // Score the whole name: substring search can give unrelated names a 1.0.
+  const score = fuzzy(providedName, expectedName, {
+    useDamerau: true,
+    useSellers: false,
+  });
+  if (score >= FUZZY_NAME_THRESHOLD) return true;
+  if (score < PHONETIC_NAME_THRESHOLD) return false;
+
+  const expectedCodes = doubleMetaphone(expectedName);
+  return doubleMetaphone(providedName).some(
+    (code) => code !== "" && expectedCodes.includes(code),
+  );
+}
+
+// Only use after the phone candidate's first name and supplied DOB match.
+export function phoneCandidateSurnameMatches(
+  provided: string,
+  expected: string,
+): boolean {
+  const providedName = normalizeName(provided);
+  const expectedName = normalizeName(expected);
+  if (!providedName || !expectedName) return false;
+  if (providedName === expectedName) return true;
+  if (Math.min(providedName.length, expectedName.length) < 4) return false;
+
+  const providedParts = provided
+    .split(/[\s-]+/)
+    .map(normalizeName)
+    .filter(Boolean);
+  const expectedParts = expected
+    .split(/[\s-]+/)
+    .map(normalizeName)
+    .filter(Boolean);
   if (
-    providedName.length >= 3 &&
-    expectedName.length >= 3 &&
-    (providedName.startsWith(expectedName) ||
-      expectedName.startsWith(providedName))
+    (providedParts.length === 1 &&
+      expectedParts.length > 1 &&
+      [expectedParts[0], expectedParts.at(-1)].includes(providedName)) ||
+    (expectedParts.length === 1 &&
+      providedParts.length > 1 &&
+      [providedParts[0], providedParts.at(-1)].includes(expectedName))
   ) {
-    return "prefix";
+    return true;
   }
 
-  const shorter = Math.min(providedName.length, expectedName.length);
-  if (shorter < 4) return null;
-  const maxDistance = shorter >= 6 ? 2 : 1;
-  return editDistance(providedName, expectedName) <= maxDistance
-    ? "edit_distance"
-    : null;
+  // With Sellers disabled, fast-fuzzy scores whole-name edit distance / max length.
+  // Permit at most one insertion, deletion, substitution, or adjacent transposition.
+  return (
+    fuzzy(providedName, expectedName, {
+      useDamerau: true,
+      useSellers: false,
+    }) >=
+    1 - 1 / Math.max(providedName.length, expectedName.length)
+  );
 }
 
 function normalizeDob(value: string | null | undefined): string {
@@ -98,28 +140,4 @@ function normalizeDob(value: string | null | undefined): string {
 
 function collapseConsecutiveLetters(value: string): string {
   return value.replace(/(.)\1+/g, "$1");
-}
-
-function editDistance(left: string, right: string): number {
-  const previous = Array.from(
-    { length: right.length + 1 },
-    (_, index) => index,
-  );
-  const current = Array.from({ length: right.length + 1 }, () => 0);
-
-  for (let leftIndex = 1; leftIndex <= left.length; leftIndex += 1) {
-    current[0] = leftIndex;
-    for (let rightIndex = 1; rightIndex <= right.length; rightIndex += 1) {
-      const substitutionCost =
-        left[leftIndex - 1] === right[rightIndex - 1] ? 0 : 1;
-      current[rightIndex] = Math.min(
-        previous[rightIndex] + 1,
-        current[rightIndex - 1] + 1,
-        previous[rightIndex - 1] + substitutionCost,
-      );
-    }
-    previous.splice(0, previous.length, ...current);
-  }
-
-  return previous[right.length] ?? 0;
 }

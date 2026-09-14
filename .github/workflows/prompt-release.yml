@@ -1,0 +1,81 @@
+name: Prompt release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - workspace/SOUL.md
+      - workspace/VOICE.md
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: prompt-release
+  queue: max
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Publish SOUL and VOICE snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Re-running after unrelated commits must resolve to the same version.
+          prompt_sha="$(git log -1 --format=%H -- workspace/SOUL.md workspace/VOICE.md)"
+          test -n "$prompt_sha"
+          releases="$RUNNER_TEMP/prompt-releases.json"
+          gh api --paginate --slurp "repos/$GH_REPO/releases" |
+            jq '[.[][] | select(.tag_name | test("^prompts-v[0-9]+\\.[0-9]+\\.[0-9]+$"))]' > "$releases"
+          existing="$(jq -r --arg sha "$prompt_sha" 'map(select(.target_commitish == $sha)) | first | .tag_name // empty' "$releases")"
+          if [[ -n "$existing" ]]; then
+            if jq -e --arg tag "$existing" 'any(.[]; .tag_name == $tag and .draft)' "$releases" > /dev/null; then
+              echo "Prompt release $existing is an incomplete draft. Finish or delete that draft before retrying." >&2
+              exit 1
+            fi
+            echo "Prompt release $existing already exists."
+            exit 0
+          fi
+
+          version="$(jq -r '
+            map(.tag_name | ltrimstr("prompts-v") | split(".") | map(tonumber)) |
+            if length == 0 then [1, 0, 0] else (max | .[2] += 1) end |
+            map(tostring) | join(".")
+          ' "$releases")"
+          tag="prompts-v$version"
+
+          # Assets and tag both come from the exact prompt revision.
+          asset_dir="$RUNNER_TEMP/prompt-release"
+          mkdir -p "$asset_dir"
+          git show "$prompt_sha:workspace/SOUL.md" > "$asset_dir/SOUL.md"
+          git show "$prompt_sha:workspace/VOICE.md" > "$asset_dir/VOICE.md"
+          notes="$asset_dir/notes.md"
+          cat > "$notes" <<EOF
+          Versioned snapshot of the shared SOUL and VOICE prompts.
+
+          Source commit: https://github.com/$GH_REPO/commit/$prompt_sha
+
+          - [SOUL.md](https://github.com/$GH_REPO/blob/$prompt_sha/workspace/SOUL.md)
+          - [VOICE.md](https://github.com/$GH_REPO/blob/$prompt_sha/workspace/VOICE.md)
+
+          This records prompt source history. It does not deploy the agent or certify evaluation results. Agent releases continue to own production deployment.
+          EOF
+
+          gh release create "$tag" "$asset_dir/SOUL.md" "$asset_dir/VOICE.md" \
+            --target "$prompt_sha" \
+            --title "Prompts v$version" \
+            --notes-file "$notes" \
+            --latest=false

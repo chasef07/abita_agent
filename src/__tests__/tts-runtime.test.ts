@@ -35,7 +35,10 @@ describe("TTS runtime", () => {
         speaker,
         ttsLanguage: "eng",
       });
-      const updateOptions = vi.spyOn(runtime.tts as rime.TTS, "updateOptions");
+      const updateOptions = vi.spyOn(
+        runtime.tts as InstanceType<typeof rime.TTS>,
+        "updateOptions",
+      );
       runtime.updateLanguage("es");
       expect(updateOptions).toHaveBeenCalledWith({
         lang: "spa",

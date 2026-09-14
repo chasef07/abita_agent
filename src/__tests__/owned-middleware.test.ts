@@ -34,8 +34,6 @@ const verifiedPatient: PatientResolveVerified = {
   insPlanId: "plan-1",
   respPartyId: "resp-1",
   routing: "all_three",
-  allowedProviders: ["Dr. Bach"],
-  routingAmbiguous: false,
   preauthRequired: false,
   appointmentsStatus: "none",
   appointmentsMessage: null,
@@ -161,8 +159,6 @@ const updatedInsurance: UpdateInsuranceResult = {
   status: "updated",
   newInsurance: "Aetna",
   routing: "all_three",
-  allowedProviders: ["Dr. Bach"],
-  routingAmbiguous: false,
   preauthRequired: false,
 };
 
@@ -177,6 +173,7 @@ describe.each([
             newInsurance: "Aetna",
             routing: "all_three",
             allowedProviders: ["Dr. Bach"],
+            routingAmbiguous: false,
           }),
         ),
         middlewareBaseUrl: "https://middleware.test",
@@ -264,6 +261,7 @@ describe.each([
       new HttpOwnedMiddleware({
         fetch: vi.fn(async () =>
           Response.json({
+            message: null,
             status: "booked",
             appointmentId: 12345,
             appointmentTypeId: 1005,
@@ -312,8 +310,6 @@ const createdPatient: CreatePatientResult = {
   insPlanId: null,
   respPartyId: null,
   routing: "all_three",
-  allowedProviders: [],
-  routingAmbiguous: false,
   preauthRequired: false,
 };
 
@@ -399,7 +395,8 @@ describe("HTTP owned middleware transport", () => {
     });
     await middleware.getAvailability({
       office: SPRING_HILL_OFFICE_PHONE,
-      rangeDays: 30,
+      rangeDays: 14,
+      startDate: "2026-11-02",
       dob: "01/01/1980",
       routing: "all_three",
       preauthRequired: true,
@@ -473,7 +470,8 @@ describe("HTTP owned middleware transport", () => {
       office: SPRING_HILL_OFFICE_PHONE,
     });
     expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({
-      rangeDays: 30,
+      rangeDays: 14,
+      startDate: "2026-11-02",
       dob: "01/01/1980",
       routing: "all_three",
       preauthRequired: true,
@@ -524,7 +522,9 @@ describe("HTTP owned middleware transport", () => {
   });
 
   it("uses the configured middleware URL for production and demo offices", async () => {
-    const fetchMock = vi.fn(async () => Response.json(verifiedPatient));
+    const fetchMock = vi.fn<typeof globalThis.fetch>(async () =>
+      Response.json(verifiedPatient),
+    );
     const middleware = new HttpOwnedMiddleware({
       fetch: fetchMock,
       middlewareBaseUrl: "https://middleware.test",
@@ -636,7 +636,7 @@ describe("HTTP owned middleware transport", () => {
   });
 
   it("reports missing middleware configuration as a middleware failure", async () => {
-    const fetchMock = vi.fn();
+    const fetchMock = vi.fn<typeof globalThis.fetch>();
     const middleware = new HttpOwnedMiddleware({
       fetch: fetchMock,
       middlewareBaseUrl: "",
@@ -791,7 +791,9 @@ describe("HTTP owned middleware transport", () => {
   });
 
   it("serializes private candidate hydration by patient ID only", async () => {
-    const fetchMock = vi.fn(async () => Response.json(verifiedPatient));
+    const fetchMock = vi.fn<typeof globalThis.fetch>(async () =>
+      Response.json(verifiedPatient),
+    );
     const middleware = new HttpOwnedMiddleware({
       fetch: fetchMock,
       middlewareBaseUrl: "https://middleware.test",
@@ -809,7 +811,9 @@ describe("HTTP owned middleware transport", () => {
   });
 
   it("serializes a private cancellation token without backend identity fields", async () => {
-    const fetchMock = vi.fn(async () => Response.json(cancelledAppointment));
+    const fetchMock = vi.fn<typeof globalThis.fetch>(async () =>
+      Response.json(cancelledAppointment),
+    );
     const middleware = new HttpOwnedMiddleware({
       fetch: fetchMock,
       middlewareBaseUrl: "https://middleware.test",
@@ -879,6 +883,8 @@ describe("HTTP owned middleware transport", () => {
     });
 
     expect(result).toMatchObject({
+      dateShifted: false,
+      shouldRetrySameSearch: false,
       status: "found",
       slots: [
         {
@@ -957,7 +963,7 @@ describe("HTTP owned middleware transport", () => {
 
     expect(result).toEqual({
       status: "error",
-      reason: "request_rejected",
+      reason: "middleware_error",
     });
   });
 
@@ -1277,7 +1283,7 @@ describe("HTTP owned middleware transport", () => {
   it.each([
     {
       name: "patient lookup",
-      expectedReason: "request_rejected",
+      expectedReason: "middleware_error",
       call: (middleware: HttpOwnedMiddleware) =>
         middleware.resolvePatient({
           office: SPRING_HILL_OFFICE_PHONE,
@@ -1847,10 +1853,10 @@ const semanticContractCases: SemanticContractCase[] = [
     name: "patient middleware failure",
     http: httpResult({ status: "error", message: "private detail" }),
     memory: memoryResult({
-      resolvePatient: [semanticFailure("request_rejected")],
+      resolvePatient: [semanticFailure("middleware_error")],
     }),
     invoke: patientLookup,
-    expected: semanticFailure("request_rejected"),
+    expected: semanticFailure("middleware_error"),
   },
   {
     name: "patient network failure",
@@ -2278,14 +2284,17 @@ describe("in-memory owned middleware", () => {
 });
 
 it("fails closed when the inventory endpoint is unavailable instead of using two-slot search", async () => {
-  const fetch = vi.fn(async () => new Response("not found", { status: 404 }));
+  const fetch = vi.fn<typeof globalThis.fetch>(
+    async () => new Response("not found", { status: 404 }),
+  );
   const middleware = new HttpOwnedMiddleware({
     middlewareBaseUrl: "https://middleware.test",
     fetch,
   });
   const result = await middleware.getAvailability({
     office: SPRING_HILL_OFFICE_PHONE,
-    rangeDays: 90,
+    rangeDays: 14,
+    startDate: "2026-11-02",
   });
   expect(result).toEqual({ status: "error", reason: "request_rejected" });
   expect(fetch).toHaveBeenCalledTimes(1);

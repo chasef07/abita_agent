@@ -1,3 +1,12 @@
+import { randomUUID } from "node:crypto";
+import {
+  middlewareOperationByPath,
+  beginMiddlewareRequest,
+  readMiddlewareHeaders,
+  readMiddlewareBody,
+  recordMiddlewareRequest,
+  type MiddlewareRequestDiagnostic,
+} from "./middleware-diagnostics.js";
 import { getOfficeProfileByPhone } from "../customers/abita/profile.js";
 import type { OwnedMiddlewareFailureReason } from "../state/call-state.js";
 import {
@@ -38,7 +47,7 @@ export type PatientResolveResult =
 export type PatientIdentity =
   | { phone: string }
   | { patientId: string }
-  | { firstName: string; lastName: string; dob: string };
+  | { firstName: string; lastName?: string; dob: string };
 
 export type AvailabilitySlot = {
   provider: string;
@@ -92,8 +101,6 @@ type PatientCreationEvidence = {
   insPlanId: string | null;
   respPartyId: string | null;
   routing: string | null;
-  allowedProviders: string[];
-  routingAmbiguous: boolean;
   preauthRequired: boolean;
 };
 
@@ -191,8 +198,6 @@ export type UpdateInsuranceResult =
       status: "updated";
       newInsurance: string | null;
       routing: string | null;
-      allowedProviders: string[];
-      routingAmbiguous: boolean;
       preauthRequired: boolean;
     }
   | MiddlewareFailure;
@@ -206,7 +211,8 @@ export interface OwnedMiddleware {
   }): Promise<PatientResolveResult>;
   getAvailability(request: {
     office: string;
-    rangeDays?: 14 | 30 | 90;
+    startDate?: string;
+    rangeDays?: 14;
     dob?: string;
     routing?: string;
     preauthRequired?: boolean;
@@ -233,6 +239,7 @@ type HttpOwnedMiddlewareOptions = {
   authToken?: string;
   fetch?: typeof fetch;
   middlewareBaseUrl?: string;
+  officeOverride?: "spring_hill";
   timeoutMs?: number;
 };
 
@@ -240,6 +247,7 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
   readonly #authToken: string;
   readonly #fetch: typeof fetch;
   readonly #middlewareBaseUrl: string;
+  readonly #officeOverride: "spring_hill" | undefined;
   readonly #timeoutMs: number;
 
   constructor(options: HttpOwnedMiddlewareOptions = {}) {
@@ -248,6 +256,7 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
     this.#middlewareBaseUrl =
       options.middlewareBaseUrl ?? process.env.AMD_API_URL ?? "";
     this.#timeoutMs = options.timeoutMs ?? 10_000;
+    this.#officeOverride = options.officeOverride;
   }
 
   async resolvePatient(request: {
@@ -256,35 +265,35 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
     fallbackPhone?: string | null;
     signal?: AbortSignal;
   }): Promise<PatientResolveResult> {
-    let transport = await this.#post(
-      "/api/patient/resolve",
-      request.office,
-      request.identity,
-      { signal: request.signal },
-    );
-    if (!transport.ok) return transport.failure;
-    let result = normalizePatientResolveResponse(transport.value, {
-      fallbackPhone: request.fallbackPhone,
-    }) as PatientResolveResult;
-    if (isUnclassifiedReadFailure(result)) {
-      transport = await this.#post(
+    // This client owns the single retry for patient reads, including phone bootstrap.
+    for (let attempt = 0; ; attempt++) {
+      const transport = await this.#post(
         "/api/patient/resolve",
         request.office,
         request.identity,
         { signal: request.signal },
       );
-      if (!transport.ok) return transport.failure;
-      result = normalizePatientResolveResponse(transport.value, {
-        fallbackPhone: request.fallbackPhone,
-      }) as PatientResolveResult;
-      if (isUnclassifiedReadFailure(result)) return requestRejectedFailure();
+      const result = transport.ok
+        ? (normalizePatientResolveResponse(transport.value, {
+            fallbackPhone: request.fallbackPhone,
+          }) as PatientResolveResult)
+        : transport.failure;
+      annotateMiddlewareResult(transport.diagnostic, result);
+      if (
+        attempt === 1 ||
+        result.status !== "error" ||
+        !middlewareFailureIsRetryable(result) ||
+        request.signal?.aborted
+      ) {
+        return result;
+      }
     }
-    return result;
   }
 
   async getAvailability(request: {
     office: string;
-    rangeDays?: 14 | 30 | 90;
+    startDate?: string;
+    rangeDays?: 14;
     dob?: string;
     routing?: string;
     preauthRequired?: boolean;
@@ -292,6 +301,7 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
   }): Promise<AvailabilityResult> {
     const body = {
       rangeDays: request.rangeDays ?? 14,
+      ...(request.startDate ? { startDate: request.startDate } : {}),
       ...(request.dob ? { dob: request.dob } : {}),
       ...(request.routing ? { routing: request.routing } : {}),
       ...(request.preauthRequired ? { preauthRequired: true } : {}),
@@ -302,8 +312,12 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
       body,
       { signal: request.signal },
     );
-    if (!transport.ok) return transport.failure;
+    if (!transport.ok) {
+      annotateMiddlewareResult(transport.diagnostic, transport.failure);
+      return transport.failure;
+    }
     let result = normalizeAvailability(transport.value);
+    annotateMiddlewareResult(transport.diagnostic, result);
     if (isUnclassifiedReadFailure(result)) {
       transport = await this.#post(
         "/api/scheduler/slots",
@@ -311,9 +325,17 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
         body,
         { signal: request.signal },
       );
-      if (!transport.ok) return transport.failure;
+      if (!transport.ok) {
+        annotateMiddlewareResult(transport.diagnostic, transport.failure);
+        return transport.failure;
+      }
       result = normalizeAvailability(transport.value);
-      if (isUnclassifiedReadFailure(result)) return requestRejectedFailure();
+      annotateMiddlewareResult(transport.diagnostic, result);
+      if (isUnclassifiedReadFailure(result)) {
+        const exhausted = requestRejectedFailure();
+        annotateMiddlewareResult(transport.diagnostic, exhausted);
+        return exhausted;
+      }
     }
     return result;
   }
@@ -327,11 +349,13 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
       request.office,
       request.patient,
     );
-    return transport.ok
+    const result = transport.ok
       ? normalizeCreatedPatient(transport.value, {
           phone: request.patient.phone,
         })
       : transport.failure;
+    annotateMiddlewareResult(transport.diagnostic, result);
+    return result;
   }
 
   async bookAppointment(request: {
@@ -346,9 +370,11 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
         includeOffice: false,
       },
     );
-    return transport.ok
+    const result = transport.ok
       ? normalizeBookedAppointment(transport.value)
       : transport.failure;
+    annotateMiddlewareResult(transport.diagnostic, result);
+    return result;
   }
 
   async cancelAppointment(
@@ -366,9 +392,11 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
           },
       usesCancellationToken ? { includeOffice: false } : {},
     );
-    return transport.ok
+    const result = transport.ok
       ? normalizeCancelledAppointment(transport.value)
       : transport.failure;
+    annotateMiddlewareResult(transport.diagnostic, result);
+    return result;
   }
 
   async updateInsurance(request: {
@@ -380,9 +408,11 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
       request.office,
       request.update,
     );
-    return transport.ok
+    const result = transport.ok
       ? normalizeUpdatedInsurance(transport.value)
       : transport.failure;
+    annotateMiddlewareResult(transport.diagnostic, result);
+    return result;
   }
 
   async #post(
@@ -394,76 +424,123 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
       signal?: AbortSignal;
     } = {},
   ): Promise<
-    { ok: true; value: unknown } | { ok: false; failure: MiddlewareFailure }
+    | { ok: true; value: unknown; diagnostic: MiddlewareRequestDiagnostic }
+    | {
+        ok: false;
+        failure: MiddlewareFailure;
+        diagnostic: MiddlewareRequestDiagnostic;
+      }
   > {
-    const payload =
-      options.includeOffice === false ? body : { ...body, office };
+    const started = Date.now();
+    const diagnostic: MiddlewareRequestDiagnostic = {
+      requestId: randomUUID(),
+      operation: middlewareOperationByPath[path] ?? "unknown",
+      attempt: 1,
+      durationMs: 0,
+      result: "response",
+    };
+    beginMiddlewareRequest(diagnostic);
     try {
-      getOfficeProfileByPhone(office);
-    } catch {
-      return {
-        ok: false,
-        failure: {
-          status: "error",
-          reason: "unsupported_office",
-        },
-      };
-    }
-    if (!this.#middlewareBaseUrl) {
-      return {
-        ok: false,
-        failure: {
-          status: "error",
-          reason: "middleware_error",
-        },
-      };
-    }
-    const baseUrl = this.#middlewareBaseUrl.replace(/\/+$/, "");
-    try {
-      const response = await this.#fetch(`${baseUrl}${path}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: this.#authToken,
-        },
-        body: JSON.stringify(payload),
-        signal: this.#requestSignal(options.signal),
-      });
-      if (!response.ok) {
-        const retryable =
-          response.status === 408 ||
-          response.status === 429 ||
-          response.status >= 500;
-        return {
-          ok: false,
-          failure: {
-            status: "error",
-            reason: retryable ? "middleware_error" : "request_rejected",
-          },
-        };
-      }
+      const payload =
+        options.includeOffice === false
+          ? body
+          : { ...body, office: this.#officeOverride ?? office };
       try {
-        return { ok: true, value: await response.json() };
-      } catch (error) {
+        getOfficeProfileByPhone(office);
+      } catch {
+        diagnostic.result = "unsupported_office";
         return {
           ok: false,
+          diagnostic,
           failure: {
             status: "error",
-            reason:
-              error instanceof SyntaxError
-                ? "invalid_response"
-                : "network_error",
+            reason: "unsupported_office",
           },
         };
       }
-    } catch {
-      return {
-        ok: false,
-        failure: {
-          status: "error",
-          reason: options.signal?.aborted ? "cancelled" : "network_error",
-        },
-      };
+      if (!this.#middlewareBaseUrl) {
+        diagnostic.result = "not_configured";
+        return {
+          ok: false,
+          diagnostic,
+          failure: {
+            status: "error",
+            reason: "middleware_error",
+          },
+        };
+      }
+      const baseUrl = this.#middlewareBaseUrl.replace(/\/+$/, "");
+      const signal = this.#requestSignal(options.signal);
+      try {
+        const response = await this.#fetch(`${baseUrl}${path}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Request-ID": diagnostic.requestId,
+            Authorization: this.#authToken,
+          },
+          body: JSON.stringify(payload),
+          signal,
+        });
+        diagnostic.httpStatus = response.status;
+        readMiddlewareHeaders(response.headers, diagnostic);
+        if (!response.ok) {
+          diagnostic.result = "http_error";
+          const retryable =
+            response.status === 408 ||
+            response.status === 429 ||
+            response.status >= 500;
+          return {
+            ok: false,
+            diagnostic,
+            failure: {
+              status: "error",
+              reason: retryable ? "middleware_error" : "request_rejected",
+            },
+          };
+        }
+        try {
+          const value: unknown = await response.json();
+          readMiddlewareBody(value, diagnostic);
+          return { ok: true, value, diagnostic };
+        } catch (error) {
+          diagnostic.result = options.signal?.aborted
+            ? "cancelled"
+            : signal.aborted
+              ? "timeout"
+              : error instanceof SyntaxError
+                ? "invalid_response"
+                : "network_error";
+          return {
+            ok: false,
+            diagnostic,
+            failure: {
+              status: "error",
+              reason:
+                error instanceof SyntaxError
+                  ? "invalid_response"
+                  : "network_error",
+            },
+          };
+        }
+      } catch {
+        diagnostic.result = options.signal?.aborted
+          ? "cancelled"
+          : signal.aborted
+            ? "timeout"
+            : "network_error";
+        return {
+          ok: false,
+          diagnostic,
+          failure: {
+            status: "error",
+            reason: options.signal?.aborted ? "cancelled" : "network_error",
+          },
+        };
+      }
+    } finally {
+      diagnostic.durationMs = Date.now() - started;
+      recordMiddlewareRequest(diagnostic);
     }
   }
 
@@ -471,6 +548,25 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
     const timeout = AbortSignal.timeout(this.#timeoutMs);
     return signal ? AbortSignal.any([signal, timeout]) : timeout;
   }
+}
+
+// Record the normalized decision beside transport evidence using the same
+// retry policy that the tool runtime applies.
+function annotateMiddlewareResult(
+  diagnostic: MiddlewareRequestDiagnostic,
+  result:
+    | PatientResolveResult
+    | AvailabilityResult
+    | CreatePatientResult
+    | BookAppointmentResult
+    | CancelAppointmentResult
+    | UpdateInsuranceResult,
+): void {
+  if (result.status !== "error" && result.status !== "rejected") return;
+  diagnostic.failureReason = result.reason;
+  diagnostic.retryable =
+    result.status === "error" && middlewareFailureIsRetryable(result);
+  if (result.status === "error") diagnostic.failureDetail = result.detail;
 }
 
 function normalizeAvailability(raw: unknown): AvailabilityResult {
@@ -593,12 +689,6 @@ function normalizeCreatedPatient(
     insPlanId: stringValue(raw.insPlanId),
     respPartyId: stringValue(raw.respPartyId),
     routing: stringValue(raw.routing),
-    allowedProviders: Array.isArray(raw.allowedProviders)
-      ? raw.allowedProviders.filter(
-          (provider): provider is string => typeof provider === "string",
-        )
-      : [],
-    routingAmbiguous: raw.routingAmbiguous === true,
     preauthRequired: raw.preauthRequired === true,
   };
 }
@@ -693,12 +783,6 @@ function normalizeUpdatedInsurance(raw: unknown): UpdateInsuranceResult {
       status: "updated",
       newInsurance: stringValue(raw.newInsurance),
       routing: stringValue(raw.routing),
-      allowedProviders: Array.isArray(raw.allowedProviders)
-        ? raw.allowedProviders.filter(
-            (provider): provider is string => typeof provider === "string",
-          )
-        : [],
-      routingAmbiguous: raw.routingAmbiguous === true,
       preauthRequired: raw.preauthRequired === true,
     };
   }

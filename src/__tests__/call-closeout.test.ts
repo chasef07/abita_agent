@@ -1,3 +1,4 @@
+import { InMemoryCallPortal } from "./support/call-portal.js";
 import {
   ChatContext,
   createSessionReport,
@@ -7,7 +8,6 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   HttpCallPortal,
-  InMemoryCallPortal,
   attachCallCloseout,
   attachStartupCallCloseout,
   createLiveKitCallCloseoutEventAdapter,
@@ -17,7 +17,6 @@ import {
   type CallCloseoutObserver,
   type CallPortalResult,
 } from "../runtime/call-closeout.js";
-import { getOfficeProfileByPhone } from "../customers/abita/profile.js";
 import {
   getProductInteractionConfig,
   validateRuntimeConfig,
@@ -28,10 +27,7 @@ import {
   beginTransfer,
   markTransferAmbiguous,
 } from "../state/call-lifecycle.js";
-import {
-  recordDomainOutcome,
-  recordOfficeKnowledgeRetrieval,
-} from "../state/observability.js";
+import { recordDomainOutcome } from "../state/observability.js";
 import { createTestCallState } from "./support/call-state.js";
 import { createToolContext } from "./support/tool-context.js";
 import { create_staff_task } from "../tools/create-staff-task.js";
@@ -120,6 +116,23 @@ async function setupCloseout(
 }
 
 describe("call closeout", () => {
+  it.each([
+    "verified",
+    "multiple_matches",
+    "no_match",
+    "lookup_failed",
+    "not_attempted",
+  ] as const)(
+    "persists only the bounded phone lookup status: %s",
+    async (status) => {
+      const state = createTestCallState();
+      state.runtime.preCallLookup = { status };
+      const { events, portal } = await setupCloseout({ state });
+      await events.close();
+      expect(portal.deliveries.at(-1)?.payload.phoneLookup).toEqual({ status });
+    },
+  );
+
   it("keeps LiveKit-owned call identity and timing stable across worker attempts", () => {
     const roomCreationTime = new Date("2026-08-28T13:45:06.000Z");
     const firstWorkerStartedAt = vi.fn(
@@ -209,57 +222,6 @@ describe("call closeout", () => {
     ).toEqual({ callId: "sip-call-63", startedAt: workerStartedAt });
     expect(fallback).toHaveBeenCalledOnce();
   });
-
-  it.each([
-    ["+19999999999", "Unsupported trunk phone number: +19999999999"],
-    [
-      "not-a-phone-number",
-      "Unsupported trunk phone number: not-a-phone-number",
-    ],
-    ["", "Unsupported trunk phone number: (empty)"],
-  ])(
-    "registers and closes out startup before rejecting trunk %j",
-    async (trunkPhone, expectedError) => {
-      const portal = new InMemoryCallPortal();
-      let startupShutdown: (() => Promise<void>) | undefined;
-      const startSession = vi.fn(async () => undefined);
-
-      await expect(
-        (async () => {
-          await attachStartupCallCloseout({
-            call: {
-              callId: "call-unsupported-trunk",
-              callerPhone: "+17275551212",
-              livekitContext: { roomName: "room-test" },
-              officePhone: trunkPhone,
-              startedAt: new Date("2026-07-20T10:00:00.000Z"),
-            },
-            now: () => new Date("2026-07-20T10:01:00.000Z"),
-            portal,
-            registerShutdownCallback: (closeout) => {
-              startupShutdown = closeout;
-            },
-          });
-          expect(portal.deliveries.map(({ phase }) => phase)).toEqual([
-            "call-start",
-          ]);
-          getOfficeProfileByPhone(trunkPhone);
-          await startSession();
-        })(),
-      ).rejects.toThrow(expectedError);
-
-      expect(startSession).not.toHaveBeenCalled();
-      await startupShutdown?.();
-      expect(portal.deliveries.map(({ phase }) => phase)).toEqual([
-        "call-start",
-        "shutdown",
-      ]);
-      expect(portal.deliveries[1]?.payload).toMatchObject({
-        endedReason: "call_state_not_initialized",
-        status: "FAILED",
-      });
-    },
-  );
 
   it("hands a registered call start to the full closeout lifecycle", async () => {
     const events = new TestLiveKitEvents();
@@ -355,23 +317,30 @@ describe("call closeout", () => {
         ACUITY_DEMO_PRODUCT_SERVICE_SECRET: "demo-secret",
       }),
     ).toThrow(
-      "AMD_API_URL, AMD_API_TOKEN, ACUITY_PRODUCT_INTERACTION_URL, ACUITY_PRODUCT_HANDOFF_URL, ACUITY_DEMO_PRODUCT_SERVICE_SECRET, ACUITY_DEMO_PRODUCT_PRACTICE_ID, ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET, ABITA_EYE_GROUP_PRODUCT_PRACTICE_ID are required in production",
+      "AMD_API_URL, AMD_API_TOKEN, ACUITY_PRODUCT_INTERACTION_URL, ACUITY_PRODUCT_KNOWLEDGE_URL, ACUITY_PRODUCT_HANDOFF_URL, ACUITY_DEMO_PRODUCT_SERVICE_SECRET, ACUITY_DEMO_PRODUCT_PRACTICE_ID, ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET, ABITA_EYE_GROUP_PRODUCT_PRACTICE_ID are required in production",
     );
+    const configured = {
+      NODE_ENV: "production",
+      AMD_API_URL: "https://middleware.example",
+      AMD_API_TOKEN: "middleware-secret",
+      ACUITY_PRODUCT_INTERACTION_URL:
+        "https://product.example/v1/ai/interactions",
+      ACUITY_PRODUCT_KNOWLEDGE_URL:
+        "https://product.example/v1/agent/knowledge/search",
+      ACUITY_PRODUCT_HANDOFF_URL: "https://product.example/v1/handoffs",
+      ACUITY_DEMO_PRODUCT_PRACTICE_ID: "00000000-0000-0000-0000-000000000001",
+      ACUITY_DEMO_PRODUCT_SERVICE_SECRET: "demo-secret",
+      ABITA_EYE_GROUP_PRODUCT_PRACTICE_ID:
+        "00000000-0000-0000-0000-000000000002",
+      ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET: "production-secret",
+    };
+    expect(() => validateRuntimeConfig(configured)).not.toThrow();
     expect(() =>
       validateRuntimeConfig({
-        NODE_ENV: "production",
-        AMD_API_URL: "https://middleware.example",
-        AMD_API_TOKEN: "middleware-secret",
-        ACUITY_PRODUCT_INTERACTION_URL:
-          "https://product.example/v1/ai/interactions",
-        ACUITY_PRODUCT_HANDOFF_URL: "https://product.example/v1/handoffs",
-        ACUITY_DEMO_PRODUCT_PRACTICE_ID: "00000000-0000-0000-0000-000000000001",
-        ACUITY_DEMO_PRODUCT_SERVICE_SECRET: "demo-secret",
-        ABITA_EYE_GROUP_PRODUCT_PRACTICE_ID:
-          "00000000-0000-0000-0000-000000000002",
-        ABITA_EYE_GROUP_PRODUCT_SERVICE_SECRET: "production-secret",
+        ...configured,
+        ACUITY_PRODUCT_KNOWLEDGE_URL: undefined,
       }),
-    ).not.toThrow();
+    ).toThrow("ACUITY_PRODUCT_KNOWLEDGE_URL");
     expect(() =>
       getProductInteractionConfig("spring-hill", {
         NODE_ENV: "production",
@@ -403,7 +372,7 @@ describe("call closeout", () => {
       url: "https://product.example/v1/ai/interactions",
     });
     expect(
-      getProductInteractionConfig("mental-health-demo", {
+      getProductInteractionConfig("new-tampa-demo", {
         NODE_ENV: "production",
         ACUITY_PRODUCT_INTERACTION_URL:
           "https://product.example/v1/ai/interactions",
@@ -502,25 +471,6 @@ describe("call closeout", () => {
     });
   });
 
-  it("bounds Office Knowledge observations kept in Call State", () => {
-    const state = createTestCallState();
-
-    for (let index = 0; index <= 200; index += 1) {
-      recordOfficeKnowledgeRetrieval(state, {
-        elapsedMs: index,
-        language: "en",
-        officeKey: "spring-hill",
-        outcome: "skipped",
-        sectionCount: 0,
-        topic: null,
-      });
-    }
-
-    expect(state.runtime.knowledgeRetrievals).toHaveLength(200);
-    expect(state.runtime.knowledgeRetrievals[0]?.elapsedMs).toBe(1);
-    expect(state.runtime.knowledgeRetrievals.at(-1)?.elapsedMs).toBe(200);
-  });
-
   it("checkpoints each receipt-backed appointment outcome once after tool execution", async () => {
     const state = createTestCallState();
     const { events, portal } = await setupCloseout({
@@ -536,7 +486,11 @@ describe("call closeout", () => {
         action: "booked",
         externalPatientId: "patient-63",
         newAppointmentId: "appointment-63",
-        bookingResult: { status: "booked", appointmentId: 63 },
+        bookingResult: {
+          message: null,
+          status: "booked",
+          appointmentId: 63,
+        },
       },
     });
     const toolEvent = {
@@ -566,7 +520,11 @@ describe("call closeout", () => {
         action: "booked",
         externalPatientId: "patient-63",
         newAppointmentId: "appointment-63",
-        bookingResult: { status: "booked", appointmentId: 63 },
+        bookingResult: {
+          message: null,
+          status: "booked",
+          appointmentId: 63,
+        },
       },
     });
   });
@@ -678,7 +636,11 @@ describe("call closeout", () => {
       evidence: {
         action: "booked",
         newAppointmentId: "appointment-final",
-        bookingResult: { status: "booked", appointmentId: 63 },
+        bookingResult: {
+          message: null,
+          status: "booked",
+          appointmentId: 63,
+        },
       },
     });
 
@@ -692,7 +654,11 @@ describe("call closeout", () => {
       action: "booked",
       occurredAt: "2026-07-20T10:00:30.000Z",
       newAppointmentId: "appointment-final",
-      bookingResult: { status: "booked", appointmentId: 63 },
+      bookingResult: {
+        message: null,
+        status: "booked",
+        appointmentId: 63,
+      },
     });
   });
 
@@ -704,6 +670,25 @@ describe("call closeout", () => {
       toolName: "book_appointment",
       outcome: "booked",
       status: "failed",
+      middlewareRequests: [
+        {
+          requestId: "fb672b37-0211-4e69-baf1-b0f56b181911",
+          operation: "bookAppointment",
+          attempt: 1,
+          durationMs: 1400,
+          result: "response",
+          httpStatus: 200,
+          outcome: "indeterminate_write",
+          providerErrors: [
+            {
+              operation: "book_appointment",
+              category: "upstream_status",
+              httpStatus: 503,
+              durationMs: 1300,
+            },
+          ],
+        },
+      ],
       evidence: {
         action: "booked",
         bookingResult: { status: "error", reason: "middleware_error" },
@@ -723,7 +708,17 @@ describe("call closeout", () => {
       "appointmentOutcome",
     );
     expect(portal.deliveries[1]?.payload.domainOutcomes).toMatchObject([
-      { callId: "tool-call-failed", status: "failed" },
+      {
+        callId: "tool-call-failed",
+        status: "failed",
+        middlewareRequests: [
+          {
+            requestId: "fb672b37-0211-4e69-baf1-b0f56b181911",
+            outcome: "indeterminate_write",
+            providerErrors: [{ httpStatus: 503 }],
+          },
+        ],
+      },
     ]);
   });
 
@@ -733,7 +728,11 @@ describe("call closeout", () => {
     const evidence = {
       action: "booked",
       newAppointmentId: "appointment-original",
-      bookingResult: { status: "booked", appointmentId: 63 },
+      bookingResult: {
+        message: null,
+        status: "booked",
+        appointmentId: 63,
+      },
     };
     recordDomainOutcome(state, {
       callId: "tool-call-original",
@@ -843,6 +842,13 @@ describe("call closeout", () => {
       events: [],
       jobId: "job-test",
       options: {
+        recordingOptions: {
+          audio: true,
+          traces: true,
+          logs: true,
+          transcript: true,
+          redaction: true,
+        },
         maxToolSteps: 3,
         turnHandling: { preemptiveGeneration: { enabled: false } },
         useTtsAlignedTranscript: true,
@@ -862,7 +868,18 @@ describe("call closeout", () => {
         sttProfiles: [],
         voiceLanguageRuntime: {
           snapshot: () => ({
-            language: {},
+            language: {
+              acceptedLanguages: ["en"],
+              candidateLanguage: null,
+              candidateTurns: 0,
+              currentLanguage: "en",
+              initialLanguage: "en",
+              keepEvents: [],
+              languageChanged: false,
+              languageSwitches: 0,
+              observedLanguages: [],
+              switchEvents: [],
+            },
             voiceLanguage: DEFAULT_CALL.initialVoiceLanguage,
           }),
         },
@@ -889,10 +906,27 @@ describe("call closeout", () => {
           provider: "openai",
           model: "gpt-test",
           inputTokens: 12,
+          inputCachedTokens: 0,
+          inputAudioTokens: 0,
+          inputCachedAudioTokens: 0,
+          inputTextTokens: 12,
+          inputCachedTextTokens: 0,
+          inputImageTokens: 0,
+          inputCachedImageTokens: 0,
           outputTokens: 4,
+          outputAudioTokens: 0,
+          outputTextTokens: 4,
+          sessionDurationMs: 0,
         },
       ],
       options: {
+        recordingOptions: {
+          audio: true,
+          traces: true,
+          logs: true,
+          transcript: true,
+          redaction: true,
+        },
         maxToolSteps: 3,
         turnHandling: { preemptiveGeneration: { enabled: false } },
         useTtsAlignedTranscript: true,
@@ -908,6 +942,20 @@ describe("call closeout", () => {
         error:
           "request failed with Authorization: Bearer private-token at http://10.0.0.5/private",
         clientSecret: "private-client-secret",
+        functionCalls: [
+          {
+            name: "search_office_knowledge",
+            callId: "knowledge-1",
+            args: "sensitive-query",
+          },
+        ],
+        outputs: [
+          {
+            type: "function_call_output",
+            callId: "knowledge-1",
+            output: "sensitive-passage",
+          },
+        ],
       },
     ];
     const adapter = createLiveKitCallCloseoutEventAdapter(
@@ -921,7 +969,18 @@ describe("call closeout", () => {
         sttProfiles: [],
         voiceLanguageRuntime: {
           snapshot: () => ({
-            language: {},
+            language: {
+              acceptedLanguages: ["en"],
+              candidateLanguage: null,
+              candidateTurns: 0,
+              currentLanguage: "en",
+              initialLanguage: "en",
+              keepEvents: [],
+              languageChanged: false,
+              languageSwitches: 0,
+              observedLanguages: [],
+              switchEvents: [],
+            },
             voiceLanguage: DEFAULT_CALL.initialVoiceLanguage,
           }),
         },
@@ -935,6 +994,9 @@ describe("call closeout", () => {
       { input_tokens: 12, output_tokens: 4 },
     ]);
     expect(captured).not.toContain("private-token");
+    expect(captured).toContain("sensitive-query");
+    expect(captured).toContain("sensitive-passage");
+    expect(captured).toContain("search_office_knowledge");
     expect(captured).not.toContain("private-client-secret");
     expect(captured).not.toContain("10.0.0.5");
   });
@@ -956,7 +1018,7 @@ describe("call closeout", () => {
       secretName: "ACUITY_DEMO_PRODUCT_SERVICE_SECRET" as const,
     },
     {
-      officeKey: "mental-health-demo" as const,
+      officeKey: "new-tampa-demo" as const,
       secret: "demo-secret",
       secretName: "ACUITY_DEMO_PRODUCT_SERVICE_SECRET" as const,
     },
@@ -995,7 +1057,11 @@ describe("call closeout", () => {
         evidence: {
           action: "booked",
           newAppointmentId: "appointment-auth-proof",
-          bookingResult: { status: "booked", appointmentId: 63 },
+          bookingResult: {
+            message: null,
+            status: "booked",
+            appointmentId: 63,
+          },
         },
       });
       events.emit("toolsExecuted", {
@@ -1073,7 +1139,11 @@ describe("call closeout", () => {
           externalPatientId: "patient-63",
           oldAppointmentId: "appointment-old",
           newAppointmentId: "appointment-new",
-          bookingResult: { status: "booked", appointmentId: 6302 },
+          bookingResult: {
+            message: null,
+            status: "booked",
+            appointmentId: 6302,
+          },
           cancellationResult: { status: "cancelled" },
         },
       },
@@ -1103,7 +1173,11 @@ describe("call closeout", () => {
         externalPatientId: "patient-63",
         oldAppointmentId: "appointment-old",
         newAppointmentId: "appointment-new",
-        bookingResult: { status: "booked", appointmentId: 6302 },
+        bookingResult: {
+          message: null,
+          status: "booked",
+          appointmentId: 6302,
+        },
         cancellationResult: { status: "cancelled" },
       },
       closeoutPayload: {

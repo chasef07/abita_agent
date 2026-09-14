@@ -7,9 +7,7 @@ import { SPRING_HILL_OFFICE_PHONE } from "../customers/abita/profile.js";
 import {
   buildPreCallCandidates,
   formatPhoneLookupLogLine,
-  loadPreCallBootstrap,
   lookupByPhone,
-  preCallLookupTelemetry,
 } from "../runtime/precall-bootstrap.js";
 import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
 
@@ -37,8 +35,6 @@ function verifiedPatient(
     insPlanId: "plan-1",
     respPartyId: "resp-1",
     routing: "all_three",
-    allowedProviders: [],
-    routingAmbiguous: false,
     preauthRequired: false,
     appointmentsStatus: "none",
     appointmentsMessage: null,
@@ -110,29 +106,22 @@ describe("pre-call bootstrap", () => {
     });
   });
 
-  it("returns one lookup seed for state and telemetry derivation", async () => {
+  it("returns the phone lookup result directly for state initialization", async () => {
     const middleware = usePatientResult(verifiedPatient());
 
-    const bootstrap = await loadPreCallBootstrap({
+    const lookup = await lookupByPhone(
       middleware,
-      callerPhone: "+17275551212",
-      trunkPhone: SPRING_HILL_OFFICE_PHONE,
-    });
+      "+17275551212",
+      SPRING_HILL_OFFICE_PHONE,
+    );
 
-    expect(bootstrap).toMatchObject({
-      phoneLookup: {
-        patientId: "patient-1",
-        name: "Doe, Jane",
-        appointmentsStatus: "none",
-      },
+    expect(lookup).toMatchObject({
+      patientId: "patient-1",
+      name: "Doe, Jane",
+      appointmentsStatus: "none",
     });
     expect(middleware.requests.resolvePatient[0]).toMatchObject({
       identity: { phone: "+17275551212" },
-    });
-    expect(preCallLookupTelemetry(bootstrap.phoneLookup)).toMatchObject({
-      status: "verified",
-      durationMs: expect.any(Number),
-      candidateCount: 1,
     });
   });
 
@@ -146,26 +135,26 @@ describe("pre-call bootstrap", () => {
     const firstController = new AbortController();
     const secondController = new AbortController();
 
-    const [firstBootstrap, secondBootstrap] = await Promise.all([
-      loadPreCallBootstrap({
-        middleware: first,
-        callerPhone: "+17275550001",
-        trunkPhone: SPRING_HILL_OFFICE_PHONE,
-        signal: firstController.signal,
-      }),
-      loadPreCallBootstrap({
-        middleware: second,
-        callerPhone: "+17275550002",
-        trunkPhone: SPRING_HILL_OFFICE_PHONE,
-        signal: secondController.signal,
-      }),
+    const [firstLookup, secondLookup] = await Promise.all([
+      lookupByPhone(
+        first,
+        "+17275550001",
+        SPRING_HILL_OFFICE_PHONE,
+        firstController.signal,
+      ),
+      lookupByPhone(
+        second,
+        "+17275550002",
+        SPRING_HILL_OFFICE_PHONE,
+        secondController.signal,
+      ),
     ]);
 
-    expect(firstBootstrap.phoneLookup).toMatchObject({
+    expect(firstLookup).toMatchObject({
       status: "verified",
       patientId: "patient-first",
     });
-    expect(secondBootstrap.phoneLookup).toMatchObject({
+    expect(secondLookup).toMatchObject({
       status: "verified",
       patientId: "patient-second",
     });
@@ -227,15 +216,11 @@ describe("pre-call bootstrap", () => {
         cancellationToken: "private-cancellation-token",
       }),
     ]);
-    expect(formatPhoneLookupLogLine("+17275551212", result)).toBe(
-      "[call] Caller match found",
-    );
-    expect(formatPhoneLookupLogLine("+17275551212", result)).not.toContain(
+    expect(formatPhoneLookupLogLine(result)).toBe("[call] Caller match found");
+    expect(formatPhoneLookupLogLine(result)).not.toContain(
       "private-cancellation-token",
     );
-    expect(formatPhoneLookupLogLine("+17275551212", result)).not.toContain(
-      "12345",
-    );
+    expect(formatPhoneLookupLogLine(result)).not.toContain("12345");
   });
 
   it("preloads middleware appointments without confirmation metadata", async () => {
@@ -285,6 +270,7 @@ describe("pre-call bootstrap", () => {
   it("maps lookup outcomes into session pre-call state", () => {
     const single = buildPreCallCandidates({
       status: "verified",
+      preauthRequired: false,
       patientId: "patient-1",
       name: "Doe, Jane",
       dob: "01/01/1980",
@@ -293,8 +279,6 @@ describe("pre-call bootstrap", () => {
       insPlanId: "plan-1",
       respPartyId: "resp-1",
       routing: "all_three",
-      allowedProviders: ["Dr. Bach"],
-      routingAmbiguous: false,
       appointmentsStatus: "found",
       appointmentsMessage: null,
       appointments: [
@@ -321,7 +305,6 @@ describe("pre-call bootstrap", () => {
         insPlanId: "plan-1",
         respPartyId: "resp-1",
         routing: "all_three",
-        allowedProviders: ["Dr. Bach"],
       },
     ]);
 
@@ -396,10 +379,8 @@ describe("pre-call bootstrap", () => {
   it("stores full multiple-match patient details in pre-call candidates", async () => {
     usePatientResult({
       status: "multiple_matches",
-      message: "Found 2 patients for this phone number.",
       matches: [
         verifiedPatient({
-          allowedProviders: ["Dr. Bach"],
           appointmentsStatus: "found",
           appointments: [
             {
@@ -419,7 +400,6 @@ describe("pre-call bootstrap", () => {
           dob: "02/02/1985",
           insuranceCarrier: "Humana",
           routing: "bach_only",
-          allowedProviders: ["Dr. Bach"],
           preauthRequired: true,
         }),
       ],
@@ -457,7 +437,6 @@ describe("pre-call bootstrap", () => {
         appointmentsStatus: "found",
         insuranceCarrier: "Aetna",
         routing: "all_three",
-        allowedProviders: ["Dr. Bach"],
         preauthRequired: false,
       },
       {
@@ -521,7 +500,6 @@ describe("pre-call bootstrap", () => {
           dob: "02/03/1982",
         },
       ],
-      lookupDurationMs: expect.any(Number),
     });
     expect(candidates).toMatchObject([
       {

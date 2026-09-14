@@ -1,8 +1,8 @@
 <!--
 PR title: <type>(optional-scope): <summary>
 
-Abita Agent tracks committed product work in Linear. Add the visible closing
-reference `Fixes ACU-___` below, then replace the placeholder with the issue ID.
+Abita Agent tracks committed product work in GitHub Issues. Add the visible
+closing reference `Fixes #<issue-number>` below when an issue applies.
 
 Do not include PHI, credentials, private URLs, or raw transcripts.
 Delete comments and unused prompts before requesting review.
@@ -10,7 +10,7 @@ Delete comments and unused prompts before requesting review.
 
 ## Issue
 
-Fixes ACU-___
+Fixes #<issue-number>
 
 ## Problem
 

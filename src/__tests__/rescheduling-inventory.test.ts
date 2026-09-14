@@ -4,7 +4,7 @@ import { replaceActiveAppointments } from "../state/appointments.js";
 import { createConfirmedPatientState } from "./support/call-state.js";
 import { createToolContext } from "./support/tool-context.js";
 import { InMemorySchedulingMiddleware } from "./support/scheduling-middleware.js";
-import type { AvailabilityResult } from "../scheduling/middleware.js";
+import type { AvailabilityResult } from "../clients/owned-middleware.js";
 
 function setup() {
   const state = createConfirmedPatientState();
@@ -73,23 +73,24 @@ describe("generic inventory for rescheduling", () => {
     );
     expect(tools).not.toHaveProperty("select_appointment_to_reschedule");
     const schema = tools.list_available_appointments.parameters as any;
-    expect(Object.keys(schema.shape)).toEqual(["range", "visitType", "office"]);
+    expect(Object.keys(schema.shape)).toEqual([
+      "startDate",
+      "visitType",
+      "office",
+    ]);
     for (const visitType of ["medical", "routine_vision"]) {
-      expect(
-        schema.safeParse({ range: "default", visitType, office: "hollywood" })
-          .success,
-      ).toBe(true);
+      expect(schema.safeParse({ visitType, office: "hollywood" }).success).toBe(
+        true,
+      );
     }
     expect(
       schema.safeParse({
-        range: "default",
         visitType: null,
         office: "hollywood",
       }).success,
     ).toBe(false);
     expect(
       schema.safeParse({
-        range: "default",
         visitType: "medical",
         office: "hollywood",
         oldAppointmentRef: "old",
@@ -122,7 +123,10 @@ describe("generic inventory for rescheduling", () => {
       const tools = createSchedulingTools(middleware);
       for (let i = 0; i < 2; i++)
         await tools.list_available_appointments.execute(
-          { range: "default", visitType: "medical" },
+          {
+            startDate: null,
+            visitType: "medical",
+          },
           options,
         );
       expect(middleware.operations).toHaveLength(1);
@@ -141,7 +145,10 @@ describe("generic inventory for rescheduling", () => {
       });
       const tools = createSchedulingTools(middleware);
       await tools.list_available_appointments.execute(
-        { range: "default", visitType: "medical" },
+        {
+          startDate: null,
+          visitType: "medical",
+        },
         options,
       );
       await tools.reschedule_appointment.execute(
@@ -174,7 +181,10 @@ describe("generic inventory for rescheduling", () => {
       });
       const tools = createSchedulingTools(middleware);
       await tools.list_available_appointments.execute(
-        { range: "default", visitType },
+        {
+          startDate: null,
+          visitType,
+        },
         options,
       );
       const result = await tools.reschedule_appointment.execute(
@@ -241,7 +251,7 @@ describe("generic inventory for rescheduling", () => {
       for (const appointmentRef of [firstRef, secondRef]) {
         await tools.list_available_appointments.execute(
           {
-            range: "default",
+            startDate: null,
             visitType:
               appointmentRef === firstRef ? "medical" : "routine_vision",
           },

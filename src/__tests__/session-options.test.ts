@@ -1,8 +1,10 @@
 import {
   AgentSession,
+  Agent,
   type AgentSessionOptions,
   inference,
   initializeLogger,
+  voice,
 } from "@livekit/agents";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import {
@@ -11,6 +13,7 @@ import {
   voiceTurnHandlingOptions,
   voiceVadOptions,
 } from "../session-options.js";
+import { createTurnProfileController } from "../runtime/turn-profile-controller.js";
 
 type TurnDetection = NonNullable<
   NonNullable<AgentSessionOptions["turnHandling"]>["turnDetection"]
@@ -21,7 +24,7 @@ describe("voice session options", () => {
     initializeLogger({ pretty: false, level: "silent" });
   });
 
-  it("enables speculative LLM generation while deferring speech synthesis", () => {
+  it("keeps speculative generation and speech synthesis disabled", () => {
     const session = new AgentSession({
       turnHandling: {
         turnDetection: fakeTurnDetector(),
@@ -31,11 +34,11 @@ describe("voice session options", () => {
     const preemptiveGeneration =
       session.sessionOptions.turnHandling.preemptiveGeneration;
 
-    expect(preemptiveGeneration.enabled).toBe(true);
+    expect(preemptiveGeneration.enabled).toBe(false);
     expect(preemptiveGeneration.preemptiveTts).toBe(false);
   });
 
-  it("uses responsive fixed endpointing for normal conversation", () => {
+  it("starts with the original fixed conversation bounds", () => {
     const turnDetection = fakeTurnDetector();
     const session = new AgentSession({
       turnHandling: {
@@ -62,7 +65,7 @@ describe("voice session options", () => {
     );
   });
 
-  it("aligns the LiveKit VAD threshold with AssemblyAI", async () => {
+  it("preserves the tested LiveKit VAD sensitivity", async () => {
     const turnDetection = new inference.TurnDetector({ version: "v1-mini" });
     const session = new AgentSession({
       turnHandling: {
@@ -105,6 +108,69 @@ describe("voice session options", () => {
     });
 
     expect(session.sessionOptions.maxToolSteps).toBe(3);
+  });
+
+  it("switches the actual SDK between fixed entity and conversation bounds", async () => {
+    const session = new AgentSession({
+      llm: new voice.testing.FakeLLM([]),
+      vad: null,
+      turnHandling: {
+        ...voiceTurnHandlingOptions,
+        turnDetection: null,
+        interruption: { mode: "vad" },
+      },
+    });
+    try {
+      await session.start({
+        agent: new Agent({ instructions: "Local timing test." }),
+      });
+      const activity = await session.waitForIdle();
+      const recognition = (
+        activity as unknown as {
+          audioRecognition: {
+            endpointing: { minDelay: number; maxDelay: number };
+          };
+        }
+      ).audioRecognition;
+      const controller = createTurnProfileController(
+        { updateOptions: vi.fn() },
+        {
+          startedAt: new Date(),
+          updateEndpointing: (endpointing) =>
+            session.updateOptions({
+              turnHandling: { endpointing: { mode: "fixed", ...endpointing } },
+            }),
+        },
+      );
+      expect({
+        minDelay: recognition.endpointing.minDelay,
+        maxDelay: recognition.endpointing.maxDelay,
+      }).toEqual({ minDelay: 300, maxDelay: 600 });
+      controller.observeAssistantText("What is your email?", true);
+      expect({
+        minDelay: recognition.endpointing.minDelay,
+        maxDelay: recognition.endpointing.maxDelay,
+      }).toEqual({ minDelay: 500, maxDelay: 2500 });
+      controller.commitAssistantTurn("What is your email?");
+      controller.commitUserTurn();
+      expect({
+        minDelay: recognition.endpointing.minDelay,
+        maxDelay: recognition.endpointing.maxDelay,
+      }).toEqual({ minDelay: 300, maxDelay: 600 });
+      controller.commitAssistantTurn("Can you spell that?");
+      expect({
+        minDelay: recognition.endpointing.minDelay,
+        maxDelay: recognition.endpointing.maxDelay,
+      }).toEqual({ minDelay: 500, maxDelay: 2500 });
+      expect(session.sessionOptions.turnHandling.endpointing.mode).toBe(
+        "fixed",
+      );
+      expect(
+        session.sessionOptions.turnHandling.preemptiveGeneration.enabled,
+      ).toBe(false);
+    } finally {
+      await session.close();
+    }
   });
 });
 

@@ -355,14 +355,30 @@
       "needsExactPlanName": false
     },
     {
-      "id": "accepted-florida-blue",
-      "status": "accepted",
+      "id": "clarify-florida-blue",
+      "status": "needs_clarification",
       "canonicalPlan": "Florida Blue",
       "displayName": "Florida Blue",
       "aliases": [
         "Blue Cross",
         "BCBS",
-        "Blue Cross Blue Shield"
+        "Blue Cross Blue Shield",
+        "FL Blue"
+      ],
+      "clarificationNeeded": "the exact Florida Blue plan on the card, including whether it is HMO or PPO",
+      "canProceed": false,
+      "needsExactPlanName": true
+    },
+    {
+      "id": "accepted-florida-blue-ppo",
+      "status": "accepted",
+      "canonicalPlan": "Florida Blue",
+      "displayName": "Florida Blue PPO",
+      "aliases": [
+        "FL Blue PPO",
+        "BCBS PPO",
+        "Blue Cross PPO",
+        "Blue Cross Blue Shield PPO"
       ],
       "canProceed": true,
       "needsExactPlanName": false
@@ -372,7 +388,13 @@
       "status": "accepted",
       "canonicalPlan": "Florida Blue HMO",
       "displayName": "Florida Blue HMO",
-      "aliases": [],
+      "aliases": [
+        "FL Blue HMO",
+        "BCBS HMO",
+        "Blue Cross HMO",
+        "Blue Cross Blue Shield HMO"
+      ],
+      "callerNotice": "For adults, Florida Blue HMO is accepted only for diplopia (double vision).",
       "preauthRequired": true,
       "canProceed": false,
       "needsExactPlanName": false
@@ -1221,18 +1243,6 @@
         "Doctors Health"
       ],
       "canProceed": true,
-      "needsExactPlanName": true
-    },
-    {
-      "id": "accepted-florida-blue-hmo-2",
-      "status": "accepted",
-      "canonicalPlan": "Florida Blue HMO",
-      "displayName": "Fl Blue HMO",
-      "aliases": [
-        "Fl Blue HMO"
-      ],
-      "preauthRequired": true,
-      "canProceed": false,
       "needsExactPlanName": true
     },
     {

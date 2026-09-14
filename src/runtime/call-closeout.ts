@@ -278,34 +278,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-export class InMemoryCallPortal implements CallPortal {
-  readonly deliveries: CallPortalDelivery[] = [];
-  readonly waits: number[] = [];
-  private readonly results: Partial<
-    Record<CallPortalPhase, CallPortalResult[]>
-  >;
-
-  constructor(
-    results: Partial<Record<CallPortalPhase, CallPortalResult[]>> = {},
-  ) {
-    this.results = Object.fromEntries(
-      Object.entries(results).map(([phase, phaseResults]) => [
-        phase,
-        [...phaseResults],
-      ]),
-    );
-  }
-
-  async deliver(delivery: CallPortalDelivery): Promise<CallPortalResult> {
-    this.deliveries.push(delivery);
-    return this.results[delivery.phase]?.shift() ?? { ok: true, status: 200 };
-  }
-
-  async wait(ms: number): Promise<void> {
-    this.waits.push(ms);
-  }
-}
-
 export type CallStartContext = {
   callId: string;
   callerPhone: string;
@@ -506,6 +478,11 @@ export async function attachCallCloseout(input: {
         callState?.runtime.voiceLanguage ??
         input.call.initialVoiceLanguage,
       domainOutcomes,
+      // Persist the bounded lookup result for reporting without phone records
+      // or patient details. A phone match is context, not verified identity.
+      ...(callState
+        ? { phoneLookup: { status: callState.runtime.preCallLookup.status } }
+        : {}),
       ...(appointmentOutcome ? { appointmentOutcome } : {}),
       ...(capture.reportUnavailable ? { sessionReportUnavailable: true } : {}),
       ...input.call.livekitContext,

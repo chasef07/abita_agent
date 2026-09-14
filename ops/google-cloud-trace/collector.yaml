@@ -1,0 +1,52 @@
+extensions:
+  bearertokenauth/receiver:
+    token: ${env:TRACE_INGEST_TOKEN}
+  googleclientauth:
+    quota_project: ${env:GOOGLE_CLOUD_PROJECT}
+
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:8080
+        max_request_body_size: 4194304
+        auth:
+          authenticator: bearertokenauth/receiver
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 384
+    spike_limit_mib: 96
+  resource/project:
+    attributes:
+      - key: gcp.project_id
+        value: ${env:GOOGLE_CLOUD_PROJECT}
+        action: upsert
+
+exporters:
+  otlphttp/google:
+    endpoint: https://telemetry.googleapis.com
+    auth:
+      authenticator: googleclientauth
+    timeout: 10s
+    # Acknowledge only after Google's response. Cloud Run can throttle CPU
+    # after a request, so neither a background queue nor a batch processor
+    # belongs here. The agent already batches spans and retries transient HTTP failures.
+    sending_queue:
+      enabled: false
+    retry_on_failure:
+      enabled: false
+
+service:
+  extensions: [bearertokenauth/receiver, googleclientauth]
+  telemetry:
+    logs:
+      level: warn
+    metrics:
+      level: none
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource/project]
+      exporters: [otlphttp/google]

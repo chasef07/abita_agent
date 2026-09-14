@@ -12,9 +12,10 @@ export const primaryLLMOptions = {
 } as const satisfies InferenceLLMOptions;
 
 export const fallbackLLMOptions = {
-  model: "xai/grok-4.5",
+  model: "deepseek-ai/deepseek-v4-pro",
   modelOptions: {
-    max_completion_tokens: 512,
+    reasoning_effort: "low",
+    max_tokens: 512,
     parallel_tool_calls: false,
   },
   strictToolSchema: true,

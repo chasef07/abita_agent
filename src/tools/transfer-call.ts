@@ -16,6 +16,7 @@ import {
 } from "./handoff.js";
 import { getState } from "./session.js";
 import { domainOutcomesForTool } from "../state/observability.js";
+import { usesSandboxMiddleware } from "../runtime/middleware-routing.js";
 
 type TransferOutcomeStatus = "success" | "blocked" | "ambiguous" | "failed";
 
@@ -53,6 +54,16 @@ export const transfer_call = tool({
       record(status);
       return message;
     };
+    if (
+      usesSandboxMiddleware(
+        getOfficeProfileByPhone(state.runtime.trunkPhone).key,
+      )
+    ) {
+      return reply(
+        "blocked",
+        "Human transfers are unavailable in this sandbox call. No transfer was made; do not promise a staff callback.",
+      );
+    }
     if (transferIsAmbiguous(state)) {
       return reply("ambiguous", "The transfer may already be in progress.");
     }

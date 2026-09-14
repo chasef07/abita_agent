@@ -1,28 +1,33 @@
+import { objectSchema } from "./support/tool-schema.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createSchedulingTools } from "../scheduling/tools.js";
-import { clinicIsoDate, clinicTimestampMessage } from "../scheduling/clock.js";
-import type { AvailabilityResult } from "../scheduling/middleware.js";
+import {
+  addCalendarDays,
+  clinicIsoDate,
+  clinicTimestampMessage,
+} from "../scheduling/clock.js";
+import type { AvailabilityResult } from "../clients/owned-middleware.js";
 import { createConfirmedPatientState } from "./support/call-state.js";
 import { createToolContext } from "./support/tool-context.js";
 import { InMemorySchedulingMiddleware } from "./support/scheduling-middleware.js";
 import { deferredResult } from "./support/deferred-result.js";
-import { availabilityModelProjection } from "../scheduling/availability.js";
-import { clearAvailabilitySelection } from "../scheduling/state.js";
+import { clearAvailabilitySelection } from "../scheduling/availability.js";
 
-function inventory(count = 4): AvailabilityResult {
+function inventory(count = 4, startDate = "2026-09-06"): AvailabilityResult {
+  const date = addCalendarDays(startDate, 4);
   return {
     status: "found",
     dateShifted: false,
     shouldRetrySameSearch: false,
-    searchedFrom: "2026-09-06",
-    searchedThrough: "2026-09-19",
+    searchedFrom: startDate,
+    searchedThrough: addCalendarDays(startDate, 13),
     bookingTokenExpiresAt: "2026-09-05T16:15:00Z",
     slots: Array.from({ length: count }, (_, i) => ({
-      key: `provider-12-slot-${i}`,
+      key: `${date}-provider-12-slot-${i}`,
       provider: "Dr. Smith",
-      date: "2026-09-10",
+      date,
       time: `${i + 1}:15 PM`,
-      datetime: `2026-09-10T${i + 13}:15:00`,
+      datetime: `${date}T${i + 13}:15:00`,
       bookingToken: `private-token-${i}`,
     })),
   };
@@ -44,33 +49,41 @@ describe("conversational appointment inventory", () => {
     vi.useRealTimers();
   });
 
-  it.each([
-    [undefined, 14],
-    ["default", 14],
-    ["+2week", 14],
-    ["+1month", 30],
-    ["+3month", 90],
-  ] as const)(
-    "loads %s as %i days without requiring patient time preferences",
-    async (range, rangeDays) => {
+  it("accepts a start date and rejects the removed range options", () => {
+    const schema = objectSchema(
+      createSchedulingTools(new InMemorySchedulingMiddleware())
+        .list_available_appointments.parameters,
+    );
+    expect(
+      schema.safeParse({ visitType: "medical", startDate: "2026-11-02" })
+        .success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({ visitType: "medical", startDate: "2026-02-30" })
+        .success,
+    ).toBe(false);
+    for (const range of ["default", "+2week", "+1month", "+3month"]) {
+      expect(schema.safeParse({ visitType: "medical", range }).success).toBe(
+        false,
+      );
+    }
+  });
+
+  it.each([undefined, null, "2026-11-02"])(
+    "loads one 14-day window starting at %s",
+    async (startDate) => {
       const middleware = new InMemorySchedulingMiddleware({
-        availability: [inventory()],
+        availability: [inventory(4, startDate ?? undefined)],
       });
       const tool =
         createSchedulingTools(middleware).list_available_appointments;
       const { options } = context();
-      await tool.execute(
-        { ...(range ? { range } : {}), visitType: "medical" } as never,
-        options,
-      );
+      await tool.execute({ startDate, visitType: "medical" } as never, options);
       expect(middleware.operations).toHaveLength(1);
       expect(middleware.operations[0]).toMatchObject({
         kind: "availability",
-        request: { rangeDays },
+        request: { rangeDays: 14, startDate: startDate ?? "2026-09-06" },
       });
-      expect(middleware.operations[0]).not.toHaveProperty(
-        "request.requestedDate",
-      );
     },
   );
 
@@ -123,48 +136,64 @@ describe("conversational appointment inventory", () => {
     });
   });
 
-  it("expands to 30 days without changing IDs or shrinking on a later default request", async () => {
+  it("moves between explicit windows and reuses the loaded window for repeated preferences", async () => {
     const middleware = new InMemorySchedulingMiddleware({
-      availability: [inventory(2), inventory(4)],
+      availability: [inventory(2), inventory(4, "2026-09-20")],
     });
     const tool = createSchedulingTools(middleware).list_available_appointments;
     const { state, options } = context();
     await tool.execute({ visitType: "medical" } as never, options);
-    const earlier = state.availability.slots.map((slot) => slot.slotId);
     await tool.execute(
-      { visitType: "medical", range: "+1month" } as never,
+      { visitType: "medical", startDate: "2026-09-20" } as never,
       options,
     );
     await tool.execute(
-      { visitType: "medical", range: "default" } as never,
+      { visitType: "medical", startDate: "2026-09-20" } as never,
       options,
     );
     expect(middleware.operations).toHaveLength(2);
-    expect(state.availability.slots.map((slot) => slot.slotId)).toEqual([
-      ...earlier,
-      "S3",
-      "S4",
-    ]);
-    expect(state.availability.rangeDays).toBe(30);
+    expect(middleware.operations[1]).toMatchObject({
+      request: { rangeDays: 14, startDate: "2026-09-20" },
+    });
+    expect(state.availability.requestedStartDate).toBe("2026-09-20");
+    // Omission returns to the initial window; it never inherits a broader range.
+    await tool.execute({ visitType: "medical" } as never, options);
+    expect(middleware.operations).toHaveLength(2);
+    expect(state.availability.requestedStartDate).toBe("2026-09-06");
+    expect(state.availability.slots).toHaveLength(2);
   });
 
-  it("does not let an older short-window response replace a newer expanded inventory", async () => {
+  it("treats explicit tomorrow and omitted startDate as the same cached window", async () => {
+    const middleware = new InMemorySchedulingMiddleware({
+      availability: [inventory()],
+    });
+    const tool = createSchedulingTools(middleware).list_available_appointments;
+    const { options } = context();
+    await tool.execute({ visitType: "medical" } as never, options);
+    await tool.execute(
+      { visitType: "medical", startDate: "2026-09-06" } as never,
+      options,
+    );
+    expect(middleware.operations).toHaveLength(1);
+  });
+
+  it("does not let a late response for a previous window replace the newly requested window", async () => {
     const pending = deferredResult<AvailabilityResult>();
     const middleware = new InMemorySchedulingMiddleware({
-      availability: [pending.promise, inventory(4)],
+      availability: [pending.promise, inventory(4, "2026-09-20")],
     });
     const tool = createSchedulingTools(middleware).list_available_appointments;
     const { state, options } = context();
     const first = tool.execute({ visitType: "medical" } as never, options);
     await Promise.resolve();
     await tool.execute(
-      { visitType: "medical", range: "+1month" } as never,
+      { visitType: "medical", startDate: "2026-09-20" } as never,
       options,
     );
     pending.resolve(inventory(2));
     await first;
     expect(state.availability.slots).toHaveLength(4);
-    expect(state.availability.rangeDays).toBe(30);
+    expect(state.availability.requestedStartDate).toBe("2026-09-20");
   });
 
   it("refreshes a complete empty inventory instead of caching it forever", async () => {
@@ -203,13 +232,12 @@ describe("conversational appointment inventory", () => {
       });
       const tool =
         createSchedulingTools(middleware).list_available_appointments;
-      const { state, options } = context();
+      const { options } = context();
       await tool.execute({ visitType: "medical" } as never, options);
-      const deadline = state.availability.refreshAfter;
       for (let i = 0; i < 2; i++) {
         vi.advanceTimersByTime(20_000);
         await tool.execute({ visitType: "medical" } as never, options);
-        expect(state.availability.refreshAfter).toBe(deadline);
+        expect(middleware.operations).toHaveLength(1);
       }
       vi.advanceTimersByTime(20_001);
       await tool.execute({ visitType: "medical" } as never, options);
@@ -218,7 +246,7 @@ describe("conversational appointment inventory", () => {
   );
 
   it.each(["found", "none"] as const)(
-    "keeps incomplete expansion unknown after a fresh %s inventory",
+    "keeps an incomplete new window unknown after a fresh %s inventory",
     async (status) => {
       const first: AvailabilityResult =
         status === "found"
@@ -234,31 +262,34 @@ describe("conversational appointment inventory", () => {
         slots: [],
         dateShifted: false,
         shouldRetrySameSearch: true,
-        searchedFrom: "2026-09-06",
-        searchedThrough: "2026-10-05",
+        searchedFrom: "2026-09-20",
+        searchedThrough: "2026-10-03",
       };
       const middleware = new InMemorySchedulingMiddleware({
-        availability: [first, incomplete, inventory()],
+        availability: [first, incomplete, inventory(4, "2026-09-20")],
       });
       const tool =
         createSchedulingTools(middleware).list_available_appointments;
       const { state, options } = context();
-      await tool.execute({ range: "default", visitType: "medical" }, options);
+      await tool.execute(
+        {
+          startDate: null,
+          visitType: "medical",
+        },
+        options,
+      );
       vi.advanceTimersByTime(10_000);
       const result = await tool.execute(
-        { range: "+1month", visitType: "medical" },
+        { startDate: "2026-09-20", visitType: "medical" },
         options,
       );
       expect(result).toContain("couldn't finish checking availability");
       expect(state.availability.slots).toEqual([]);
-      expect(availabilityModelProjection(state)).toContain(
-        "No appointment inventory is active",
+      expect(result).not.toContain("no openings");
+      await tool.execute(
+        { startDate: "2026-09-20", visitType: "medical" },
+        options,
       );
-      expect(availabilityModelProjection(state)).not.toContain(
-        "inventory is empty",
-      );
-      expect(state.availability.refreshAfter).toBeUndefined();
-      await tool.execute({ range: "+1month", visitType: "medical" }, options);
       expect(middleware.operations).toHaveLength(3);
       expect(state.availability.slots).toHaveLength(4);
     },
@@ -278,22 +309,22 @@ describe("conversational appointment inventory", () => {
     expect(state.availability.slots.map((slot) => slot.slotId)).toEqual(ids);
   });
 
-  it("does not reuse an expanded inventory after scheduling context resets", async () => {
+  it("does not reuse a future window after scheduling context resets", async () => {
     const middleware = new InMemorySchedulingMiddleware({
       availability: [inventory(), inventory()],
     });
     const tool = createSchedulingTools(middleware).list_available_appointments;
     const { state, options } = context();
     await tool.execute(
-      { visitType: "medical", range: "+3month" } as never,
+      { visitType: "medical", startDate: "2026-11-02" } as never,
       options,
     );
     clearAvailabilitySelection(state, {
-      invalidateReads: "patient_context_changed",
+      invalidateReads: true,
     });
     await tool.execute({ visitType: "medical" } as never, options);
     expect(middleware.operations[1]).toMatchObject({
-      request: { rangeDays: 14 },
+      request: { rangeDays: 14, startDate: "2026-09-06" },
     });
     expect(state.availability.slots[0]?.slotId).not.toBe("S1");
   });

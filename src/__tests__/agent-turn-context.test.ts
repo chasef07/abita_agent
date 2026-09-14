@@ -10,7 +10,6 @@ import { createVoiceAgent } from "../agent.js";
 import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
 import { SPRING_HILL_OFFICE_PHONE } from "../customers/abita/profile.js";
 import { CALLER_CANDIDATE_REF } from "../state/call-state.js";
-import { patientModelProjection } from "../identity/patient-identity.js";
 import { createTestCallState } from "./support/call-state.js";
 
 const ownedMiddleware = new InMemoryOwnedMiddleware();
@@ -34,7 +33,6 @@ describe("completed user turn context", () => {
     sessions.push(session);
     session.userData = createTestCallState({
       officeKey: "spring-hill",
-      amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
       trunkPhone: SPRING_HILL_OFFICE_PHONE,
     });
     await session.start({
@@ -81,7 +79,6 @@ describe("completed user turn context", () => {
     async (transcript) => {
       const state = createTestCallState({
         officeKey: "spring-hill",
-        amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
         trunkPhone: SPRING_HILL_OFFICE_PHONE,
         preCallCandidates: [
           {
@@ -116,20 +113,16 @@ describe("completed user turn context", () => {
 
       expect(middleware.operations).toEqual([]);
       expect(state.identity.activePatient).toBeNull();
-      expect(state.identity.receipts).toEqual([]);
       expect(state.runtime.outcomeReceipts).toEqual([]);
-      expect(patientModelProjection(state)).not.toContain("LARRY TEST");
-      expect(patientModelProjection(state)).not.toContain(
-        "FLORIDA BLUE SHIELD",
+      expect(JSON.stringify(turnContext)).not.toMatch(
+        /LARRY TEST|FLORIDA BLUE SHIELD|patient-larry/,
       );
-      expect(patientModelProjection(state)).not.toContain("patient-larry");
     },
   );
 
   it("does not hydrate a candidate before a resolver tool call", async () => {
     const state = createTestCallState({
       officeKey: "spring-hill",
-      amdOfficePhone: SPRING_HILL_OFFICE_PHONE,
       trunkPhone: SPRING_HILL_OFFICE_PHONE,
       preCallCandidates: [
         {
@@ -137,6 +130,9 @@ describe("completed user turn context", () => {
           ref: CALLER_CANDIDATE_REF,
           firstName: "LARRY",
           patientId: "patient-larry",
+          lastName: "Doe",
+          dob: "01/01/1980",
+          appointments: [],
         },
       ],
     });
@@ -167,6 +163,6 @@ describe("completed user turn context", () => {
 function systemText(chatCtx: ChatContext): string {
   return chatCtx.items
     .filter((item) => item.type === "message" && item.role === "system")
-    .map((item) => item.textContent ?? "")
+    .map((item) => (item.type === "message" ? (item.textContent ?? "") : ""))
     .join(" ");
 }

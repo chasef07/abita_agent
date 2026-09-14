@@ -1,13 +1,12 @@
 import { createHash } from "node:crypto";
 import { ToolError, tool } from "@livekit/agents";
 import { z } from "zod";
+import { staffTaskPatient } from "../identity/patient-identity.js";
 import { getProductTenantConfig } from "../runtime/portal-auth.js";
 import {
-  activePatientDob,
-  activePatientId,
-  activePatientName,
   type CallState,
   type StaffTaskCategory,
+  STAFF_TASK_CATEGORIES,
 } from "../state/call-state.js";
 import {
   domainOutcomesForTool,
@@ -21,6 +20,7 @@ import {
   type OfficeProfile,
 } from "../customers/abita/profile.js";
 import { getState } from "./session.js";
+import { usesSandboxMiddleware } from "../runtime/middleware-routing.js";
 
 const TASK_CREATED_REPLY =
   "I wrote that down for the team. They'll review it and follow up.";
@@ -31,17 +31,13 @@ const TASK_FAILED_REPLY =
 
 const taskParameters = z.object({
   category: z
-    .enum([
-      "billing",
-      "appointments",
-      "documentation",
-      "optical",
-      "medication",
-      "referrals",
-      "other",
-    ])
+    .enum(STAFF_TASK_CATEGORIES)
     .describe(
-      "billing, separate unfinished appointment work, documentation, optical, medication, referrals including insurance prior authorization, or other.",
+      "optical includes glasses/contact prescriptions; medication includes refills and medication authorizations; " +
+        "insurance includes copays, coverage, referral requirements and service authorizations; referrals means specialist/imaging orders. " +
+        "pre_op/post_op mean surgical preparation/aftercare, not scheduling, refills or authorizations. " +
+        "For prior authorization, ask what it authorizes if unknown. If the caller still cannot specify medication versus service, category MUST be other, never insurance. " +
+        "Use other for any request still unclear after clarification.",
     ),
   urgency: z
     .enum(["high_priority", "normal", "non_urgent"])
@@ -53,14 +49,15 @@ const taskParameters = z.object({
     .trim()
     .min(1)
     .max(240)
-    .describe("Short staff inbox title naming the caller's request."),
+    .describe("Short staff inbox title for one unresolved need."),
   message: z
     .string()
     .trim()
     .min(1)
     .max(2500)
     .describe(
-      "Caller-provided details staff needs. Include medication and pharmacy when known; for prior authorization include patient, plan, visit type, and request.",
+      "Details of exactly ONE need for this patient; make another tool call for each additional need, even with the same category. " +
+        "Include medication/pharmacy, service/plan, authorization status and procedure timing when relevant. Preserve essential intake and list missing details.",
     ),
 });
 
@@ -76,9 +73,10 @@ class StaffTaskDeliveryError extends Error {}
 export const create_staff_task = tool({
   name: "create_staff_task",
   description:
-    "Send safe, non-urgent caller-approved work to staff after collecting the needed details. " +
-    "Do not use for completed appointment actions, urgent or clinical concerns, medication guidance or reactions, returned calls, or live-person requests; transfer those when policy requires. " +
-    "A created or duplicate result completes the request; describe it only as sent for staff review, without promising approval, completion, refill, or timing.",
+    "Send one safe, non-urgent caller-approved unresolved request per invocation. Submit distinct needs separately, even within one category. " +
+    "For records, search office knowledge for intake and delivery rules; speak restrictions and missing prerequisites even when already approved. " +
+    "Collect details; list gaps if incomplete. Follow Human Transfer policy for urgent or clinical concerns. " +
+    "Confirm submission only after success; staff owns fulfillment and timing.",
   parameters: taskParameters,
   execute: async (input, { ctx, toolCallId }): Promise<string> => {
     const state = getState(ctx);
@@ -89,7 +87,20 @@ export const create_staff_task = tool({
       "create_staff_task",
     );
     const office = getOfficeProfileByPhone(state.runtime.trunkPhone);
-    const payload = buildStaffTaskPayload(state, office, input);
+    if (usesSandboxMiddleware(office.key)) {
+      return outcomes.reply(
+        { outcome: "staff_task_failed", status: "blocked" },
+        "Staff tasks are unavailable in this sandbox call. No message was sent; do not promise staff follow-up.",
+      );
+    }
+    const validated = taskParameters.safeParse(input);
+    if (!validated.success) {
+      outcomes.record({ outcome: "staff_task_failed", status: "blocked" });
+      throw new ToolError(
+        "No request was sent. Use a supported non-billing category, a summary up to 240 characters and a message up to 2500 characters. Condense wording without losing collected details or missing prerequisites, then retry. Never silently truncate essential intake.",
+      );
+    }
+    const payload = buildStaffTaskPayload(state, office, validated.data);
     const existing = findStaffTaskReceipt(state, payload.idempotencyKey);
     if (existing) {
       return outcomes.reply(
@@ -174,26 +185,15 @@ function buildStaffTaskPayload(
   input: TaskParameters,
 ) {
   const officeKey = getProductOfficeKeyByPhone(state.runtime.trunkPhone);
-  const officePhone =
-    state.office.phoneOverrides[office.key] ?? office.amdOfficePhone;
-  const patientId = activePatientId(state);
-  const patientName = activePatientName(state);
-  const patientDob = activePatientDob(state);
-  const patient =
-    patientId || patientName || patientDob
-      ? {
-          ...(patientId ? { id: patientId } : {}),
-          ...(patientName ? { name: patientName } : {}),
-          ...(patientDob ? { dob: patientDob } : {}),
-        }
-      : undefined;
+  const officePhone = office.amdOfficePhone;
+  const patient = staffTaskPatient(state);
 
   const idempotencyKey = buildIdempotencyKey({
     callId: state.runtime.callId,
     category: input.category,
     message: input.message,
     officePhone,
-    patientId,
+    patientIdentity: patient?.id ?? JSON.stringify(patient ?? {}),
     summary: input.summary,
   });
 
@@ -221,13 +221,13 @@ function buildIdempotencyKey(input: {
   category: StaffTaskCategory;
   message: string;
   officePhone: string;
-  patientId: string | null;
+  patientIdentity: string;
   summary: string;
 }): string {
   const normalized = [
     input.callId,
     normalizePhoneNumber(input.officePhone),
-    input.patientId ?? "",
+    input.patientIdentity,
     input.category,
     normalizeText(input.summary),
     normalizeText(input.message),
