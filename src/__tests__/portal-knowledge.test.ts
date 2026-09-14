@@ -384,7 +384,7 @@ describe("Portal office knowledge tool", () => {
 });
 
 describe("Portal authority at the agent boundary", () => {
-  it("exposes the query-only tool without adding prompt instructions for every office", async () => {
+  it("exposes office knowledge with dedicated Frantz lookup guidance", async () => {
     const { createVoiceAgent } = await import("../agent.js");
     const { getOfficeProfiles } = await import("../customers/abita/profile.js");
     const { InMemoryOwnedMiddleware } =
@@ -401,7 +401,13 @@ describe("Portal authority at the agent boundary", () => {
         ),
         office.key,
       ).toBe(true);
-      expect(agent.instructions).not.toContain("search_office_knowledge");
+      if (office.key === "ophthalmology-demo") {
+        expect(agent.instructions).toContain(
+          "call search_office_knowledge. Do not guess order readiness or office policies.",
+        );
+      } else {
+        expect(agent.instructions).not.toContain("search_office_knowledge");
+      }
     }
   });
 });
