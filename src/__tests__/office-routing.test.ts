@@ -1269,22 +1269,29 @@ describe("model-facing tool definitions", () => {
       safeParse: (value: unknown) => { success: boolean };
       shape: Record<string, unknown>;
     };
-    expect(Object.keys(parameters.shape)).toEqual(["firstName", "dob"]);
+    expect(Object.keys(parameters.shape)).toEqual([
+      "firstName",
+      "lastName",
+      "dob",
+    ]);
     expect(
       parameters.safeParse({
         firstName: "Jane",
+        lastName: null,
         dob: null,
       }).success,
     ).toBe(true);
     expect(
       parameters.safeParse({
         firstName: "Jane",
+        lastName: null,
         dob: "01/01/1980",
       }).success,
     ).toBe(true);
-    expect(parameters.safeParse({ firstName: null, dob: null }).success).toBe(
-      true,
-    );
+    expect(
+      parameters.safeParse({ firstName: null, lastName: null, dob: null })
+        .success,
+    ).toBe(true);
     expect(parameters.safeParse({}).success).toBe(false);
     expect(
       parameters.safeParse({

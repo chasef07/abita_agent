@@ -1,4 +1,3 @@
-import { candidateSearchResult } from "./support/owned-middleware.js";
 import { describe, expect, it, vi } from "vitest";
 import {
   beginPatientCreation,
@@ -387,7 +386,7 @@ describe("patient identity", () => {
     await resolveExistingPatient(
       state,
       { firstName: "John", lastName: "Smith", dob: "02/02/1982" },
-      async () => candidateSearchResult(),
+      async () => ({ status: "not_found" as const }),
     );
 
     expect(state.identity.activePatient).toBeNull();
@@ -402,7 +401,7 @@ describe("patient identity", () => {
     await resolveExistingPatient(
       state,
       { firstName: "Maria", lastName: "Santos", dob: "03/03/1990" },
-      async () => candidateSearchResult(),
+      async () => ({ status: "not_found" as const }),
     );
     expect(state.identity.unregisteredPatientReceipt?.identity).toEqual({
       firstName: "Maria",
@@ -430,12 +429,7 @@ describe("patient identity", () => {
     const result = await resolveExistingPatient(
       state,
       { firstName: "John", lastName: "Smith", dob: "02/02/1982" },
-      async (_office, query) =>
-        "patientId" in query
-          ? verifiedResult("patient-2", "John Smith", "02/02/1982")
-          : candidateSearchResult(
-              verifiedResult("patient-2", "John Smith", "02/02/1982"),
-            ),
+      async () => verifiedResult("patient-2", "John Smith", "02/02/1982"),
     );
 
     expect(result.outcome).toBe("switched");

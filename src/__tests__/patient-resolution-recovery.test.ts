@@ -1,4 +1,3 @@
-import { candidateSearchResult } from "./support/owned-middleware.js";
 import { describe, expect, it, vi } from "vitest";
 import { HttpOwnedMiddleware } from "../clients/owned-middleware.js";
 import {
@@ -127,11 +126,12 @@ describe("audited patient recovery", () => {
     async (status) => {
       const state = createTestCallState();
       const lookup = vi.fn(async () =>
-        candidateSearchResult(
-          ...(status === "not_found"
-            ? []
-            : [receipt(), receipt("Jane Meyer", "01/01/1980", "two")]),
-        ),
+        status === "not_found"
+          ? { status }
+          : {
+              status,
+              matches: [receipt(), receipt("Jane Meyer", "01/01/1980", "two")],
+            },
       );
       for (let i = 0; i < 3; i++)
         expect(
@@ -239,9 +239,6 @@ describe("audited patient recovery", () => {
     const fetch = vi
       .fn()
       .mockRejectedValueOnce(new TypeError("synthetic network failure"))
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify(candidateSearchResult(receipt()))),
-      )
       .mockResolvedValueOnce(new Response(JSON.stringify(receipt())));
     const client = new HttpOwnedMiddleware({
       fetch,
@@ -255,7 +252,7 @@ describe("audited patient recovery", () => {
         )
       ).outcome,
     ).toBe("verified");
-    expect(fetch).toHaveBeenCalledTimes(3);
+    expect(fetch).toHaveBeenCalledTimes(2);
   });
 
   it("cannot reactivate the previous chart for a caller-declared different person with the same first name", async () => {
@@ -290,9 +287,6 @@ describe("audited patient recovery", () => {
     await resolveExistingPatient(state, { firstName: "Jane" }, vi.fn());
     const lookup = vi
       .fn()
-      .mockResolvedValueOnce(
-        candidateSearchResult(receipt("Jane Meyer", "01/01/2000", "two")),
-      )
       .mockResolvedValueOnce(receipt("Jane Meyer", "01/01/2000", "two"));
     expect(
       (
@@ -310,14 +304,15 @@ describe("audited patient recovery", () => {
     expect(state.identity.activePatient?.patientId).toBe("two");
     expect(lookup).toHaveBeenNthCalledWith(1, expect.any(String), {
       firstName: "Jane",
+      lastName: "Meyer",
       dob: "01/01/2000",
     });
-    expect(lookup).toHaveBeenCalledTimes(2);
+    expect(lookup).toHaveBeenCalledTimes(1);
   });
 
   it("keeps repeated unchanged switch requests idempotent while unresolved", async () => {
     const state = createTestCallState();
-    const lookup = vi.fn(async () => candidateSearchResult());
+    const lookup = vi.fn(async () => ({ status: "not_found" as const }));
     for (let i = 0; i < 3; i++)
       await resolveExistingPatient(
         state,
@@ -345,7 +340,7 @@ describe("audited patient recovery", () => {
 
   it("clears pending evidence for an explicit same-first-name patient switch", async () => {
     const state = createTestCallState();
-    const lookup = vi.fn(async () => candidateSearchResult());
+    const lookup = vi.fn(async () => ({ status: "not_found" as const }));
     await resolveExistingPatient(state, fullIdentity, lookup);
     const result = await resolveExistingPatient(
       state,
@@ -360,7 +355,7 @@ describe("audited patient recovery", () => {
 
   it("keeps other fields only for an explicit first-name correction", async () => {
     const state = createTestCallState();
-    const lookup = vi.fn(async () => candidateSearchResult());
+    const lookup = vi.fn(async () => ({ status: "not_found" as const }));
     await resolveExistingPatient(
       state,
       { ...fullIdentity, firstName: "Jame" },
@@ -373,6 +368,7 @@ describe("audited patient recovery", () => {
     );
     expect(lookup).toHaveBeenLastCalledWith(expect.any(String), {
       firstName: fullIdentity.firstName,
+      lastName: fullIdentity.lastName,
       dob: fullIdentity.dob,
     });
     await resolveExistingPatient(state, { firstName: "John" }, lookup);
@@ -405,7 +401,7 @@ describe("audited patient recovery", () => {
 
   it("does not reuse pending evidence after new-patient registration starts", async () => {
     const state = createTestCallState();
-    const lookup = vi.fn(async () => candidateSearchResult());
+    const lookup = vi.fn(async () => ({ status: "not_found" as const }));
     await resolveExistingPatient(state, fullIdentity, lookup);
     beginNewPatientRegistration(state, {
       firstName: "New",

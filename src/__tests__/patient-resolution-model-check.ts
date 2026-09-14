@@ -182,7 +182,7 @@ for (const model of [primary, fallback]) {
         content: "Thank you for calling Abita Eye Group. How can I help?",
       });
       if (scenario.activeSameName) {
-        const args = { firstName: "John", dob: null };
+        const args = { firstName: "John", lastName: null, dob: null };
         chatCtx.addMessage({
           role: "user",
           content: "This is John. I need an appointment.",
@@ -231,7 +231,11 @@ for (const model of [primary, fallback]) {
       }
       chatCtx.addMessage({ role: "user", content: scenario.user });
       if (scenario.promoted) {
-        const args = { firstName: scenario.firstName!, dob: null };
+        const args = {
+          firstName: scenario.firstName!,
+          lastName: null,
+          dob: null,
+        };
         const reply = await createResolvePatientTool(middleware).execute(args, {
           ctx: createToolContext(state),
           toolCallId: "synthetic-promotion",

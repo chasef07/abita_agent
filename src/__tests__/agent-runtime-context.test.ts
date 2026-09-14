@@ -186,7 +186,10 @@ describe("agent runtime context", () => {
       {
         input: "This is Jane.",
         toolCalls: [
-          { name: "resolve_patient", args: { firstName: "Jane", dob: null } },
+          {
+            name: "resolve_patient",
+            args: { lastName: null, firstName: "Jane", dob: null },
+          },
         ],
       },
     ]);

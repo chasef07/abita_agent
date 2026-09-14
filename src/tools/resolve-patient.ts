@@ -19,6 +19,13 @@ const resolvePatientParameters = z
       .describe(
         "Caller-provided first name of the patient receiving care; null if unknown.",
       ),
+    lastName: z
+      .string()
+      .trim()
+      .nullable()
+      .describe(
+        "Caller-spelled surname for fallback lookup; null until needed.",
+      ),
     dob: z
       .string()
       .trim()
@@ -36,10 +43,7 @@ export function createResolvePatientTool(middleware: OwnedMiddleware) {
     name: "resolve_patient",
     onDuplicate: "reject",
     description:
-      "Call immediately with the patient's supplied firstName. Include supplied DOB without confirmation; otherwise pass dob:null and follow the returned next step. " +
-      "Require DOB for same-name patient switches. " +
-      "If unresolved, add DOB and retry; if still unresolved, clarify DOB and first-name spelling and retry before offering staff. " +
-      "After success, say the acknowledgment, never internal appointment references. Use caller-provided identity only. Use add_patient for registration.",
+      "Call immediately with supplied firstName and any supplied DOB. If phone matching fails, ask for spelled lastName and DOB, then retry with all three. Require DOB for same-name patient switches. Follow the returned next step; never repeat unchanged failed lookups or expose internal chart references. Use caller-provided identity only. Use add_patient for registration.",
     parameters: resolvePatientParameters,
     execute: async (
       identity: ResolvePatientArgs,
@@ -54,6 +58,7 @@ export function createResolvePatientTool(middleware: OwnedMiddleware) {
       );
       const suppliedIdentity = {
         firstName: identity.firstName ?? undefined,
+        lastName: identity.lastName ?? undefined,
         dob: identity.dob ?? undefined,
       };
       let resolution: PatientIdentityResolution;

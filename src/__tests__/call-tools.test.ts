@@ -147,15 +147,7 @@ function stubPatient(
 function stubPatientSearch(
   ...responses: PatientResolveResult[]
 ): InMemoryOwnedMiddleware {
-  return stubPatient(
-    ...responses.flatMap<PatientResolveResult>((result) =>
-      result.status === "verified"
-        ? [candidateSearchResult(result), result]
-        : result.status === "not_found"
-          ? [candidateSearchResult()]
-          : [result],
-    ),
-  );
+  return stubPatient(...responses);
 }
 
 function verifiedPatientResult(
@@ -245,7 +237,7 @@ describe("stateful call tools", () => {
 
   it("keeps private patient references out of the resolve_patient schema", () => {
     expect(Object.keys(objectSchema(resolve_patient.parameters).shape)).toEqual(
-      ["firstName", "dob"],
+      ["firstName", "lastName", "dob"],
     );
   });
 
@@ -498,14 +490,7 @@ describe("stateful call tools", () => {
       markAcceptedInsurance(state);
       const middleware = useMiddleware({
         createPatient: [creation.promise],
-        resolvePatient: [
-          lookup.promise.then((result) =>
-            result.status === "verified"
-              ? candidateSearchResult(result)
-              : result,
-          ),
-          lookup.promise,
-        ],
+        resolvePatient: [lookup.promise],
       });
 
       const pendingCreation = add_patient.execute(
@@ -534,7 +519,7 @@ describe("stateful call tools", () => {
         } as never,
       );
       const pendingResolution = resolve_patient.execute(
-        { firstName: "John", dob: "02/02/1982" },
+        { lastName: "Doe", firstName: "John", dob: "02/02/1982" },
         {
           ctx: createToolContext(state) as never,
           toolCallId: "tool-2",
@@ -578,7 +563,6 @@ describe("stateful call tools", () => {
       expect(middleware.operations.map(({ name }) => name)).toEqual([
         "createPatient",
         "resolvePatient",
-        "resolvePatient",
       ]);
     },
   );
@@ -618,7 +602,7 @@ describe("stateful call tools", () => {
       toolCallId: "tool-1",
     } as never);
     const resolution = resolve_patient.execute(
-      { firstName: "John", dob: "02/02/1982" },
+      { lastName: "Doe", firstName: "John", dob: "02/02/1982" },
       {
         ctx: createToolContext(state) as never,
         toolCallId: "tool-2",
@@ -627,7 +611,7 @@ describe("stateful call tools", () => {
     deferred.resolve(createdPatientResult());
 
     await expect(resolution).rejects.toThrow(
-      "The first-name search could not be verified.",
+      "I couldn't safely verify the patient chart.",
     );
     await expect(pendingCreation).resolves.toBe(
       "I created a patient chart for Jane Doe. We can continue with scheduling.",
@@ -1345,10 +1329,7 @@ describe("stateful call tools", () => {
     );
 
     const result = await resolve_patient.execute(
-      {
-        firstName: "Jane",
-        dob: "01/01/1980",
-      },
+      { lastName: "Doe", firstName: "Jane", dob: "01/01/1980" },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
@@ -1412,22 +1393,31 @@ describe("stateful call tools", () => {
       else stubPatient(resolved, resolved);
       const ctx = createToolContext(state);
 
-      await resolve_patient.execute({ firstName: "Different", dob: null }, {
-        ctx,
-        toolCallId: "switch-start",
-      } as never);
+      await resolve_patient.execute(
+        { lastName: null, firstName: "Different", dob: null },
+        {
+          ctx,
+          toolCallId: "switch-start",
+        } as never,
+      );
       expect(state.identity.activePatient).toBeNull();
       expect(state.availability.slots).toEqual([]);
-      await resolve_patient.execute({ firstName: "John", dob: "02/02/1982" }, {
-        ctx,
-        toolCallId: "switch-finish",
-      } as never);
+      await resolve_patient.execute(
+        { lastName: "Doe", firstName: "John", dob: "02/02/1982" },
+        {
+          ctx,
+          toolCallId: "switch-finish",
+        } as never,
+      );
 
       expect(state.identity.activePatient?.patientId).toBe("patient-2");
-      await resolve_patient.execute({ firstName: "John", dob: "02/02/1982" }, {
-        ctx,
-        toolCallId: "same-patient",
-      } as never);
+      await resolve_patient.execute(
+        { lastName: "Doe", firstName: "John", dob: "02/02/1982" },
+        {
+          ctx,
+          toolCallId: "same-patient",
+        } as never,
+      );
       expect(domainOutcomeReceipts(state)).toMatchObject([
         {
           callId: "switch-start",
@@ -1454,10 +1444,7 @@ describe("stateful call tools", () => {
     stubPatientSearch(verifiedPatientResult());
 
     await resolve_patient.execute(
-      {
-        firstName: "Jane",
-        dob: "01/01/1980",
-      },
+      { lastName: "Doe", firstName: "Jane", dob: "01/01/1980" },
       { ctx: createToolContext(state), toolCallId: "first-patient" } as never,
     );
 
@@ -1504,10 +1491,7 @@ describe("stateful call tools", () => {
     );
 
     const result = await resolve_patient.execute(
-      {
-        firstName: "Jane",
-        dob: "01/01/1980",
-      },
+      { lastName: "Doe", firstName: "Jane", dob: "01/01/1980" },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
@@ -1534,7 +1518,7 @@ describe("stateful call tools", () => {
         rescheduleToken: "private-reschedule-token-two",
       }),
     ]);
-    expect(middleware.requests.resolvePatient).toHaveLength(2);
+    expect(middleware.requests.resolvePatient).toHaveLength(1);
   });
 
   it("returns every loaded appointment reference for subsequent appointment tools", async () => {
@@ -1556,10 +1540,7 @@ describe("stateful call tools", () => {
     );
 
     const result = await resolve_patient.execute(
-      {
-        firstName: "Jane",
-        dob: "01/01/1980",
-      },
+      { lastName: "Doe", firstName: "Jane", dob: "01/01/1980" },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
@@ -1594,10 +1575,7 @@ describe("stateful call tools", () => {
     );
 
     const result = await resolve_patient.execute(
-      {
-        firstName: "John",
-        dob: "02/02/1982",
-      },
+      { lastName: "Doe", firstName: "John", dob: "02/02/1982" },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
@@ -1633,10 +1611,7 @@ describe("stateful call tools", () => {
     );
 
     const result = await resolve_patient.execute(
-      {
-        firstName: "Chase",
-        dob: "04/07/2000",
-      },
+      { lastName: "Test", firstName: "Chase", dob: "04/07/2000" },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
@@ -1695,7 +1670,7 @@ describe("stateful call tools", () => {
         ctx: createToolContext(state) as never,
         toolCallId: "tool-1",
       } as never),
-    ).rejects.toThrow("I couldn't verify the chart receipt.");
+    ).rejects.toThrow("I couldn't safely verify the patient chart.");
     expect(state.identity.activePatient).toBeNull();
   });
 
@@ -1714,15 +1689,12 @@ describe("stateful call tools", () => {
     );
 
     const result = resolve_patient.execute(
-      {
-        firstName: "Ana",
-        dob: "01/01/1980",
-      },
+      { lastName: "Doe", firstName: "Ana", dob: "01/01/1980" },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
     await expect(result).rejects.toThrow(
-      "I couldn't verify the chart receipt.",
+      "I couldn't safely verify the patient chart.",
     );
     expect(state.identity.activePatient).toBeNull();
     expect(domainOutcomeReceipts(state)).toMatchObject([
@@ -1742,10 +1714,7 @@ describe("stateful call tools", () => {
     });
 
     const result = await resolve_patient.execute(
-      {
-        firstName: "Lisa",
-        dob: "10/03/2020",
-      },
+      { lastName: "Doe", firstName: "Lisa", dob: "10/03/2020" },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
@@ -1767,40 +1736,33 @@ describe("stateful call tools", () => {
 
     await expect(
       resolve_patient.execute(
-        {
-          firstName: "Lisa",
-          dob: "10/03/2020",
-        },
+        { lastName: "Doe", firstName: "Lisa", dob: "10/03/2020" },
         {
           ctx: createToolContext(state) as never,
           toolCallId: "tool-1",
         } as never,
       ),
-    ).rejects.toThrow("The first-name search could not be verified.");
+    ).rejects.toThrow("I couldn't safely verify the patient chart.");
     expect(state.identity.privateCandidates).toHaveLength(1);
     expect(state.identity.activePatient).toBeNull();
   });
 
-  it("returns an actionable failed lookup for an invalid patient response", async () => {
+  it("asks for a surname to recover an invalid broad patient response", async () => {
     const state = createState();
     setSingleArshedPreCallCandidate(state);
     stubPatient({ status: "error", reason: "invalid_response" });
 
     const failure = resolve_patient.execute(
-      {
-        firstName: "Lisa",
-        dob: "10/03/2020",
-      },
+      { lastName: null, firstName: "Lisa", dob: "10/03/2020" },
       {
         ctx: createToolContext(state) as never,
         toolCallId: "tool-1",
       } as never,
     );
 
-    await expect(failure).rejects.toThrow(
-      "The first-name search could not be verified.",
-    );
-    await expect(failure).rejects.toBeInstanceOf(ToolError);
+    await expect(failure).resolves.toContain("last name");
+    expect(state.identity.activePatient).toBeNull();
+    expect(state.identity.unregisteredPatientReceipt).toBeNull();
   });
 
   it("records a lookup outcome when identity resolution throws early", async () => {
@@ -1813,10 +1775,7 @@ describe("stateful call tools", () => {
 
     await expect(
       tool.execute(
-        {
-          firstName: "Different",
-          dob: "01/01/1980",
-        },
+        { lastName: "Doe", firstName: "Different", dob: "01/01/1980" },
         {
           ctx: createToolContext(state) as never,
           toolCallId: "tool-1",
@@ -1836,31 +1795,19 @@ describe("stateful call tools", () => {
     const state = createState();
     setPatientUnknown(state);
     const middleware = new InMemoryOwnedMiddleware({
-      resolvePatient: [
-        candidateSearchResult(verifiedPatientResult()),
-        verifiedPatientResult(),
-      ],
+      resolvePatient: [verifiedPatientResult()],
     });
     const tool = createResolvePatientTool(middleware);
 
     await expect(
-      tool.execute(
-        {
-          firstName: "Jane",
-          dob: "01/01/1980",
-        },
-        {
-          ctx: createToolContext(state) as never,
-          toolCallId: "tool-1",
-        } as never,
-      ),
+      tool.execute({ lastName: "Doe", firstName: "Jane", dob: "01/01/1980" }, {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never),
     ).resolves.toContain("I found you in our system, Jane Doe.");
     expect(
       middleware.requests.resolvePatient.map((request) => request.identity),
-    ).toEqual([
-      { firstName: "Jane", dob: "01/01/1980" },
-      { patientId: "patient-1" },
-    ]);
+    ).toEqual([{ firstName: "Jane", lastName: "Doe", dob: "01/01/1980" }]);
   });
 
   it("contains a rejected private-candidate hydration within resolve_patient", async () => {
@@ -1884,16 +1831,10 @@ describe("stateful call tools", () => {
     );
 
     await expect(
-      tool.execute(
-        {
-          dob: null,
-          firstName: "Jane",
-        },
-        {
-          ctx: createToolContext(state) as never,
-          toolCallId: "tool-1",
-        } as never,
-      ),
+      tool.execute({ lastName: null, dob: null, firstName: "Jane" }, {
+        ctx: createToolContext(state) as never,
+        toolCallId: "tool-1",
+      } as never),
     ).rejects.toThrow("candidate hydration failed");
     expect(state.identity.activePatient).toBeNull();
     expect(domainOutcomeReceipts(state)).toMatchObject([
@@ -1926,10 +1867,7 @@ describe("stateful call tools", () => {
     });
 
     const result = await resolve_patient.execute(
-      {
-        firstName: "Ella",
-        dob: "10/03/2020",
-      },
+      { lastName: "Arshed", firstName: "Ella", dob: "10/03/2020" },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
@@ -1980,10 +1918,7 @@ describe("stateful call tools", () => {
     ]);
 
     const result = await resolve_patient.execute(
-      {
-        firstName: "Monique",
-        dob: "12/21/2016",
-      },
+      { lastName: "Doe", firstName: "Monique", dob: "12/21/2016" },
       { ctx: createToolContext(state) as never, toolCallId: "tool-1" } as never,
     );
 
@@ -2029,10 +1964,7 @@ describe("stateful call tools", () => {
     };
 
     const result = await resolve_patient.execute(
-      {
-        dob: null,
-        firstName: "Brandon",
-      },
+      { lastName: null, dob: null, firstName: "Brandon" },
       {
         ctx: createToolContext(state) as never,
         toolCallId: "tool-1",
@@ -2061,10 +1993,7 @@ describe("stateful call tools", () => {
     setSingleArshedPreCallCandidate(state);
 
     const result = await resolve_patient.execute(
-      {
-        dob: null,
-        firstName: "Esa",
-      },
+      { lastName: null, dob: null, firstName: "Esa" },
       {
         ctx: createToolContext(state) as never,
         toolCallId: "tool-1",
@@ -2103,6 +2032,7 @@ describe("stateful call tools", () => {
     const identity = objectSchema<
       Parameters<typeof resolve_patient.execute>[0]
     >(resolve_patient.parameters).parse({
+      lastName: null,
       firstName: "Amy",
       dob: null,
     });
@@ -2132,6 +2062,7 @@ describe("stateful call tools", () => {
     const identity = objectSchema<
       Parameters<typeof resolve_patient.execute>[0]
     >(resolve_patient.parameters).parse({
+      lastName: null,
       firstName: "Esa",
       dob: "",
     });
@@ -2148,10 +2079,7 @@ describe("stateful call tools", () => {
     setPatientUnknown(state);
 
     const result = await resolve_patient.execute(
-      {
-        firstName: "Jane",
-        dob: null,
-      },
+      { lastName: null, firstName: "Jane", dob: null },
       {
         ctx: createToolContext(state) as never,
         toolCallId: "tool-1",

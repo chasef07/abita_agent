@@ -17,15 +17,19 @@ const candidate = {
 };
 
 describe("patient resolution conversation contract", () => {
-  it("accepts first name and DOB without exposing surname", () => {
+  it("accepts a nullable surname for the narrower fallback", () => {
     const tool = createResolvePatientTool(new InMemoryOwnedMiddleware());
     expect(Object.keys(objectSchema(tool.parameters).shape)).toEqual([
       "firstName",
+      "lastName",
       "dob",
     ]);
     expect(
-      objectSchema(tool.parameters).safeParse({ firstName: "Jane", dob: null })
-        .success,
+      objectSchema(tool.parameters).safeParse({
+        firstName: "Jane",
+        lastName: null,
+        dob: null,
+      }).success,
     ).toBe(true);
   });
 
@@ -49,26 +53,19 @@ describe("patient resolution conversation contract", () => {
 
   it("looks up first name and DOB when phone candidates are absent", async () => {
     const middleware = new InMemoryOwnedMiddleware({
-      resolvePatient: [
-        {
-          status: "candidates",
-          source: "first_name",
-          complete: true,
-          matches: [],
-        },
-      ],
+      resolvePatient: [{ status: "not_found" }],
     });
     const state = createTestCallState();
     const tool = createResolvePatientTool(middleware);
     const firstNameReply = await tool.execute(
-      { firstName: "Jane", dob: null },
+      { lastName: null, firstName: "Jane", dob: null },
       { ctx: createToolContext(state), toolCallId: "first-name" } as never,
     );
     expect(firstNameReply).toContain("date of birth");
     expect(middleware.operations).toEqual([]);
     expect(state.identity.activePatient).toBeNull();
     await tool.execute(
-      { firstName: "Jane", dob: "01/02/1980" } as never,
+      { firstName: "Jane", lastName: "Doe", dob: "01/02/1980" } as never,
       {
         ctx: createToolContext(state),
         toolCallId: "lookup",
@@ -78,21 +75,14 @@ describe("patient resolution conversation contract", () => {
     expect(middleware.requests.resolvePatient).toEqual([
       {
         office: state.runtime.trunkPhone,
-        identity: { firstName: "Jane", dob: "01/02/1980" },
+        identity: { firstName: "Jane", lastName: "Doe", dob: "01/02/1980" },
       },
     ]);
   });
 
   it("asks for DOB after an unmatched first name, then accepts clarified phone-match identity", async () => {
     const middleware = new InMemoryOwnedMiddleware({
-      resolvePatient: [
-        {
-          status: "candidates",
-          source: "first_name",
-          complete: true,
-          matches: [],
-        },
-      ],
+      resolvePatient: [{ status: "not_found" }],
     });
     const state = createTestCallState({ preCallCandidates: [candidate] });
     const tool = createResolvePatientTool(middleware);
@@ -100,17 +90,20 @@ describe("patient resolution conversation contract", () => {
       ctx: createToolContext(state),
       toolCallId: "clarify",
     } as never;
-    const first = await tool.execute({ firstName: "Jame", dob: null }, options);
+    const first = await tool.execute(
+      { lastName: null, firstName: "Jame", dob: null },
+      options,
+    );
     expect(first).toContain("date of birth");
     expect(middleware.operations).toHaveLength(0);
     const second = await tool.execute(
-      { firstName: "Jame", dob: "02/02/1980" },
+      { lastName: "Doe", firstName: "Jame", dob: "02/02/1980" },
       options,
     );
     expect(second).toContain("couldn't find a matching patient");
     expect(state.identity.activePatient).toBeNull();
     const corrected = await tool.execute(
-      { firstName: "J-A-N-E", dob: candidate.dob },
+      { lastName: "Doe", firstName: "J-A-N-E", dob: candidate.dob },
       options,
     );
     expect(corrected).toContain("I found you in our system, Jane Doe");
@@ -121,9 +114,7 @@ describe("patient resolution conversation contract", () => {
     const middleware = new InMemoryOwnedMiddleware({
       resolvePatient: [
         {
-          status: "candidates",
-          source: "first_name",
-          complete: true,
+          status: "multiple_matches",
           matches: [
             { ...candidate, status: "candidate" },
             { ...candidate, status: "candidate", patientId: "synthetic-2" },
@@ -134,16 +125,14 @@ describe("patient resolution conversation contract", () => {
     const state = createTestCallState();
     const tool = createResolvePatientTool(middleware);
     const reply = await tool.execute(
-      { firstName: "Jane", dob: candidate.dob },
+      { lastName: "Doe", firstName: "Jane", dob: candidate.dob },
       {
         ctx: createToolContext(state),
         toolCallId: "fallback-collision",
       } as never,
     );
-    expect(reply).toBe("I found more than one matching patient.");
-    expect(tool.description).toContain(
-      "clarify DOB and first-name spelling and retry before offering staff",
-    );
+    expect(reply).toContain("More than one chart");
+    expect(tool.description).toContain("ask for spelled lastName and DOB");
     expect(reply).not.toContain("confirm");
     expect(state.identity.activePatient).toBeNull();
   });

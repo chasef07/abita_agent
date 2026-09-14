@@ -25,10 +25,7 @@ import {
   createConfirmedPatientState,
   createTestCallState,
 } from "./support/call-state.js";
-import {
-  InMemoryOwnedMiddleware,
-  candidateSearchResult,
-} from "./support/owned-middleware.js";
+import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
 
 class ToolCapturingFakeLLM extends voice.testing.FakeLLM {
   readonly toolRequests: string[][] = [];
@@ -71,11 +68,7 @@ describe("stable tool catalog", () => {
 
   it("keeps pre-call, identity, and availability work on one call-scoped middleware", async () => {
     const middleware = new InMemoryOwnedMiddleware({
-      resolvePatient: [
-        { status: "not_found" },
-        candidateSearchResult(verifiedPatient()),
-        verifiedPatient(),
-      ],
+      resolvePatient: [{ status: "not_found" }, verifiedPatient()],
       getAvailability: [availabilityFound()],
     });
     const preCall = await lookupByPhone(
@@ -94,10 +87,7 @@ describe("stable tool catalog", () => {
         toolCalls: [
           {
             name: "resolve_patient",
-            args: {
-              firstName: "Jane",
-              dob: "01/01/1980",
-            },
+            args: { lastName: "Doe", firstName: "Jane", dob: "01/01/1980" },
           },
         ],
       },
@@ -131,7 +121,6 @@ describe("stable tool catalog", () => {
       .wait();
 
     expect(middleware.operations.map(({ name }) => name)).toEqual([
-      "resolvePatient",
       "resolvePatient",
       "resolvePatient",
       "getAvailability",
@@ -228,10 +217,7 @@ describe("stable tool catalog", () => {
           toolCalls: [
             {
               name: "resolve_patient",
-              args: {
-                firstName: "John",
-                dob: null,
-              },
+              args: { lastName: null, firstName: "John", dob: null },
             },
           ],
         },
@@ -267,10 +253,7 @@ describe("stable tool catalog", () => {
         toolCalls: [
           {
             name: "resolve_patient",
-            args: {
-              firstName: "Jane",
-              dob: "01/02/1980",
-            },
+            args: { lastName: "Doe", firstName: "Jane", dob: "01/02/1980" },
           },
         ],
       },
@@ -284,7 +267,6 @@ describe("stable tool catalog", () => {
     session.userData = createTestCallState();
     const middleware = new InMemoryOwnedMiddleware({
       resolvePatient: [
-        candidateSearchResult(verifiedPatient({ dob: "01/02/1980" })),
         verifiedPatient({
           dob: "01/02/1980",
           insuranceCarrier: null,
@@ -321,7 +303,7 @@ describe("stable tool catalog", () => {
 
   it("returns the add_patient identity guard before middleware mutation", async () => {
     const middleware = new InMemoryOwnedMiddleware({
-      resolvePatient: [candidateSearchResult()],
+      resolvePatient: [{ status: "not_found" as const }],
       createPatient: [createdPatient()],
     });
     const state = createTestCallState({
@@ -360,10 +342,7 @@ describe("stable tool catalog", () => {
         toolCalls: [
           {
             name: "resolve_patient",
-            args: {
-              firstName: "Jane",
-              dob: "01/01/1980",
-            },
+            args: { lastName: "Doe", firstName: "Jane", dob: "01/01/1980" },
           },
         ],
       },
@@ -428,6 +407,7 @@ describe("stable tool catalog", () => {
     expect(session.userData.identity.unregisteredPatientReceipt).toEqual({
       identity: {
         firstName: "Jane",
+        lastName: "Doe",
         dob: "01/01/1980",
       },
       lookupOperationVersion: session.userData.identity.operationVersion,

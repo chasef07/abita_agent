@@ -127,20 +127,7 @@ describe("create_staff_task", () => {
     } as never;
     const resolve = createResolvePatientTool(
       new InMemoryOwnedMiddleware({
-        resolvePatient: [
-          {
-            status: "candidates",
-            source: "first_name",
-            complete: true,
-            matches: [],
-          },
-          {
-            status: "candidates",
-            source: "first_name",
-            complete: true,
-            matches: [],
-          },
-        ],
+        resolvePatient: [{ status: "not_found" }, { status: "not_found" }],
       }),
     );
     const input = {
@@ -150,7 +137,10 @@ describe("create_staff_task", () => {
       message: "Patient requests a visit summary for staff review.",
     };
     for (const firstName of ["Alex", "Morgan"]) {
-      await resolve.execute({ firstName, dob: "02/03/1990" }, options);
+      await resolve.execute(
+        { lastName: "Doe", firstName, dob: "02/03/1990" },
+        options,
+      );
       await create_staff_task.execute(input, options);
     }
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -158,8 +148,8 @@ describe("create_staff_task", () => {
       JSON.parse(call[1]!.body as string),
     );
     expect(bodies.map((body) => body.patient)).toEqual([
-      { name: "Alex", dob: "02/03/1990" },
-      { name: "Morgan", dob: "02/03/1990" },
+      { name: "Alex Doe", dob: "02/03/1990" },
+      { name: "Morgan Doe", dob: "02/03/1990" },
     ]);
     expect(bodies[0].idempotencyKey).not.toBe(bodies[1].idempotencyKey);
     expect(bodies.map((body) => body.callId)).toEqual([
@@ -304,7 +294,10 @@ describe("create_staff_task", () => {
     } as never;
     const resolve = createResolvePatientTool(new InMemoryOwnedMiddleware());
     for (let i = 0; i < 2; i++)
-      await resolve.execute({ firstName: "Alex", dob: null }, options);
+      await resolve.execute(
+        { lastName: null, firstName: "Alex", dob: null },
+        options,
+      );
     await create_staff_task.execute(
       {
         category: "optical",
@@ -383,13 +376,16 @@ describe("create_staff_task", () => {
         registration = beginPatientCreation(state);
       } else {
         older = resolve.execute(
-          { firstName: "Alex", dob: "02/03/1990" },
+          { lastName: "Doe", firstName: "Alex", dob: "02/03/1990" },
           options,
         );
         await Promise.resolve();
         await Promise.resolve();
       }
-      await resolve.execute({ firstName: "Morgan", dob: null }, options);
+      await resolve.execute(
+        { lastName: null, firstName: "Morgan", dob: null },
+        options,
+      );
       if (registration)
         commitPatientCreation(state, registration, {
           ...receipt,
@@ -448,13 +444,16 @@ describe("create_staff_task", () => {
         toolCallId: "reconfirm",
       } as never;
       const oldLookup = resolve.execute(
-        { firstName: "Alex", dob: "02/03/1990" },
+        { lastName: "Doe", firstName: "Alex", dob: "02/03/1990" },
         options,
       );
       await vi.waitFor(() =>
         expect(middleware.requests.resolvePatient).toHaveLength(1),
       );
-      await resolve.execute({ firstName: "Jane", dob: null }, options);
+      await resolve.execute(
+        { lastName: null, firstName: "Jane", dob: null },
+        options,
+      );
       finish({
         status: "verified",
         patientId: "synthetic-alex",
