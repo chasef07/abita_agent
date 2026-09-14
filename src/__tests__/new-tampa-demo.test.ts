@@ -67,7 +67,7 @@ describe("New Tampa 320 demo", () => {
     expect(prompt).not.toMatch(/Willowmere|Clearbrook|988/);
     expect(
       getOfficeProfileByPhone(OPHTHALMOLOGY_DEMO_TRUNK_PHONE).displayName,
-    ).toBe("Clearbrook Eye Center");
+    ).toBe("Frantz EyeCare");
   });
 
   it("explains routine exam versus Doctor Scott Friedman, then requires agreement to Doctor Smur", async () => {

@@ -281,9 +281,9 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
   }),
   "ophthalmology-demo": defineOffice({
     key: "ophthalmology-demo",
-    displayName: "Clearbrook Eye Center",
+    displayName: "Frantz EyeCare",
     trunkPhones: [OPHTHALMOLOGY_DEMO_TRUNK_PHONE],
-    greeting: "Hi, this is Maya at Clearbrook Eye Center. How can I help?",
+    greeting: "Hi, this is Maya at Frantz EyeCare. How can I help?",
     roleFile: "SOUL_OPHTHALMOLOGY_DEMO.md",
     care: {
       medical: {

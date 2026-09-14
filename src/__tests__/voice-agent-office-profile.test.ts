@@ -252,9 +252,9 @@ const officeBehaviors: OfficeBehavior[] = [
     trunks: [NORTH_MIAMI_BEACH_OPTICAL_OFFICE_PHONE],
   },
   {
-    displayName: "Clearbrook Eye Center",
+    displayName: "Frantz EyeCare",
     englishSpeaker: "wawona",
-    greeting: "Hi, this is Maya at Clearbrook Eye Center. How can I help?",
+    greeting: "Hi, this is Maya at Frantz EyeCare. How can I help?",
     handoff: {
       mode: "phone",
       target: `tel:${DEMO_TRANSFER_NUMBER}`,
@@ -270,7 +270,7 @@ const officeBehaviors: OfficeBehavior[] = [
       },
     },
     key: "ophthalmology-demo",
-    promptMarker: "a fictional ophthalmology clinic",
+    promptMarker: "an ophthalmology clinic",
     scheduling: {
       medical: { supported: true },
       routineVision: { supported: true },
