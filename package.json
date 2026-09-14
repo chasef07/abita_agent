@@ -28,7 +28,7 @@
     "double-metaphone": "2.0.1",
     "fast-fuzzy": "1.12.0",
     "livekit-server-sdk": "^2.18.0",
-    "zod": "^4.5.4"
+    "zod": "^4.6.2"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
