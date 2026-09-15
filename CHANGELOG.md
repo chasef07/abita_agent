@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.3.1](https://github.com/chasef07/abita_agent/compare/5.3.0...5.3.1) (2026-09-15)
+
+
+### Bug Fixes
+
+* route routine vision follow-up to scheduling ([#487](https://github.com/chasef07/abita_agent/issues/487)) ([35612a8](https://github.com/chasef07/abita_agent/commit/35612a8c2a1b0b6fbdef92e8a33d1539cc0f1af6))
+
 ## [5.3.0](https://github.com/chasef07/abita_agent/compare/5.2.4...5.3.0) (2026-09-15)
 
 
