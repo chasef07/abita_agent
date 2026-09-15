@@ -904,10 +904,10 @@ describe("model-facing tool definitions", () => {
       "before new-patient creation",
     );
     expect(check_insurance.description).toContain(
-      "A result requiring staff follow-up needs caller permission, then a normal insurance task",
+      "If staff follow-up is needed, get caller permission and create a normal staff task",
     );
     expect(check_insurance.description).toContain(
-      "transfer only if task creation is unavailable, fails, or the caller declines",
+      "Transfer only if task creation is unavailable, fails, or the caller declines",
     );
 
     const parameters = check_insurance.parameters as {

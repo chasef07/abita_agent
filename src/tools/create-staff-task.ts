@@ -34,7 +34,7 @@ const taskParameters = z.object({
     .enum(STAFF_TASK_CATEGORIES)
     .describe(
       "optical includes glasses/contact prescriptions; medication includes refills and medication authorizations; " +
-        "insurance includes copays, coverage, referral requirements and service authorizations; referrals means specialist/imaging orders. " +
+        "insurance includes medical copays, coverage, referral requirements and service authorizations; referrals means specialist/imaging orders. " +
         "pre_op/post_op mean surgical preparation/aftercare, not scheduling, refills or authorizations. " +
         "For prior authorization, ask what it authorizes if unknown. If the caller still cannot specify medication versus service, category MUST be other, never insurance. " +
         "Use other for any request still unclear after clarification.",
@@ -74,6 +74,7 @@ export const create_staff_task = tool({
   name: "create_staff_task",
   description:
     "Send one safe, non-urgent caller-approved unresolved request per invocation. Submit distinct needs separately, even within one category. " +
+    "Use appointments for vision eligibility and benefits. " +
     "For records, search office knowledge for intake and delivery rules; speak restrictions and missing prerequisites even when already approved. " +
     "Collect details; list gaps if incomplete. Follow Human Transfer policy for urgent or clinical concerns. " +
     "Confirm submission only after success; staff owns fulfillment and timing.",
