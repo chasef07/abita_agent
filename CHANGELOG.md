@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.3.0](https://github.com/chasef07/abita_agent/compare/5.2.4...5.3.0) (2026-09-15)
+
+
+### Features
+
+* customize 802 demo calls for Frantz EyeCare ([d0ba8dc](https://github.com/chasef07/abita_agent/commit/d0ba8dc4c8de304b1b13e4b912e200fd2c89235a))
+
 ## [5.2.4](https://github.com/chasef07/abita_agent/compare/5.2.3...5.2.4) (2026-09-13)
 
 
