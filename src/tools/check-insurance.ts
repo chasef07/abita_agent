@@ -15,7 +15,7 @@ export const check_insurance = tool({
   description:
     "Check whether the active office accepts a plan after the caller provides the plan name and visit type. " +
     "Use before new-patient creation and for participation questions. " +
-    "If staff follow-up is needed, get caller permission and create a normal task: appointments for vision coverage, insurance for medical coverage. Transfer only if task creation is unavailable, fails, or the caller declines.",
+    "If staff follow-up is needed, get caller permission and create a normal staff task. Transfer only if task creation is unavailable, fails, or the caller declines.",
   parameters: z.object({
     plan: z
       .string()
