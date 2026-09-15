@@ -904,7 +904,7 @@ describe("model-facing tool definitions", () => {
       "before new-patient creation",
     );
     expect(check_insurance.description).toContain(
-      "A result requiring staff follow-up needs caller permission, then a normal insurance task",
+      "A result requiring staff follow-up needs caller permission, then a normal appointments task for South Florida routine vision, otherwise insurance",
     );
     expect(check_insurance.description).toContain(
       "transfer only if task creation is unavailable, fails, or the caller declines",

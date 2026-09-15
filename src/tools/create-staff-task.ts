@@ -34,7 +34,7 @@ const taskParameters = z.object({
     .enum(STAFF_TASK_CATEGORIES)
     .describe(
       "optical includes glasses/contact prescriptions; medication includes refills and medication authorizations; " +
-        "insurance includes copays, coverage, referral requirements and service authorizations; referrals means specialist/imaging orders. " +
+        "appointments includes South Florida routine-vision eligibility and coverage; insurance includes medical copays, coverage, referral requirements and service authorizations; referrals means specialist/imaging orders. " +
         "pre_op/post_op mean surgical preparation/aftercare, not scheduling, refills or authorizations. " +
         "For prior authorization, ask what it authorizes if unknown. If the caller still cannot specify medication versus service, category MUST be other, never insurance. " +
         "Use other for any request still unclear after clarification.",
