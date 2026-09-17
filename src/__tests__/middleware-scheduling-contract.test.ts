@@ -70,6 +70,8 @@ async function setup(scenario = "success") {
     appointmentSlotRef: state.availability.slots[0]!.slotId,
     appointmentReason: "Medical follow up",
     referringDoctor: "none",
+    hospitalName: null,
+    hospitalDate: null,
     readBack: true,
   };
   const workflow = new SchedulingWorkflow(client, clock);

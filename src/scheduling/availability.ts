@@ -16,7 +16,12 @@ import {
   type AvailabilityOfficeKey,
 } from "../customers/abita/profile.js";
 import { incompletePatientRegistrationMessage } from "../identity/patient-identity.js";
-import { activeRoutingContext, setWorkflowVisitType } from "./state.js";
+import {
+  activeRoutingContext,
+  setWorkflowVisitType,
+  insuranceForScheduling,
+  medicalInsuranceSchedulingBlock,
+} from "./state.js";
 import {
   getAmdOfficeForToolCall,
   routingForAvailability,
@@ -462,7 +467,22 @@ function buildAvailabilityLookupRequestForState(
   if (!state.workflow.visitType) {
     return { blocked: "Is this visit for medical care or routine vision?" };
   }
-  const routing = routingForAvailability(state);
+  if (
+    state.workflow.visitType === "medical" &&
+    !state.office.activeKey.endsWith("-demo") &&
+    state.identity.schedulingWritePending
+  )
+    return {
+      blocked:
+        "A patient change is still in progress. Wait for its result before scheduling.",
+    };
+  const insuranceBlock = medicalInsuranceSchedulingBlock(state);
+  if (insuranceBlock) return { blocked: insuranceBlock };
+  const insurance = insuranceForScheduling(state);
+  const routing =
+    state.workflow.visitType === "medical" && insurance?.decision
+      ? insurance.decision.routing
+      : routingForAvailability(state);
   const startDate = args.startDate ?? addCalendarDays(cacheDay, 1);
   state.availability.requestedStartDate = startDate;
   const body: AvailabilityRequest = {
@@ -470,11 +490,24 @@ function buildAvailabilityLookupRequestForState(
     startDate,
     rangeDays: 14,
     visitType: state.workflow.visitType,
+    ...(state.workflow.visitType === "medical" &&
+    !state.office.activeKey.endsWith("-demo")
+      ? {
+          patientId,
+          coverageType: "medical" as const,
+          insurancePlan:
+            insurance?.canonicalPlan ?? insurance?.plan ?? undefined,
+        }
+      : {}),
   };
   const dob = activePatientDob(state);
   if (dob) body.dob = dob;
   if (routing) body.routing = routing;
-  if (activeRoutingContext(state).preauthRequired) body.preauthRequired = true;
+  const preauth =
+    state.workflow.visitType === "medical" && insurance?.decision
+      ? insurance.decision.requirements.length > 0
+      : activeRoutingContext(state).preauthRequired;
+  if (preauth) body.preauthRequired = true;
   return {
     body,
     backendKey: availabilityBackendKey(state, {
@@ -510,6 +543,8 @@ function availabilityBackendKey(
       typeof input.body.dob === "string" ? input.body.dob.trim() || null : null,
     routing: input.routing,
     preauthRequired: input.body.preauthRequired === true,
+    insurancePlan: input.body.insurancePlan,
+    coverageType: input.body.coverageType,
   });
 }
 

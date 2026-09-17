@@ -1,3 +1,5 @@
+import { createCheckInsuranceTool } from "../../src/tools/check-insurance.js";
+import { createToolContext } from "../../src/__tests__/support/tool-context.js";
 // Run against the authenticated Go handler fixture; never a live provider.
 import assert from "node:assert/strict";
 import { writeFileSync } from "node:fs";
@@ -40,6 +42,15 @@ Object.assign(state.identity.activePatient!, {
   appointments: patient.appointments,
   appointmentsStatus: patient.appointmentsStatus,
 });
+await createCheckInsuranceTool(client).execute(
+  { plan: "Aetna Commercial", coverageType: "medical" },
+  { ctx: createToolContext(state), toolCallId: "insurance-contract" } as never,
+);
+assert.equal(state.insurance.lastEligibilityCheck?.decision?.canSchedule, true);
+assert.equal(
+  state.insurance.lastEligibilityCheck?.canonicalPlan,
+  "Aetna Commercial",
+);
 const old = activeAppointments(state)[0]!;
 assert.equal(old.officeId, "spring_hill");
 assert.equal(old.visitType, "medical");

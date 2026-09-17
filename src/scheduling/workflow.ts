@@ -1,3 +1,4 @@
+import { blockPatientWrites } from "./state.js";
 import { incompletePatientRegistrationMessage } from "../identity/patient-identity.js";
 import {
   appointmentRefForPatient,
@@ -67,6 +68,8 @@ export interface BookAppointmentArgs {
   appointmentSlotRef: string;
   appointmentReason: string;
   referringDoctor: string;
+  hospitalName?: string | null;
+  hospitalDate?: string | null;
   readBack?: boolean;
 }
 
@@ -129,6 +132,8 @@ export class SchedulingWorkflow {
       appointmentSlotRef,
       appointmentReason,
       referringDoctor,
+      hospitalName,
+      hospitalDate,
       readBack,
     }: BookAppointmentArgs,
     callId: string,
@@ -157,6 +162,8 @@ export class SchedulingWorkflow {
       patientId,
       appointmentReason,
       referringDoctor,
+      hospitalName,
+      hospitalDate,
       now: this.clock.now(),
     });
     if (!readBack) {
@@ -449,6 +456,8 @@ export class SchedulingWorkflow {
     {
       appointmentReason,
       referringDoctor,
+      hospitalName,
+      hospitalDate,
       readBack,
       appointmentSlotRef,
       oldAppointmentRef,
@@ -514,6 +523,8 @@ export class SchedulingWorkflow {
       patientId,
       appointmentReason,
       referringDoctor,
+      hospitalName,
+      hospitalDate,
       now: this.clock.now(),
       rescheduleToken: oldAppointment.rescheduleToken,
     });
@@ -630,14 +641,6 @@ export class SchedulingWorkflow {
     });
     return message;
   }
-}
-
-function blockPatientWrites(
-  state: CallState,
-  patientId: string,
-  message: string,
-): void {
-  (state.identity.schedulingWriteBlocks ??= {})[patientId] = message;
 }
 
 function ensureNewAppointmentBookingContext(state: CallState): void {

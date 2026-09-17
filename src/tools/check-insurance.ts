@@ -1,3 +1,8 @@
+import type { OwnedMiddleware } from "../clients/owned-middleware.js";
+import { decisionMatches } from "../clients/insurance-decision.js";
+import { activePatientDob } from "../state/call-state.js";
+import { clearAvailabilitySelection } from "../scheduling/availability.js";
+import { getAmdOfficeForToolCall } from "../scheduling/routing.js";
 import { tool } from "@livekit/agents";
 import { z } from "zod";
 import {
@@ -7,9 +12,13 @@ import {
 } from "../insurance-rules.js";
 import { activeOfficeKey } from "../state/call-lifecycle.js";
 import { recordUnregisteredPatientInsuranceCheck } from "../state/call-state.js";
-import { setLastInsuranceEligibilityCheck } from "../scheduling/state.js";
+import {
+  setLastInsuranceEligibilityCheck,
+  setRoutingContext,
+} from "../scheduling/state.js";
 import { getState } from "./session.js";
 
+// Local catalog is retained for routine vision and the isolated demo.
 export const check_insurance = tool({
   name: "check_insurance",
   description:
@@ -48,3 +57,54 @@ export const check_insurance = tool({
     return response;
   },
 });
+
+export function createCheckInsuranceTool(middleware: OwnedMiddleware) {
+  return tool({
+    ...check_insurance,
+    execute: async (args, options): Promise<string> => {
+      const state = getState(options.ctx);
+      const office = activeOfficeKey(state);
+      if (args.coverageType !== "medical" || office.endsWith("-demo"))
+        return check_insurance.execute(args, options);
+      options.ctx.disallowInterruptions();
+      const revision = state.identity.transitionVersion;
+      const pending = {
+        plan: args.plan,
+        canonicalPlan: null,
+        coverageType: args.coverageType,
+        currentCarrier: null,
+        accepted: false,
+      };
+      setLastInsuranceEligibilityCheck(state, pending);
+      clearAvailabilitySelection(state, { invalidateReads: true });
+      const decision = await middleware.checkInsurance?.({
+        office: getAmdOfficeForToolCall(state),
+        plan: args.plan,
+        coverageType: "medical",
+        dob: activePatientDob(state) ?? undefined,
+      });
+      if (
+        revision !== state.identity.transitionVersion ||
+        office !== activeOfficeKey(state) ||
+        state.insurance.lastEligibilityCheck !== pending
+      )
+        return "The patient or insurance changed. Check the current patient's insurance again.";
+      if (!decisionMatches(decision, office, "medical"))
+        return "Insurance could not be verified. Ask office staff for help; do not register or schedule using an earlier check.";
+      setLastInsuranceEligibilityCheck(state, {
+        plan: args.plan,
+        canonicalPlan: decision!.canonicalPlan || null,
+        coverageType: "medical",
+        currentCarrier: decision!.canonicalPlan || null,
+        accepted: decision!.canRegister,
+        decision,
+      });
+      setRoutingContext(state, {
+        routing: decision!.routing,
+        preauthRequired: decision!.requirements.length > 0,
+      });
+      recordUnregisteredPatientInsuranceCheck(state);
+      return decision!.answer;
+    },
+  });
+}

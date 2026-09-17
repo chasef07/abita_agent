@@ -1,3 +1,4 @@
+import type { InsuranceDecision } from "../../clients/insurance-decision.js";
 import type {
   RescheduleAppointmentResult,
   AvailabilityResult,
@@ -10,6 +11,9 @@ import type {
 } from "../../clients/owned-middleware.js";
 
 export type InMemoryOwnedMiddlewareResponses = {
+  checkInsurance?: Array<
+    InsuranceDecision | undefined | Promise<InsuranceDecision | undefined>
+  >;
   rescheduleAppointment?: Array<
     RescheduleAppointmentResult | Promise<RescheduleAppointmentResult>
   >;
@@ -59,6 +63,13 @@ export class InMemoryOwnedMiddleware implements OwnedMiddleware {
 
   constructor(responses: InMemoryOwnedMiddlewareResponses = {}) {
     this.#responses = responses;
+  }
+
+  async checkInsurance(
+    request: Parameters<NonNullable<OwnedMiddleware["checkInsurance"]>>[0],
+  ): Promise<InsuranceDecision | undefined> {
+    this.operations.push({ name: "checkInsurance", request });
+    return this.#responses.checkInsurance?.shift();
   }
 
   async resolvePatient(

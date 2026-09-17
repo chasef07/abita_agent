@@ -145,6 +145,8 @@ describe("New Tampa provider guards at appointment mutation", () => {
         appointmentSlotRef: "S1",
         appointmentReason: "retina follow-up",
         referringDoctor: "none",
+        hospitalName: null,
+        hospitalDate: null,
         readBack: true,
       },
       { ctx: createToolContext(state), toolCallId: "new-tampa-book" } as never,
@@ -191,6 +193,8 @@ describe("New Tampa provider guards at appointment mutation", () => {
         appointmentSlotRef: "S1",
         appointmentReason: "retina follow-up",
         referringDoctor: "none",
+        hospitalName: null,
+        hospitalDate: null,
         readBack: true,
       },
       { ctx: createToolContext(state), toolCallId: "new-tampa-move" } as never,
@@ -225,6 +229,8 @@ describe("New Tampa provider guards at appointment mutation", () => {
         appointmentSlotRef: "expired",
         appointmentReason: "follow-up",
         referringDoctor: "none",
+        hospitalName: null,
+        hospitalDate: null,
         readBack: true as const,
       };
       const expected = await createSchedulingTools(
@@ -261,6 +267,8 @@ describe("New Tampa provider guards at appointment mutation", () => {
         appointmentSlotRef: "expired",
         appointmentReason: "follow-up",
         referringDoctor: "none",
+        hospitalName: null,
+        hospitalDate: null,
         readBack: true,
       },
       { ctx: createToolContext(state), toolCallId: "replay" } as never,
@@ -283,6 +291,8 @@ describe("New Tampa provider guards at appointment mutation", () => {
         appointmentSlotRef: "S1",
         appointmentReason: "retina follow-up",
         referringDoctor: "none",
+        hospitalName: null,
+        hospitalDate: null,
         readBack: true as const,
       };
       const ctx = {

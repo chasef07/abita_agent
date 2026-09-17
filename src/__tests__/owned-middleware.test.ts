@@ -1988,10 +1988,15 @@ const semanticContractCases: SemanticContractCase[] = [
       message: "private detail",
     }),
     memory: memoryResult({
-      createPatient: [semanticFailure("middleware_error")],
+      createPatient: [
+        { ...semanticFailure("middleware_error"), noWrite: true as const },
+      ],
     }),
     invoke: createPatient,
-    expected: semanticFailure("middleware_error"),
+    expected: {
+      ...semanticFailure("middleware_error"),
+      noWrite: true as const,
+    },
   },
   {
     name: "unclassified chart creation failure",

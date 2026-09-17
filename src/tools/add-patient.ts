@@ -1,3 +1,5 @@
+import { decisionMatches } from "../clients/insurance-decision.js";
+import { activeOfficeKey, activateOffice } from "../state/call-lifecycle.js";
 import { tool } from "@livekit/agents";
 import { z } from "zod";
 import type {
@@ -99,6 +101,10 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
       const state = getState(ctx);
       ctx.disallowInterruptions();
       const outcomes = domainOutcomesForTool(state, toolCallId, "add_patient");
+      if (state.identity.registrationWriteBlock)
+        return state.identity.registrationWriteBlock;
+      if (state.identity.schedulingWritePending)
+        return "A patient change is still in progress. Wait for its result before creating a chart.";
       const patientIdentity = {
         firstName: params.firstName.trim(),
         lastName: params.lastName.trim(),
@@ -125,7 +131,7 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
           return `The patient chart for ${patientName} already exists, but insurance is not attached. Office staff needs to finish the registration.`;
         }
         recordPatientCreationOutcome(outcomes, "success");
-        return `The patient chart for ${patientName} already exists. We can continue with scheduling.`;
+        return `The patient chart for ${patientName} already exists. ${state.insurance.onFile.decision && !state.insurance.onFile.decision.canSchedule ? state.insurance.onFile.decision.answer : "We can continue with scheduling."}`;
       }
 
       if (registrationStatus === "active_patient") {
@@ -144,6 +150,7 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
         return "Has the patient ever registered with or been added to the practice?";
       }
 
+      const office = activeOfficeKey(state);
       const checkedInsurance = lastInsuranceEligibilityCheck(state);
       const insurance =
         checkedInsurance?.canonicalPlan?.trim() ||
@@ -153,6 +160,19 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
       if (!checkedInsurance?.accepted || !insurance || !coverageType) {
         return "I need to confirm accepted medical or routine vision coverage before creating the chart.";
       }
+
+      if (
+        coverageType === "medical" &&
+        !activeOfficeKey(state).endsWith("-demo") &&
+        (!checkedInsurance.decision?.canRegister ||
+          !decisionMatches(
+            checkedInsurance.decision,
+            activeOfficeKey(state),
+            coverageType,
+            insurance,
+          ))
+      )
+        return "Check insurance again for this office before registration.";
 
       const confirmedUnregisteredPatient =
         registrationStatus === "confirmed_new_patient" &&
@@ -167,6 +187,7 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
         preserveEligibilityCheck: confirmedUnregisteredPatient,
       });
 
+      if (checkedInsurance.decision) activateOffice(state, { key: office });
       setWorkflowVisitType(state, coverageType);
       const unsupportedMedicalScheduling = medicalSchedulingUnavailable(state);
       if (unsupportedMedicalScheduling) return unsupportedMedicalScheduling;
@@ -229,18 +250,65 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
         recordPatientCreationOutcome(outcomes, "failed");
         throw new Error("Patient registration is incomplete before creation.");
       }
+      const uncertainCreation =
+        "Chart creation could not be verified. Ask staff to check whether the chart exists before any further registration; do not create another chart.";
       let result: CreatePatientResult;
+      if (checkedInsurance.decision)
+        state.identity.schedulingWritePending = true;
       try {
         result = await middleware.createPatient({
           office: getAmdOfficeForToolCall(state),
           patient: payload,
         });
       } catch (error) {
-        recordPatientCreationOutcome(outcomes, "failed");
-        throw error;
+        if (!checkedInsurance.decision) {
+          recordPatientCreationOutcome(outcomes, "failed");
+          throw error;
+        }
+        commitPatientCreation(state, creation, {
+          status: "error",
+          reason: "network_error",
+        });
+        state.identity.registrationWriteBlock = uncertainCreation;
+        recordPatientCreationOutcome(outcomes, "ambiguous");
+        return uncertainCreation;
+      } finally {
+        if (checkedInsurance.decision)
+          state.identity.schedulingWritePending = false;
       }
+      const invalidMedicalDecision =
+        checkedInsurance.decision &&
+        result.status === "created" &&
+        !decisionMatches(
+          result.insuranceDecision,
+          office,
+          coverageType,
+          insurance,
+        );
+      if (invalidMedicalDecision && result.status === "created")
+        result = { ...result, status: "partial", insuranceDecision: undefined };
+      const officeUnchanged = activeOfficeKey(state) === office;
       const commit = commitPatientCreation(state, creation, result);
+      if (
+        checkedInsurance.decision &&
+        officeUnchanged &&
+        result.status !== "error" &&
+        state.identity.activePatient?.patientId === result.patientId
+      )
+        activateOffice(state, { key: office });
+      if (
+        checkedInsurance.decision &&
+        ((result.status === "error" && !result.noWrite) ||
+          commit.outcome === "invalid_receipt")
+      ) {
+        state.identity.registrationWriteBlock = uncertainCreation;
+        recordPatientCreationOutcome(outcomes, "ambiguous");
+        return uncertainCreation;
+      }
       if (commit.outcome === "superseded") {
+        if (checkedInsurance.decision && commit.result.status !== "error")
+          state.identity.registrationWriteBlock =
+            "A chart was created while the patient changed. Ask staff to verify the registration before creating another chart.";
         if (commit.result.status === "error") {
           recordPatientCreationOutcome(outcomes, "failed");
           return "I couldn't create the patient chart, and the patient changed while I was working.";
@@ -272,6 +340,8 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
           "Owned Middleware returned an invalid patient creation receipt.",
         );
       }
+      if (invalidMedicalDecision)
+        return "The chart was created, but the insurance decision could not be verified. Ask staff to check registration before scheduling; do not create another chart.";
       const receipt = commit.receipt;
       const patientName =
         receipt.name?.trim() || `${params.firstName} ${params.lastName}`;
@@ -280,7 +350,7 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
         return `I created a patient chart for ${patientName}, but insurance was not attached. Office staff needs to finish the registration.`;
       }
       recordPatientCreationOutcome(outcomes, "success");
-      return `I created a patient chart for ${patientName}. We can continue with scheduling.`;
+      return `I created a patient chart for ${patientName}. ${receipt.insuranceDecision && !receipt.insuranceDecision.canSchedule ? receipt.insuranceDecision.answer : "We can continue with scheduling."}`;
     },
   });
 }

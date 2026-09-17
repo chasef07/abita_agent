@@ -1116,6 +1116,8 @@ describe("model-facing tool definitions", () => {
       "appointmentSlotRef",
       "appointmentReason",
       "referringDoctor",
+      "hospitalName",
+      "hospitalDate",
       "readBack",
       "oldAppointmentRef",
     ]);
@@ -1125,6 +1127,8 @@ describe("model-facing tool definitions", () => {
         appointmentSlotRef: "S1",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
+        hospitalName: null,
+        hospitalDate: null,
         readBack: true,
       }).success,
     ).toBe(true);
@@ -1134,6 +1138,8 @@ describe("model-facing tool definitions", () => {
         appointmentSlotRef: "S1",
         appointmentReason: "move my appointment",
         referringDoctor: "none",
+        hospitalName: null,
+        hospitalDate: null,
         readBack: null,
       }).success,
     ).toBe(true);
@@ -1223,6 +1229,8 @@ describe("model-facing tool definitions", () => {
       "appointmentSlotRef",
       "appointmentReason",
       "referringDoctor",
+      "hospitalName",
+      "hospitalDate",
       "readBack",
     ]);
     expect(
@@ -1238,6 +1246,8 @@ describe("model-facing tool definitions", () => {
         appointmentSlotRef: "S1",
         appointmentReason: "eye pain",
         referringDoctor: "none",
+        hospitalName: null,
+        hospitalDate: null,
         readBack: null,
       }).success,
     ).toBe(true);

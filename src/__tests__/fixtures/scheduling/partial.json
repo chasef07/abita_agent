@@ -1,9 +1,25 @@
 {
   "/api/patient/resolve": {
+    "insuranceDecision": {
+      "outcome": "needs_clarification",
+      "participation": "unknown",
+      "coverageType": "medical",
+      "officeId": "spring_hill",
+      "allowedProviders": [],
+      "requirements": [],
+      "eligibility": "not_checked",
+      "canRegister": false,
+      "canSchedule": false,
+      "selfPay": false,
+      "answer": "needs_input: Ask for whether Aetna is commercial/employer coverage, Medicare, or Medicaid, and the full product name on the card"
+    },
     "status": "verified",
     "patientId": "12345",
     "name": "DOE,JANE",
     "dob": "01/15/1980",
+    "insuranceCarrier": "AETNA",
+    "insuranceCarrierId": "car40887",
+    "routingAmbiguous": true,
     "appointmentsStatus": "found",
     "appointments": [
       {
@@ -21,6 +37,22 @@
     ],
     "message": "Patient verified with 1 appointment(s)",
     "matches": []
+  },
+  "/api/insurance/decision": {
+    "outcome": "accepted",
+    "participation": "accepted",
+    "canonicalPlan": "Aetna Commercial",
+    "carrierCode": "AET07",
+    "coverageType": "medical",
+    "officeId": "spring_hill",
+    "routing": "all_three",
+    "allowedProviders": ["Dr. Bach", "Dr. Licht", "Dr. Noel"],
+    "requirements": [],
+    "eligibility": "not_checked",
+    "canRegister": true,
+    "canSchedule": true,
+    "selfPay": false,
+    "answer": "success: This office participates with Aetna Commercial for this visit type. This does not verify active coverage or benefits."
   },
   "/api/scheduler/slots": {
     "status": "success",
@@ -189,8 +221,9 @@
     "status": "success",
     "outcome": "no_eligible_providers",
     "availabilityFound": false,
+    "requestedDate": "2026-06-03",
     "shouldRetrySameSearch": false,
-    "nextAction": "",
+    "nextAction": "ask_for_different_preferences",
     "message": "This office or routing does not support the requested visit type.",
     "slots": []
   }

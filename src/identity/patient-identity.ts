@@ -1,3 +1,4 @@
+import type { InsuranceDecision } from "../clients/insurance-decision.js";
 import {
   patientResolveReceiptIsComplete,
   type CreatePatientResult,
@@ -79,6 +80,7 @@ export type PatientIdentityResolution = {
 };
 
 export type PatientActivation = ActivePatient & {
+  insuranceDecision?: InsuranceDecision;
   insuranceCarrier: string | null;
   routing: string | null;
   preauthRequired: boolean;
@@ -569,6 +571,7 @@ function activatePatientFromReceipt(
         insPlanId: receipt.insPlanId ?? null,
         respPartyId: receipt.respPartyId ?? null,
       },
+      insuranceDecision: receipt.insuranceDecision,
       insuranceCarrier: receipt.insuranceCarrier ?? null,
       routing: receipt.routing ?? null,
       preauthRequired: receipt.preauthRequired ?? false,
@@ -582,7 +585,10 @@ function activatePatientFromReceipt(
       state,
       insuranceSnapshot({
         plan: receipt.insuranceCarrier ?? checkedInsurance.currentCarrier,
-        canonicalPlan: checkedInsurance.canonicalPlan,
+        canonicalPlan:
+          receipt.insuranceDecision?.canonicalPlan ??
+          checkedInsurance.canonicalPlan,
+        decision: receipt.insuranceDecision,
         coverageType: checkedInsurance.coverageType,
         currentCarrier:
           receipt.insuranceCarrier ?? checkedInsurance.currentCarrier,
@@ -712,7 +718,10 @@ function promotePatient(
     patient.insuranceCarrier
       ? insuranceSnapshot({
           plan: patient.insuranceCarrier,
-          canonicalPlan: patient.insuranceCarrier,
+          canonicalPlan:
+            patient.insuranceDecision?.canonicalPlan ||
+            patient.insuranceCarrier,
+          decision: patient.insuranceDecision,
           coverageType:
             patient.routing === "optical_only" ? "routine_vision" : null,
           currentCarrier: patient.insuranceCarrier,
@@ -968,6 +977,7 @@ function activationFromResolvedPatient(
       insPlanId: patient.insPlanId,
       respPartyId: patient.respPartyId,
     },
+    insuranceDecision: patient.insuranceDecision,
     insuranceCarrier: patient.insuranceCarrier,
     routing: patient.routing,
     preauthRequired: patient.preauthRequired,

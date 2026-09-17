@@ -1,3 +1,7 @@
+import {
+  parseInsuranceDecision,
+  type InsuranceDecision,
+} from "./insurance-decision.js";
 import { randomUUID } from "node:crypto";
 import {
   middlewareOperationByPath,
@@ -95,6 +99,7 @@ export type CreatePatientInput = {
 };
 
 type PatientCreationEvidence = {
+  insuranceDecision?: InsuranceDecision;
   patientId: string;
   name: string | null;
   dob: string | null;
@@ -112,6 +117,9 @@ export type CreatePatientResult =
   | MiddlewareFailure;
 
 export type BookAppointmentInput = {
+  insurancePlan?: string;
+  hospitalName?: string;
+  hospitalDate?: string;
   bookingToken: string;
   rescheduleToken?: string;
   visitCategory: "medical" | "routine_vision";
@@ -213,6 +221,7 @@ export type UpdateInsuranceInput = {
 export type UpdateInsuranceResult =
   | {
       status: "updated";
+      insuranceDecision?: InsuranceDecision;
       newInsurance: string | null;
       routing: string | null;
       preauthRequired: boolean;
@@ -220,6 +229,12 @@ export type UpdateInsuranceResult =
   | MiddlewareFailure;
 
 export interface OwnedMiddleware {
+  checkInsurance?(request: {
+    office: string;
+    plan: string;
+    coverageType: "medical";
+    dob?: string;
+  }): Promise<InsuranceDecision | undefined>;
   resolvePatient(request: {
     office: string;
     identity: PatientIdentity;
@@ -228,6 +243,9 @@ export interface OwnedMiddleware {
   }): Promise<PatientResolveResult>;
   getAvailability(request: {
     office: string;
+    patientId?: string;
+    insurancePlan?: string;
+    coverageType?: "medical" | "routine_vision";
     visitType?: "medical" | "routine_vision";
     startDate?: string;
     rangeDays?: 14;
@@ -312,8 +330,25 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
     }
   }
 
+  async checkInsurance(request: {
+    office: string;
+    plan: string;
+    coverageType: "medical";
+    dob?: string;
+  }): Promise<InsuranceDecision | undefined> {
+    const result = await this.#post("/api/insurance/decision", request.office, {
+      plan: request.plan,
+      coverageType: request.coverageType,
+      dob: request.dob ?? "",
+    });
+    return result.ok ? parseInsuranceDecision(result.value) : undefined;
+  }
+
   async getAvailability(request: {
     office: string;
+    patientId?: string;
+    insurancePlan?: string;
+    coverageType?: "medical" | "routine_vision";
     visitType?: "medical" | "routine_vision";
     startDate?: string;
     rangeDays?: 14;
@@ -324,6 +359,11 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
   }): Promise<AvailabilityResult> {
     const body = {
       rangeDays: request.rangeDays ?? 14,
+      ...(request.patientId ? { patientId: request.patientId } : {}),
+      ...(request.insurancePlan
+        ? { insurancePlan: request.insurancePlan }
+        : {}),
+      ...(request.coverageType ? { coverageType: request.coverageType } : {}),
       ...(request.visitType ? { visitType: request.visitType } : {}),
       ...(request.startDate ? { startDate: request.startDate } : {}),
       ...(request.dob ? { dob: request.dob } : {}),
@@ -714,7 +754,16 @@ function normalizeCreatedPatient(
   fallback: { phone: string },
 ): CreatePatientResult {
   if (hasFailureStatus(raw)) {
-    return mutationFailure(raw, patientMutationCanRetry);
+    const failure = mutationFailure(raw, patientMutationCanRetry);
+    const outcome = isRecord(raw) ? stringValue(raw.outcome) : null;
+    return [
+      "validation_failed",
+      "rejected",
+      "unavailable",
+      "reconciled_failure",
+    ].includes(outcome ?? "")
+      ? { ...failure, noWrite: true }
+      : failure;
   }
   const status = isRecord(raw)
     ? (stringValue(raw.status)?.toLowerCase() ?? "")
@@ -738,6 +787,7 @@ function normalizeCreatedPatient(
     name: stringValue(raw.name),
     dob: stringValue(raw.dob),
     phone: stringValue(raw.phone) ?? fallback.phone,
+    insuranceDecision: parseInsuranceDecision(raw.insuranceDecision),
     insuranceCarrier: stringValue(raw.insuranceCarrier),
     insPlanId: stringValue(raw.insPlanId),
     respPartyId: stringValue(raw.respPartyId),
@@ -876,6 +926,7 @@ function normalizeUpdatedInsurance(raw: unknown): UpdateInsuranceResult {
   if (isRecord(raw) && stringValue(raw.status)?.toLowerCase() === "updated") {
     return {
       status: "updated",
+      insuranceDecision: parseInsuranceDecision(raw.insuranceDecision),
       newInsurance: stringValue(raw.newInsurance),
       routing: stringValue(raw.routing),
       preauthRequired: raw.preauthRequired === true,
@@ -896,7 +947,9 @@ function mutationFailure(
   return {
     status: "error",
     reason: canRetry(outcome) ? "middleware_error" : "request_rejected",
-    ...(outcome === "write_failed" ? { noWrite: true as const } : {}),
+    ...(outcome === "write_failed" || outcome === "validation_failed"
+      ? { noWrite: true as const }
+      : {}),
   };
 }
 

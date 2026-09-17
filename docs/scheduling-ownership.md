@@ -1,9 +1,9 @@
 # Middleware scheduling ownership
 
-Deploy [middleware #190](https://github.com/Data-Buddies-Solutions/amd_middleware/pull/190)
-**before this TypeScript change**. The parallel Python implementation is
-[abita_s2s #33](https://github.com/chasef07/abita_s2s/pull/33). No runtime environment
-variables, storage, workers, or insurance policy changes are required.
+Deploy middleware #190 and [#191](https://github.com/Data-Buddies-Solutions/amd_middleware/pull/191)
+**before this TypeScript change**. The combined middleware is `228ecf2`; parallel
+Python scheduling/insurance integration is `4402d9d` (#33/#34). No new runtime
+environment variables, storage, or workers are required.
 
 Middleware owns appointment office identity, visit type, action authorization,
 provider eligibility, and both provider writes of a reschedule. TypeScript retains
@@ -31,6 +31,28 @@ alone does not release the write block. AdvancedMD's two writes are not atomic.
 Unsupported office/visit combinations remain `no_eligible_providers`, distinct from
 `no_availability`. Middleware decides eligibility; the tool asks for an office/visit
 correction or staff help instead of suggesting more dates.
+
+
+## Medical insurance consumer
+
+Production medical `check_insurance` calls middleware's decision endpoint and
+relays its clarification or participation answer. The current patient-owned
+insurance snapshot retains the canonical product and scoped decision. Medical
+registration requires `canRegister`; required referrals/authorizations can allow
+registration while holding scheduling. Created-patient messages preserve that hold.
+Routine-vision matching and isolated demo policies remain on their existing path.
+
+Patient-scoped medical availability sends the patient, canonical product, coverage,
+and decision-derived routing; booking carries the same product. Middleware rechecks
+the actual AMD chart rather than trusting caller routing. Generic carrier display
+names are not product identities. Write receipts retain the decision and must match
+the submitted office/product/coverage. Failed or stale checks cannot restore a
+previous permission. Hospital medical follow-ups collect hospital name and date.
+
+Insurance updates share the scheduling write lock and uncertain-write fence.
+Unknown chart creation sets a call-local registration hold because there may be no
+patient ID to fence. Neither a recheck nor a patient reload permits another ambiguous
+write. These guards are call-local; no durable or cross-instance idempotency is claimed.
 
 ## Patient resolution audit
 
@@ -73,7 +95,7 @@ run from this repository with its dependencies installed:
 ```sh
 agent_root="$PWD"
 middleware_fixture=$(mktemp -d)
-git -C /path/to/abita_middleware archive 9dd501d7fd3ba81940b1f01ccc839697bb7dcb9b | tar -x -C "$middleware_fixture"
+git -C /path/to/abita_middleware archive 228ecf2 | tar -x -C "$middleware_fixture"
 cp scripts/contracts/typescript_contract_test.go "$middleware_fixture/internal/scheduling/"
 TYPESCRIPT_SCHEDULING_WORKTREE="$agent_root" go -C "$middleware_fixture" test -count=1 ./internal/scheduling -run 'TestTypeScript(Patient|Scheduling)Contract' -v
 ```

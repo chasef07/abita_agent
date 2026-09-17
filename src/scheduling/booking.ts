@@ -15,6 +15,10 @@ import {
   publicProviderName,
   selectedAvailabilitySlot,
 } from "./availability.js";
+import {
+  insuranceForScheduling,
+  medicalInsuranceSchedulingBlock,
+} from "./state.js";
 import { routingForAvailability } from "./routing.js";
 import { spokenAppointmentDate } from "./spoken-date.js";
 import { SchedulingInputRequired } from "./input-required.js";
@@ -31,6 +35,8 @@ type BookingRequestInput = {
   patientId: string;
   appointmentReason: string;
   referringDoctor?: string;
+  hospitalName?: string | null;
+  hospitalDate?: string | null;
   now: Date;
   rescheduleToken?: string;
 };
@@ -53,11 +59,25 @@ export function bookingRequestBodyForSlot(
   input: BookingRequestInput,
 ): BookAppointmentInput {
   const normalizedReason = normalizeAppointmentReason(input.appointmentReason);
+  const insuranceBlock = medicalInsuranceSchedulingBlock(state);
+  if (insuranceBlock) throw new SchedulingInputRequired(insuranceBlock);
+  if (
+    state.workflow.visitType === "medical" &&
+    !state.office.activeKey.endsWith("-demo") &&
+    /hospital/i.test(normalizedReason) &&
+    (!input.hospitalName?.trim() || !input.hospitalDate?.trim())
+  )
+    throw new SchedulingInputRequired(
+      "Ask which hospital and when the hospital visit occurred before scheduling the follow-up.",
+    );
   const normalizedReferrer = normalizeReferringDoctor(input.referringDoctor);
+  const decision = insuranceForScheduling(state)?.decision;
   const routing =
-    input.selectedSlot.routing ??
-    latestAvailabilityRouting(state) ??
-    routingForAvailability(state);
+    state.workflow.visitType === "medical" && decision
+      ? decision.routing
+      : (input.selectedSlot.routing ??
+        latestAvailabilityRouting(state) ??
+        routingForAvailability(state));
 
   const bookingToken = availabilityBookingToken(
     state,
@@ -84,6 +104,17 @@ export function bookingRequestBodyForSlot(
     bookingToken,
     ...appointmentIntent,
     patientId: input.patientId,
+    ...(appointmentIntent.visitCategory === "medical" &&
+    !state.office.activeKey.endsWith("-demo")
+      ? {
+          insurancePlan:
+            insuranceForScheduling(state)?.canonicalPlan ??
+            insuranceForScheduling(state)?.plan ??
+            undefined,
+        }
+      : {}),
+    ...(input.hospitalName ? { hospitalName: input.hospitalName.trim() } : {}),
+    ...(input.hospitalDate ? { hospitalDate: input.hospitalDate.trim() } : {}),
     appointmentReason: normalizedReason,
     referringDoctor: normalizedReferrer,
     ...(input.rescheduleToken

@@ -1,3 +1,4 @@
+import type { InsuranceDecision } from "../clients/insurance-decision.js";
 import type { MiddlewareRequestDiagnostic } from "../clients/middleware-diagnostics.js";
 import type { OfficeKey } from "../customers/abita/profile.js";
 import type { InsuranceCoverageType } from "../insurance-rules.js";
@@ -299,6 +300,7 @@ interface OfficeSessionState {
 }
 
 export interface InsuranceSnapshot {
+  decision?: InsuranceDecision;
   plan: string | null;
   canonicalPlan: string | null;
   coverageType: InsuranceCoverageType | null;
@@ -327,6 +329,7 @@ interface IdentitySessionState {
   unregisteredPatientReceipt: UnregisteredPatientReceipt | null;
   // Caller-reported task context; never an Identity Promotion or verified chart.
   unresolvedTaskPatient: { name?: string; dob?: string } | null;
+  registrationWriteBlock?: string;
   schedulingWritePending?: boolean;
   schedulingWriteBlocks?: Record<string, string>;
   operationVersion: number;

@@ -1,3 +1,6 @@
+import type { InsuranceDecision } from "../clients/insurance-decision.js";
+import { decisionMatches } from "../clients/insurance-decision.js";
+import { activeOfficeKey } from "../state/call-lifecycle.js";
 import type { InsuranceCoverageType } from "../insurance-rules.js";
 import type {
   CallState,
@@ -147,6 +150,7 @@ export function setRoutingContext(
 export function insuranceSnapshot(input: {
   plan?: string | null;
   canonicalPlan?: string | null;
+  decision?: InsuranceDecision;
   coverageType?: InsuranceCoverageType | null;
   currentCarrier?: string | null;
 }): InsuranceSnapshot {
@@ -155,7 +159,52 @@ export function insuranceSnapshot(input: {
   return {
     plan,
     canonicalPlan,
+    ...(input.decision ? { decision: input.decision } : {}),
     coverageType: input.coverageType ?? null,
     currentCarrier: input.currentCarrier?.trim() || plan,
   };
+}
+
+// Both consumers use the current patient-owned check; an unsuccessful recheck
+// must never revive the older on-file decision.
+export function insuranceForScheduling(
+  state: CallState,
+): InsuranceSnapshot | null {
+  return state.insurance.lastEligibilityCheck ?? state.insurance.onFile;
+}
+export function medicalInsuranceSchedulingBlock(
+  state: CallState,
+): string | null {
+  if (
+    state.workflow.visitType !== "medical" ||
+    activeOfficeKey(state).endsWith("-demo")
+  )
+    return null;
+  const current = insuranceForScheduling(state);
+  if (
+    state.insurance.lastEligibilityCheck &&
+    !state.insurance.lastEligibilityCheck.accepted
+  )
+    return (
+      (current?.decision && !current.decision.canRegister
+        ? current.decision.answer
+        : null) ?? "Check the exact medical insurance plan before scheduling."
+    );
+  const decision = current?.decision;
+  if (decision && !decisionMatches(decision, activeOfficeKey(state), "medical"))
+    return "Check medical insurance for the selected office before scheduling.";
+  if (decision && !decision.canSchedule)
+    return (
+      decision.answer ||
+      "Resolve medical insurance requirements before scheduling."
+    );
+  return null; // Existing chart insurance is checked by patient-scoped middleware.
+}
+
+export function blockPatientWrites(
+  state: CallState,
+  patientId: string,
+  message: string,
+): void {
+  (state.identity.schedulingWriteBlocks ??= {})[patientId] = message;
 }

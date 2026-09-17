@@ -1,3 +1,7 @@
+import {
+  parseInsuranceDecision,
+  type InsuranceDecision,
+} from "./insurance-decision.js";
 import type {
   AppointmentLoadStatus,
   StoredCallerAppointment,
@@ -7,6 +11,7 @@ import type { LightweightPatientCandidate } from "../identity/candidate.js";
 export type PatientResolveCandidate = LightweightPatientCandidate;
 
 export interface PatientResolveVerified {
+  insuranceDecision?: InsuranceDecision;
   status: "verified";
   patientId: string;
   name: string | null;
@@ -132,6 +137,7 @@ export function normalizePatientResolveResponse(
       name: stringValue(raw.name),
       dob: stringValue(raw.dob),
       phone: stringValue(raw.phone) ?? options.fallbackPhone ?? null,
+      insuranceDecision: parseInsuranceDecision(raw.insuranceDecision),
       insuranceCarrier: stringValue(raw.insuranceCarrier),
       insPlanId: stringValue(raw.insPlanId),
       respPartyId: stringValue(raw.respPartyId),

@@ -31,7 +31,7 @@ func TestTypeScriptSchedulingContract(t *testing.T) {
 	for _, scenario := range []string{"success", "partial", "failure", "uncertain"} {
 		t.Run(scenario, func(t *testing.T) {
 			records, _, _ := rescheduleFixture(t)
-			records.Demographics["12345"] = domain.PatientDemographics{FullName: "DOE,JANE", DOB: "01/15/1980"}
+			records.Demographics["12345"] = domain.PatientDemographics{FullName: "DOE,JANE", DOB: "01/15/1980", CarrierID: "car40887", CarrierName: "AETNA"}
 			if scenario == "partial" {
 				records.CancelAppointmentErr = context.DeadlineExceeded
 			}

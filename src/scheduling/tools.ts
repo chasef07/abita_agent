@@ -38,6 +38,18 @@ const bookAppointmentParameters = z
       .describe(
         'Caller-provided referring doctor. If not already answered, ask "Did a doctor refer you?" and, if yes, ask for the name. Use internal value "none" only when the caller says they have no referring doctor. Do not ask whether to put or mark none, or narrate the internal value.',
       ),
+    hospitalName: z
+      .string()
+      .trim()
+      .nullable()
+      .describe("Hospital name for a hospital follow-up; otherwise null."),
+    hospitalDate: z
+      .string()
+      .trim()
+      .nullable()
+      .describe(
+        "When the hospital visit occurred for a hospital follow-up; otherwise null.",
+      ),
     readBack: z
       .literal(true)
       .nullable()

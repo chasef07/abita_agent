@@ -293,6 +293,8 @@ describe("scheduling tools", () => {
         appointmentSlotRef: "S1",
         appointmentReason: "left eye pain since yesterday",
         referringDoctor: "none",
+        hospitalName: null,
+        hospitalDate: null,
         readBack: true,
       },
       {
@@ -453,6 +455,9 @@ describe("scheduling tools", () => {
           dob: "01/01/1980",
           rangeDays: 14,
           startDate: "2026-05-31",
+          patientId: "patient-1",
+          insurancePlan: "self pay",
+          coverageType: "medical",
           visitType: "medical",
           routing: "all_three",
         },
@@ -491,6 +496,8 @@ describe("scheduling tools", () => {
         appointmentSlotRef: "S1",
         appointmentReason: "left eye pain since yesterday",
         referringDoctor: "none",
+        hospitalName: null,
+        hospitalDate: null,
         readBack: true,
       },
       {
@@ -850,6 +857,8 @@ describe("scheduling tools", () => {
           appointmentSlotRef: "S1",
           appointmentReason: "left eye pain since yesterday",
           referringDoctor: "none",
+          hospitalName: null,
+          hospitalDate: null,
           readBack: true,
         },
         {
@@ -1320,6 +1329,8 @@ describe("scheduling tools", () => {
         appointmentSlotRef: "S3",
         appointmentReason: "left eye pain since yesterday",
         referringDoctor: "none",
+        hospitalName: null,
+        hospitalDate: null,
         readBack: true,
       },
       {
@@ -1833,6 +1844,8 @@ describe("scheduling tools", () => {
         appointmentSlotRef: "S1",
         appointmentReason: "left eye pain since yesterday",
         referringDoctor: "none",
+        hospitalName: null,
+        hospitalDate: null,
         readBack: true,
       },
       {
@@ -1896,6 +1909,8 @@ describe("scheduling tools", () => {
         appointmentSlotRef: "S1",
         appointmentReason,
         referringDoctor: "none",
+        hospitalName: null,
+        hospitalDate: null,
         readBack: true,
       },
       {
@@ -1932,6 +1947,8 @@ describe("scheduling tools", () => {
         appointmentSlotRef: "S1",
         appointmentReason: "left eye pain since yesterday",
         referringDoctor: "none",
+        hospitalName: null,
+        hospitalDate: null,
         readBack: true,
       },
       {
@@ -2006,6 +2023,8 @@ describe("scheduling tools", () => {
         appointmentSlotRef: "S1",
         appointmentReason: "left eye pain since yesterday",
         referringDoctor: "none",
+        hospitalName: null,
+        hospitalDate: null,
         readBack: true,
       },
       {
@@ -2040,6 +2059,8 @@ describe("scheduling tools", () => {
         appointmentSlotRef: "S1",
         appointmentReason: "left eye pain since yesterday",
         referringDoctor: "none",
+        hospitalName: null,
+        hospitalDate: null,
         readBack: null,
       },
       {
@@ -2067,6 +2088,8 @@ describe("scheduling tools", () => {
           appointmentSlotRef: "S1",
           appointmentReason: "left eye pain since yesterday",
           referringDoctor: "none",
+          hospitalName: null,
+          hospitalDate: null,
           readBack: true,
         },
         {
@@ -2100,6 +2123,8 @@ describe("scheduling tools", () => {
         appointmentSlotRef: "S1",
         appointmentReason: "left eye pain since yesterday",
         referringDoctor: "none",
+        hospitalName: null,
+        hospitalDate: null,
         readBack: true,
       },
       {
@@ -2166,6 +2191,8 @@ describe("scheduling tools", () => {
           appointmentSlotRef: "S1",
           appointmentReason: "left eye pain since yesterday",
           referringDoctor: "none",
+          hospitalName: null,
+          hospitalDate: null,
           readBack: true,
         },
         {
@@ -2209,6 +2236,8 @@ describe("scheduling tools", () => {
         appointmentSlotRef: "S1",
         appointmentReason: "left eye pain since yesterday",
         referringDoctor: "none",
+        hospitalName: null,
+        hospitalDate: null,
         readBack: true,
       },
       {
@@ -2266,6 +2295,8 @@ describe("scheduling tools", () => {
         appointmentSlotRef: "S1",
         appointmentReason: "left eye pain since yesterday",
         referringDoctor: "none",
+        hospitalName: null,
+        hospitalDate: null,
         readBack: true,
       },
       {
@@ -2298,6 +2329,8 @@ describe("scheduling tools", () => {
       appointmentSlotRef: "S1",
       appointmentReason: "left eye pain since yesterday",
       referringDoctor: "none",
+      hospitalName: null,
+      hospitalDate: null,
       readBack: true as const,
     };
 
@@ -2340,6 +2373,8 @@ describe("scheduling tools", () => {
       appointmentSlotRef: "S1",
       appointmentReason: "left eye pain since yesterday",
       referringDoctor: "none",
+      hospitalName: null,
+      hospitalDate: null,
       readBack: true as const,
     };
     await book_appointment.execute(args, {
@@ -2388,6 +2423,8 @@ describe("scheduling tools", () => {
         appointmentSlotRef: "S1",
         appointmentReason: "follow-up",
         referringDoctor: "none",
+        hospitalName: null,
+        hospitalDate: null,
         readBack: true,
       },
       {
@@ -2419,6 +2456,8 @@ describe("scheduling tools", () => {
         appointmentSlotRef: "S1",
         appointmentReason: "left eye pain since yesterday",
         referringDoctor: "none",
+        hospitalName: null,
+        hospitalDate: null,
         readBack: true,
       },
       {
@@ -2447,6 +2486,8 @@ describe("scheduling tools", () => {
         appointmentSlotRef: "S1",
         appointmentReason: "left eye pain since yesterday",
         referringDoctor: "none",
+        hospitalName: null,
+        hospitalDate: null,
         readBack: true,
       },
       {
