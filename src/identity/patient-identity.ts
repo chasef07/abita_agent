@@ -6,7 +6,10 @@ import {
   type PatientResolveVerified,
 } from "../clients/owned-middleware.js";
 import { getOfficeProfileByPhone } from "../customers/abita/profile.js";
-import { normalizeCallerAppointments } from "../state/appointments.js";
+import {
+  activeAppointments,
+  normalizeCallerAppointments,
+} from "../state/appointments.js";
 import {
   activePatientDob,
   activePatientId,
@@ -1220,6 +1223,7 @@ function spokenPatientName(state: CallState): string {
 }
 
 function confirmedPatientReply(state: CallState): string {
+  const appointments = activeAppointments(state);
   const patient = state.identity.activePatient;
   const acknowledgment = appointmentReply(
     [
@@ -1229,7 +1233,7 @@ function confirmedPatientReply(state: CallState): string {
       .filter(Boolean)
       .join(" "),
     patient?.appointmentsStatus ?? null,
-    patient?.appointments ?? [],
+    appointments,
   );
   if (patient?.appointmentsStatus !== "found" || !patient.appointments.length)
     return acknowledgment;

@@ -1,0 +1,201 @@
+{
+  "/api/patient/resolve": {
+    "status": "verified",
+    "patientId": "12345",
+    "name": "DOE,JANE",
+    "dob": "01/15/1980",
+    "appointmentsStatus": "found",
+    "appointments": [
+      {
+        "id": 54321,
+        "date": "Thursday, June 4, 2026",
+        "time": "9:00 AM",
+        "provider": "Dr. Austin Bach",
+        "visitType": "medical",
+        "appointmentTypeId": 1007,
+        "officeId": "spring_hill",
+        "office": "Spring Hill",
+        "cancellationToken": "eyJ2IjoxLCJwdXJwb3NlIjoiYXBwb2ludG1lbnRfY2FuY2VsbGF0aW9uIiwicGF0aWVudElkIjoiMTIzNDUiLCJhcHBvaW50bWVudElkIjo1NDMyMSwiYXBwb2ludG1lbnRUeXBlSWQiOjEwMDcsIm9mZmljZUlkIjoic3ByaW5nX2hpbGwiLCJzdGFydCI6IjIwMjYtMDYtMDRUMDk6MDA6MDBaIiwiaWF0IjoxNzgwMzE1MjAwLCJleHAiOjE3ODAzMTYxMDB9.F9ARFMrOxdY-S5tC_fp6eR5EAHXMBVKNXCqvBqeZB0U",
+        "rescheduleToken": "eyJ2IjoxLCJwdXJwb3NlIjoiYXBwb2ludG1lbnRfcmVzY2hlZHVsZSIsInBhdGllbnRJZCI6IjEyMzQ1IiwiYXBwb2ludG1lbnRJZCI6NTQzMjEsImFwcG9pbnRtZW50VHlwZUlkIjoxMDA3LCJvZmZpY2VJZCI6InNwcmluZ19oaWxsIiwic3RhcnQiOiIyMDI2LTA2LTA0VDA5OjAwOjAwWiIsImlhdCI6MTc4MDMxNTIwMCwiZXhwIjoxNzgwMzE2MTAwfQ.XT2hDlwjROYdjPTwMYIDjDitk99nY2VllXUQm4qhgro"
+      }
+    ],
+    "message": "Patient verified with 1 appointment(s)",
+    "matches": []
+  },
+  "/api/scheduler/slots": {
+    "status": "success",
+    "outcome": "availability_found",
+    "availabilityFound": true,
+    "requestedDate": "2026-06-03",
+    "actualDate": "2026-06-03",
+    "searchedFrom": "2026-06-03",
+    "searchedThrough": "2026-06-16",
+    "bookingTokenExpiresAt": "2026-06-01T12:15:00Z",
+    "shouldRetrySameSearch": false,
+    "nextAction": "offer_slots",
+    "slots": [
+      {
+        "provider": "Dr. Austin Bach",
+        "time": "9:00 AM",
+        "datetime": "2026-06-03T09:00",
+        "bookingToken": "eyJ2IjoxLCJvZmZpY2VJZCI6InNwcmluZ19oaWxsIiwicm91dGluZyI6ImFsbF90aHJlZSIsImNvbHVtbklkIjoxNTEzLCJwcm9maWxlSWQiOjYyMCwic3RhcnREYXRldGltZSI6IjIwMjYtMDYtMDNUMDk6MDAiLCJkdXJhdGlvbiI6MTUsImRvYiI6IjAxLzE1LzE5ODAiLCJhcHBvaW50bWVudFR5cGVJZHMiOlsxMDA2LDEwMDcsMTAwOF0sInNhbWVTdGFydENhcGFjaXR5IjoyLCJwcm92aWRlciI6IkRyLiBBdXN0aW4gQmFjaCIsImlhdCI6MTc4MDMxNTIwMCwiZXhwIjoxNzgwMzE2MTAwfQ.klFMaF06mZOR_iCfJMI6ENw6bN0voUSwtcVWMFLT1Rw",
+        "columnId": 1513,
+        "profileId": 620,
+        "duration": 15
+      },
+      {
+        "provider": "Dr. Austin Bach",
+        "time": "9:00 AM",
+        "datetime": "2026-06-04T09:00",
+        "bookingToken": "eyJ2IjoxLCJvZmZpY2VJZCI6InNwcmluZ19oaWxsIiwicm91dGluZyI6ImFsbF90aHJlZSIsImNvbHVtbklkIjoxNTEzLCJwcm9maWxlSWQiOjYyMCwic3RhcnREYXRldGltZSI6IjIwMjYtMDYtMDRUMDk6MDAiLCJkdXJhdGlvbiI6MTUsImRvYiI6IjAxLzE1LzE5ODAiLCJhcHBvaW50bWVudFR5cGVJZHMiOlsxMDA2LDEwMDcsMTAwOF0sInNhbWVTdGFydENhcGFjaXR5IjoyLCJwcm92aWRlciI6IkRyLiBBdXN0aW4gQmFjaCIsImlhdCI6MTc4MDMxNTIwMCwiZXhwIjoxNzgwMzE2MTAwfQ.aCtXMbKow-9ZjogLNTrcCwexajTwZw3ZWenoLycB_7g",
+        "columnId": 1513,
+        "profileId": 620,
+        "duration": 15
+      },
+      {
+        "provider": "Dr. Austin Bach",
+        "time": "9:00 AM",
+        "datetime": "2026-06-05T09:00",
+        "bookingToken": "eyJ2IjoxLCJvZmZpY2VJZCI6InNwcmluZ19oaWxsIiwicm91dGluZyI6ImFsbF90aHJlZSIsImNvbHVtbklkIjoxNTEzLCJwcm9maWxlSWQiOjYyMCwic3RhcnREYXRldGltZSI6IjIwMjYtMDYtMDVUMDk6MDAiLCJkdXJhdGlvbiI6MTUsImRvYiI6IjAxLzE1LzE5ODAiLCJhcHBvaW50bWVudFR5cGVJZHMiOlsxMDA2LDEwMDcsMTAwOF0sInNhbWVTdGFydENhcGFjaXR5IjoyLCJwcm92aWRlciI6IkRyLiBBdXN0aW4gQmFjaCIsImlhdCI6MTc4MDMxNTIwMCwiZXhwIjoxNzgwMzE2MTAwfQ.PN_JelGGU79v27wjw3FqI1CXtqXJhM6pGumOgUhWGEM",
+        "columnId": 1513,
+        "profileId": 620,
+        "duration": 15
+      },
+      {
+        "provider": "Dr. Austin Bach",
+        "time": "9:00 AM",
+        "datetime": "2026-06-06T09:00",
+        "bookingToken": "eyJ2IjoxLCJvZmZpY2VJZCI6InNwcmluZ19oaWxsIiwicm91dGluZyI6ImFsbF90aHJlZSIsImNvbHVtbklkIjoxNTEzLCJwcm9maWxlSWQiOjYyMCwic3RhcnREYXRldGltZSI6IjIwMjYtMDYtMDZUMDk6MDAiLCJkdXJhdGlvbiI6MTUsImRvYiI6IjAxLzE1LzE5ODAiLCJhcHBvaW50bWVudFR5cGVJZHMiOlsxMDA2LDEwMDcsMTAwOF0sInNhbWVTdGFydENhcGFjaXR5IjoyLCJwcm92aWRlciI6IkRyLiBBdXN0aW4gQmFjaCIsImlhdCI6MTc4MDMxNTIwMCwiZXhwIjoxNzgwMzE2MTAwfQ.BETIVgz1qy8QDtgn-lCTMFK3_lw90pwFkgNVpeui6EE",
+        "columnId": 1513,
+        "profileId": 620,
+        "duration": 15
+      },
+      {
+        "provider": "Dr. Austin Bach",
+        "time": "9:00 AM",
+        "datetime": "2026-06-07T09:00",
+        "bookingToken": "eyJ2IjoxLCJvZmZpY2VJZCI6InNwcmluZ19oaWxsIiwicm91dGluZyI6ImFsbF90aHJlZSIsImNvbHVtbklkIjoxNTEzLCJwcm9maWxlSWQiOjYyMCwic3RhcnREYXRldGltZSI6IjIwMjYtMDYtMDdUMDk6MDAiLCJkdXJhdGlvbiI6MTUsImRvYiI6IjAxLzE1LzE5ODAiLCJhcHBvaW50bWVudFR5cGVJZHMiOlsxMDA2LDEwMDcsMTAwOF0sInNhbWVTdGFydENhcGFjaXR5IjoyLCJwcm92aWRlciI6IkRyLiBBdXN0aW4gQmFjaCIsImlhdCI6MTc4MDMxNTIwMCwiZXhwIjoxNzgwMzE2MTAwfQ.I9GM7FiDtfFY1SZGmPSQ_DEdXYspPZVVXSQIfGXX5AQ",
+        "columnId": 1513,
+        "profileId": 620,
+        "duration": 15
+      },
+      {
+        "provider": "Dr. Austin Bach",
+        "time": "9:00 AM",
+        "datetime": "2026-06-08T09:00",
+        "bookingToken": "eyJ2IjoxLCJvZmZpY2VJZCI6InNwcmluZ19oaWxsIiwicm91dGluZyI6ImFsbF90aHJlZSIsImNvbHVtbklkIjoxNTEzLCJwcm9maWxlSWQiOjYyMCwic3RhcnREYXRldGltZSI6IjIwMjYtMDYtMDhUMDk6MDAiLCJkdXJhdGlvbiI6MTUsImRvYiI6IjAxLzE1LzE5ODAiLCJhcHBvaW50bWVudFR5cGVJZHMiOlsxMDA2LDEwMDcsMTAwOF0sInNhbWVTdGFydENhcGFjaXR5IjoyLCJwcm92aWRlciI6IkRyLiBBdXN0aW4gQmFjaCIsImlhdCI6MTc4MDMxNTIwMCwiZXhwIjoxNzgwMzE2MTAwfQ.fJ0JSkrsqwli9Sy9ldk5xk8KrT09XzoPqEI6W3JoKkU",
+        "columnId": 1513,
+        "profileId": 620,
+        "duration": 15
+      },
+      {
+        "provider": "Dr. Austin Bach",
+        "time": "9:00 AM",
+        "datetime": "2026-06-09T09:00",
+        "bookingToken": "eyJ2IjoxLCJvZmZpY2VJZCI6InNwcmluZ19oaWxsIiwicm91dGluZyI6ImFsbF90aHJlZSIsImNvbHVtbklkIjoxNTEzLCJwcm9maWxlSWQiOjYyMCwic3RhcnREYXRldGltZSI6IjIwMjYtMDYtMDlUMDk6MDAiLCJkdXJhdGlvbiI6MTUsImRvYiI6IjAxLzE1LzE5ODAiLCJhcHBvaW50bWVudFR5cGVJZHMiOlsxMDA2LDEwMDcsMTAwOF0sInNhbWVTdGFydENhcGFjaXR5IjoyLCJwcm92aWRlciI6IkRyLiBBdXN0aW4gQmFjaCIsImlhdCI6MTc4MDMxNTIwMCwiZXhwIjoxNzgwMzE2MTAwfQ.p6_39ieJtPuZXH6CHcbHgdpM1eL-iW0METeNc887mp4",
+        "columnId": 1513,
+        "profileId": 620,
+        "duration": 15
+      },
+      {
+        "provider": "Dr. Austin Bach",
+        "time": "9:00 AM",
+        "datetime": "2026-06-10T09:00",
+        "bookingToken": "eyJ2IjoxLCJvZmZpY2VJZCI6InNwcmluZ19oaWxsIiwicm91dGluZyI6ImFsbF90aHJlZSIsImNvbHVtbklkIjoxNTEzLCJwcm9maWxlSWQiOjYyMCwic3RhcnREYXRldGltZSI6IjIwMjYtMDYtMTBUMDk6MDAiLCJkdXJhdGlvbiI6MTUsImRvYiI6IjAxLzE1LzE5ODAiLCJhcHBvaW50bWVudFR5cGVJZHMiOlsxMDA2LDEwMDcsMTAwOF0sInNhbWVTdGFydENhcGFjaXR5IjoyLCJwcm92aWRlciI6IkRyLiBBdXN0aW4gQmFjaCIsImlhdCI6MTc4MDMxNTIwMCwiZXhwIjoxNzgwMzE2MTAwfQ.a_GTuFmBeT00yi9wZSKFEC-nGuDQFF-jTu5p56rB1mU",
+        "columnId": 1513,
+        "profileId": 620,
+        "duration": 15
+      },
+      {
+        "provider": "Dr. Austin Bach",
+        "time": "9:00 AM",
+        "datetime": "2026-06-11T09:00",
+        "bookingToken": "eyJ2IjoxLCJvZmZpY2VJZCI6InNwcmluZ19oaWxsIiwicm91dGluZyI6ImFsbF90aHJlZSIsImNvbHVtbklkIjoxNTEzLCJwcm9maWxlSWQiOjYyMCwic3RhcnREYXRldGltZSI6IjIwMjYtMDYtMTFUMDk6MDAiLCJkdXJhdGlvbiI6MTUsImRvYiI6IjAxLzE1LzE5ODAiLCJhcHBvaW50bWVudFR5cGVJZHMiOlsxMDA2LDEwMDcsMTAwOF0sInNhbWVTdGFydENhcGFjaXR5IjoyLCJwcm92aWRlciI6IkRyLiBBdXN0aW4gQmFjaCIsImlhdCI6MTc4MDMxNTIwMCwiZXhwIjoxNzgwMzE2MTAwfQ.POiAcauL-jKhoPBikcUrNvlHOXSO73DfXAxXOJR6WZw",
+        "columnId": 1513,
+        "profileId": 620,
+        "duration": 15
+      },
+      {
+        "provider": "Dr. Austin Bach",
+        "time": "9:00 AM",
+        "datetime": "2026-06-12T09:00",
+        "bookingToken": "eyJ2IjoxLCJvZmZpY2VJZCI6InNwcmluZ19oaWxsIiwicm91dGluZyI6ImFsbF90aHJlZSIsImNvbHVtbklkIjoxNTEzLCJwcm9maWxlSWQiOjYyMCwic3RhcnREYXRldGltZSI6IjIwMjYtMDYtMTJUMDk6MDAiLCJkdXJhdGlvbiI6MTUsImRvYiI6IjAxLzE1LzE5ODAiLCJhcHBvaW50bWVudFR5cGVJZHMiOlsxMDA2LDEwMDcsMTAwOF0sInNhbWVTdGFydENhcGFjaXR5IjoyLCJwcm92aWRlciI6IkRyLiBBdXN0aW4gQmFjaCIsImlhdCI6MTc4MDMxNTIwMCwiZXhwIjoxNzgwMzE2MTAwfQ.9n77vfx7nXUd0VN4CeWY_6rDVGfqRkPX4WodOiOTp8Q",
+        "columnId": 1513,
+        "profileId": 620,
+        "duration": 15
+      },
+      {
+        "provider": "Dr. Austin Bach",
+        "time": "9:00 AM",
+        "datetime": "2026-06-13T09:00",
+        "bookingToken": "eyJ2IjoxLCJvZmZpY2VJZCI6InNwcmluZ19oaWxsIiwicm91dGluZyI6ImFsbF90aHJlZSIsImNvbHVtbklkIjoxNTEzLCJwcm9maWxlSWQiOjYyMCwic3RhcnREYXRldGltZSI6IjIwMjYtMDYtMTNUMDk6MDAiLCJkdXJhdGlvbiI6MTUsImRvYiI6IjAxLzE1LzE5ODAiLCJhcHBvaW50bWVudFR5cGVJZHMiOlsxMDA2LDEwMDcsMTAwOF0sInNhbWVTdGFydENhcGFjaXR5IjoyLCJwcm92aWRlciI6IkRyLiBBdXN0aW4gQmFjaCIsImlhdCI6MTc4MDMxNTIwMCwiZXhwIjoxNzgwMzE2MTAwfQ.kLqFLy0hTYlI6Bni4bHtlCfrhXoAUysRbV9BG12qNF8",
+        "columnId": 1513,
+        "profileId": 620,
+        "duration": 15
+      },
+      {
+        "provider": "Dr. Austin Bach",
+        "time": "9:00 AM",
+        "datetime": "2026-06-14T09:00",
+        "bookingToken": "eyJ2IjoxLCJvZmZpY2VJZCI6InNwcmluZ19oaWxsIiwicm91dGluZyI6ImFsbF90aHJlZSIsImNvbHVtbklkIjoxNTEzLCJwcm9maWxlSWQiOjYyMCwic3RhcnREYXRldGltZSI6IjIwMjYtMDYtMTRUMDk6MDAiLCJkdXJhdGlvbiI6MTUsImRvYiI6IjAxLzE1LzE5ODAiLCJhcHBvaW50bWVudFR5cGVJZHMiOlsxMDA2LDEwMDcsMTAwOF0sInNhbWVTdGFydENhcGFjaXR5IjoyLCJwcm92aWRlciI6IkRyLiBBdXN0aW4gQmFjaCIsImlhdCI6MTc4MDMxNTIwMCwiZXhwIjoxNzgwMzE2MTAwfQ.cGeVjE--Fkoa8m5khq86zeQs3DUU_0QHtVLy_XmT0KE",
+        "columnId": 1513,
+        "profileId": 620,
+        "duration": 15
+      },
+      {
+        "provider": "Dr. Austin Bach",
+        "time": "9:00 AM",
+        "datetime": "2026-06-15T09:00",
+        "bookingToken": "eyJ2IjoxLCJvZmZpY2VJZCI6InNwcmluZ19oaWxsIiwicm91dGluZyI6ImFsbF90aHJlZSIsImNvbHVtbklkIjoxNTEzLCJwcm9maWxlSWQiOjYyMCwic3RhcnREYXRldGltZSI6IjIwMjYtMDYtMTVUMDk6MDAiLCJkdXJhdGlvbiI6MTUsImRvYiI6IjAxLzE1LzE5ODAiLCJhcHBvaW50bWVudFR5cGVJZHMiOlsxMDA2LDEwMDcsMTAwOF0sInNhbWVTdGFydENhcGFjaXR5IjoyLCJwcm92aWRlciI6IkRyLiBBdXN0aW4gQmFjaCIsImlhdCI6MTc4MDMxNTIwMCwiZXhwIjoxNzgwMzE2MTAwfQ.Lg4OQKSF9ydXQGbZwNT7ut7A81izs6kCKBProhlA_2Y",
+        "columnId": 1513,
+        "profileId": 620,
+        "duration": 15
+      },
+      {
+        "provider": "Dr. Austin Bach",
+        "time": "9:00 AM",
+        "datetime": "2026-06-16T09:00",
+        "bookingToken": "eyJ2IjoxLCJvZmZpY2VJZCI6InNwcmluZ19oaWxsIiwicm91dGluZyI6ImFsbF90aHJlZSIsImNvbHVtbklkIjoxNTEzLCJwcm9maWxlSWQiOjYyMCwic3RhcnREYXRldGltZSI6IjIwMjYtMDYtMTZUMDk6MDAiLCJkdXJhdGlvbiI6MTUsImRvYiI6IjAxLzE1LzE5ODAiLCJhcHBvaW50bWVudFR5cGVJZHMiOlsxMDA2LDEwMDcsMTAwOF0sInNhbWVTdGFydENhcGFjaXR5IjoyLCJwcm92aWRlciI6IkRyLiBBdXN0aW4gQmFjaCIsImlhdCI6MTc4MDMxNTIwMCwiZXhwIjoxNzgwMzE2MTAwfQ.OCg-TrMFB16DjeH-5x5ehjd3drQY2aQiJ2Zi0avePCk",
+        "columnId": 1513,
+        "profileId": 620,
+        "duration": 15
+      }
+    ]
+  },
+  "/api/appointment/reschedule": {
+    "status": "completed",
+    "booking": {
+      "officeId": "spring_hill",
+      "office": "Spring Hill",
+      "visitType": "medical",
+      "cancellationToken": "eyJ2IjoxLCJwdXJwb3NlIjoiYXBwb2ludG1lbnRfY2FuY2VsbGF0aW9uIiwicGF0aWVudElkIjoiMTIzNDUiLCJhcHBvaW50bWVudElkIjo5ODc2NSwiYXBwb2ludG1lbnRUeXBlSWQiOjEwMDcsIm9mZmljZUlkIjoic3ByaW5nX2hpbGwiLCJzdGFydCI6IjIwMjYtMDYtMDNUMDk6MDA6MDBaIiwiaWF0IjoxNzgwMzE1MjAwLCJleHAiOjE3ODAzMTYxMDB9.pRYIlyHq_UE0lutj1gXojv6Z6ivS5FokKEzaWlMUJJY",
+      "status": "booked",
+      "appointmentId": 98765,
+      "patientId": "12345",
+      "patientName": "Jane Doe",
+      "providerName": "Dr. Austin Bach",
+      "locationName": "Spring Hill",
+      "startDatetime": "2026-06-03T09:00",
+      "duration": 15,
+      "appointmentTypeId": 1007,
+      "appointmentTypeName": "Established Adult Medical (Follow Up)",
+      "rescheduleToken": "eyJ2IjoxLCJwdXJwb3NlIjoiYXBwb2ludG1lbnRfcmVzY2hlZHVsZSIsInBhdGllbnRJZCI6IjEyMzQ1IiwiYXBwb2ludG1lbnRJZCI6OTg3NjUsImFwcG9pbnRtZW50VHlwZUlkIjoxMDA3LCJvZmZpY2VJZCI6InNwcmluZ19oaWxsIiwic3RhcnQiOiIyMDI2LTA2LTAzVDA5OjAwOjAwWiIsImlhdCI6MTc4MDMxNTIwMCwiZXhwIjoxNzgwMzE2MTAwfQ.sBckAZF0k4-YyDfEcylixtk7oWLY-TEwBdoMayGTKfY",
+      "message": "Appointment booked successfully"
+    },
+    "cancellation": {
+      "status": "cancelled",
+      "appointmentId": 54321,
+      "message": "Appointment cancelled successfully"
+    },
+    "message": "The replacement is booked and the original appointment is cancelled."
+  },
+  "unsupported": {
+    "status": "success",
+    "outcome": "no_eligible_providers",
+    "availabilityFound": false,
+    "shouldRetrySameSearch": false,
+    "nextAction": "",
+    "message": "This office or routing does not support the requested visit type.",
+    "slots": []
+  }
+}

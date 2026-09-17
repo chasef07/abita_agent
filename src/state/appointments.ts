@@ -23,6 +23,9 @@ export function normalizeCallerAppointments(
       type,
       appointmentTypeId,
       facility,
+      officeId,
+      office,
+      visitType,
       confirmed,
       cancellationToken,
       rescheduleToken,
@@ -35,6 +38,9 @@ export function normalizeCallerAppointments(
         type,
         ...(appointmentTypeId !== undefined ? { appointmentTypeId } : {}),
         facility,
+        officeId,
+        office,
+        visitType,
         confirmed,
         ...(cancellationToken?.trim()
           ? { cancellationToken: cancellationToken.trim() }
@@ -55,10 +61,34 @@ export function normalizeCallerAppointments(
 }
 
 export function activeAppointments(state: CallState): CallerAppointment[] {
-  return normalizeCallerAppointments(
-    state.identity.activePatient?.appointments,
-    activePatientId(state),
+  const patient = state.identity.activePatient;
+  const patientId = activePatientId(state);
+  if (!patient || !patientId) return [];
+  const cancelled = new Set(
+    state.identity.completedCancellations
+      .filter((item) => item.patientId === patientId)
+      .map((item) => item.appointment.id),
   );
+  const appointments = [...patient.appointments];
+  const booking =
+    state.identity.completedBookingsByPatientId[patientId]?.appointment;
+  const reschedule = state.identity.completedReschedulesByPatientId[patientId];
+  const receipts = [
+    ...(booking ? [booking] : []),
+    ...(reschedule?.appointments ?? []),
+  ];
+  for (const appointment of receipts) {
+    if (!appointments.some((item) => item.id === appointment.id))
+      appointments.push(appointment);
+  }
+  patient.appointments = normalizeCallerAppointments(
+    appointments.filter((item) => !cancelled.has(item.id)),
+    patientId,
+  );
+  if (patient.appointments.length) patient.appointmentsStatus = "found";
+  else if (cancelled.size && patient.appointmentsStatus === "found")
+    patient.appointmentsStatus = "none";
+  return patient.appointments;
 }
 
 export function replaceActiveAppointments(
@@ -145,8 +175,15 @@ export function recordCompletedRescheduleForPatient(
   state: CallState,
   patientId: string,
   reschedule: CompletedRescheduleState,
+  appointment?: CallerAppointment,
 ): void {
-  state.identity.completedReschedulesByPatientId[patientId] = reschedule;
+  const previous = state.identity.completedReschedulesByPatientId[patientId];
+  const appointments = [...(previous?.appointments ?? [])];
+  if (appointment) appointments.push(appointment);
+  state.identity.completedReschedulesByPatientId[patientId] = {
+    ...reschedule,
+    appointments,
+  };
 }
 
 export function appointmentRefForPatient(
@@ -160,6 +197,8 @@ export function appointmentRefForPatient(
     | "type"
     | "appointmentTypeId"
     | "facility"
+    | "officeId"
+    | "visitType"
   >,
 ): string {
   const source = JSON.stringify([
@@ -171,6 +210,8 @@ export function appointmentRefForPatient(
     appointment.type,
     appointment.appointmentTypeId ?? null,
     appointment.facility,
+    appointment.officeId ?? null,
+    appointment.visitType ?? null,
   ]);
   const digest = createHash("sha256").update(source).digest("hex").slice(0, 24);
   return `appointment-${digest}`;

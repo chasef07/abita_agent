@@ -6,7 +6,6 @@ import {
   activePatientDob,
   activePatientName,
   type CallState,
-  type CallerAppointment,
   type StoredAvailabilitySlot,
 } from "../state/call-state.js";
 import {
@@ -33,17 +32,8 @@ type BookingRequestInput = {
   appointmentReason: string;
   referringDoctor?: string;
   now: Date;
-  appointmentTypeIdOverride?: number | null;
-  patientStatusOverride?: AppointmentPatientStatus | null;
   rescheduleToken?: string;
 };
-
-const NEW_PATIENT_APPOINTMENT_TYPE_IDS = new Set([
-  1004, 1006, 1010, 4244, 6167,
-]);
-const ESTABLISHED_PATIENT_APPOINTMENT_TYPE_IDS = new Set([
-  1005, 1007, 3364, 4245, 6169,
-]);
 
 export function selectedSlotForBooking(
   state: CallState,
@@ -87,7 +77,6 @@ export function bookingRequestBodyForSlot(
     state,
     routing,
     normalizedReason,
-    input.patientStatusOverride,
   );
   const patientName = activePatientName(state);
   const dob = activePatientDob(state);
@@ -100,55 +89,16 @@ export function bookingRequestBodyForSlot(
     ...(input.rescheduleToken
       ? { rescheduleToken: input.rescheduleToken }
       : {}),
-    ...(input.appointmentTypeIdOverride != null
-      ? { appointmentTypeId: input.appointmentTypeIdOverride }
-      : {}),
     ...(patientName ? { patientName } : {}),
     ...(dob ? { dob } : {}),
     ...(routing ? { routing } : {}),
   };
 }
 
-export function appointmentPatientStatusForLoadedAppointment(
-  appointment: CallerAppointment,
-): AppointmentPatientStatus | null {
-  if (
-    appointment.appointmentTypeId !== undefined &&
-    NEW_PATIENT_APPOINTMENT_TYPE_IDS.has(appointment.appointmentTypeId)
-  ) {
-    return "new";
-  }
-  if (
-    appointment.appointmentTypeId !== undefined &&
-    ESTABLISHED_PATIENT_APPOINTMENT_TYPE_IDS.has(appointment.appointmentTypeId)
-  ) {
-    return "established";
-  }
-
-  const normalizedType = normalizeAppointmentTypeName(appointment.type);
-  if (!normalizedType) return null;
-  if (/\bnew\b/.test(normalizedType)) return "new";
-  if (
-    /\bestablished\b/.test(normalizedType) ||
-    /\bfollow\s*up\b/.test(normalizedType)
-  ) {
-    return "established";
-  }
-  return null;
-}
-
 export function bookingSucceeded(
   result: BookAppointmentResult,
 ): result is BookingSuccess {
   return result.status === "booked" || result.status === "partial";
-}
-
-export function bookingHadPositiveStatusWithoutAppointmentId(
-  result: BookAppointmentResult,
-): boolean {
-  return (
-    result.status === "error" && result.detail === "missing_appointment_id"
-  );
 }
 
 export function bookedAppointmentMessage(
@@ -235,15 +185,13 @@ function appointmentIntentForBooking(
   state: CallState,
   routing: string | null,
   appointmentReason: string,
-  patientStatusOverride?: AppointmentPatientStatus | null,
 ): Pick<
   BookAppointmentInput,
   "visitCategory" | "patientStatus" | "visitReason"
 > {
   return {
     visitCategory: visitCategoryForBooking(state, routing),
-    patientStatus:
-      patientStatusOverride ?? patientStatusForAppointmentIntent(state),
+    patientStatus: patientStatusForAppointmentIntent(state),
     visitReason: appointmentReason,
   };
 }
@@ -273,12 +221,5 @@ function patientStatusForAppointmentIntent(
 function isGenericBookingReason(value: string): boolean {
   return /^(appointment|appt|visit|office visit|booking|(?:my )?eyes?|(?:my )?eye (?:exam|issues?|problems?|concerns?))$/i.test(
     value.trim(),
-  );
-}
-
-function normalizeAppointmentTypeName(value: string | undefined): string {
-  return (
-    value?.trim().toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ") ??
-    ""
   );
 }

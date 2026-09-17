@@ -19,9 +19,7 @@ import { incompletePatientRegistrationMessage } from "../identity/patient-identi
 import { activeRoutingContext, setWorkflowVisitType } from "./state.js";
 import {
   getAmdOfficeForToolCall,
-  medicalSchedulingUnavailable,
   routingForAvailability,
-  routineVisionSchedulingUnavailable,
   selectAvailabilityOffice,
 } from "./routing.js";
 import {
@@ -144,9 +142,7 @@ function storeAvailabilitySlots(
 
   // A partial read cannot establish the full calendar. Do not expose it as inventory.
   const offeredSlots =
-    result.status === "incomplete"
-      ? []
-      : distinctAvailabilitySlots(result.slots);
+    result.status === "found" ? distinctAvailabilitySlots(result.slots) : [];
   const existingSlots = new Map(
     availabilitySlotsForState(state).map((slot) => [storedSlotKey(slot), slot]),
   );
@@ -186,6 +182,8 @@ function availabilityMessage(
   canRetry: boolean,
 ): string {
   const searchedRange = spokenSearchRange(result);
+  if (result.status === "unsupported")
+    return "No providers are eligible for this office and visit type. Confirm a supported office or visit type, or offer staff help. Changing dates will not resolve this.";
   if (result.status === "none") {
     return `I couldn't find any openings ${searchedRange}. What other day or time works for you?`;
   }
@@ -464,13 +462,6 @@ function buildAvailabilityLookupRequestForState(
   if (!state.workflow.visitType) {
     return { blocked: "Is this visit for medical care or routine vision?" };
   }
-  const unsupportedMedicalScheduling = medicalSchedulingUnavailable(state);
-  if (unsupportedMedicalScheduling)
-    return { blocked: unsupportedMedicalScheduling };
-  const unsupportedRoutineVisionScheduling =
-    routineVisionSchedulingUnavailable(state);
-  if (unsupportedRoutineVisionScheduling)
-    return { blocked: unsupportedRoutineVisionScheduling };
   const routing = routingForAvailability(state);
   const startDate = args.startDate ?? addCalendarDays(cacheDay, 1);
   state.availability.requestedStartDate = startDate;
@@ -478,6 +469,7 @@ function buildAvailabilityLookupRequestForState(
     office: getAmdOfficeForToolCall(state),
     startDate,
     rangeDays: 14,
+    visitType: state.workflow.visitType,
   };
   const dob = activePatientDob(state);
   if (dob) body.dob = dob;

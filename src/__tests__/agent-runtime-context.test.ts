@@ -206,6 +206,7 @@ describe("agent runtime context", () => {
           appointments: [1007, 4245].map((appointmentTypeId, index) => ({
             id: 100 + index,
             appointmentTypeId,
+            visitType: index === 0 ? "medical" : "routine_vision",
             type: "Appointment",
             date: "2026-09-10",
             time: "9:00 AM",

@@ -186,6 +186,7 @@ function normalizeStoredCallerAppointments(
     const rescheduleToken = stringValue(appointment.rescheduleToken)?.trim();
     appointments.push({
       id: appointment.id,
+      ...appointmentMetadata(appointment),
       date: appointment.date,
       time: appointment.time,
       provider: appointment.provider ?? "",
@@ -278,4 +279,24 @@ export function statusFromAppointments(
 ): AppointmentLoadStatus | null {
   if (!Array.isArray(appointments)) return null;
   return appointments.length > 0 ? "found" : "none";
+}
+
+export function appointmentMetadata(raw: Record<string, unknown>) {
+  return {
+    ...(stringValue(raw.officeId)
+      ? { officeId: stringValue(raw.officeId)! }
+      : {}),
+    ...(stringValue(raw.office) ? { office: stringValue(raw.office)! } : {}),
+    ...(raw.visitType === "medical" || raw.visitType === "routine_vision"
+      ? { visitType: raw.visitType }
+      : {}),
+    ...(stringValue(raw.cancellationToken)
+      ? { cancellationToken: stringValue(raw.cancellationToken)! }
+      : {}),
+  } as {
+    officeId?: string;
+    office?: string;
+    visitType?: "medical" | "routine_vision";
+    cancellationToken?: string;
+  };
 }

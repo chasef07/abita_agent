@@ -1093,7 +1093,7 @@ describe("model-facing tool definitions", () => {
       "reschedule_appointment",
     );
     expect(reschedule_appointment.description).toContain(
-      "books first, then cancels the old appointment",
+      "Middleware performs the move in one request",
     );
     expect(reschedule_appointment.description).toContain(
       "read-back of the new date, time, and provider",
@@ -1102,10 +1102,10 @@ describe("model-facing tool definitions", () => {
       "use only opaque call-scoped references",
     );
     expect(reschedule_appointment.description).toContain(
-      "report partial success if cancellation fails",
+      "Report partial or uncertain outcomes exactly",
     );
     expect(reschedule_appointment.description).toContain(
-      "never retry the booking",
+      "never repeat an ambiguous change",
     );
 
     const parameters = reschedule_appointment.parameters as {

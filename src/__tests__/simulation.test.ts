@@ -40,6 +40,7 @@ describe("simulation setup", () => {
       createPatient: vi.fn(),
       updateInsurance: vi.fn(),
       bookAppointment: vi.fn(),
+      rescheduleAppointment: vi.fn(),
       cancelAppointment: vi.fn(),
     } satisfies OwnedMiddleware;
     const { agent } = createVoiceAgent(

@@ -1,5 +1,3 @@
-import { getOfficeProfile } from "../customers/abita/profile.js";
-import { activeOfficeKey } from "../state/call-lifecycle.js";
 import {
   activeAppointments,
   completedCancellations,
@@ -23,7 +21,7 @@ export function currentAppointmentReferences(state: CallState): string {
     if (!appointment.appointmentRef) return [];
     const description = spokenAppointmentDescription(appointment);
     return [
-      `${description} (appointmentRef ${appointment.appointmentRef}, visitType ${visitTypeForAppointment(appointment)})`,
+      `${description} (appointmentRef ${appointment.appointmentRef}, visitType ${visitTypeForAppointment(appointment) ?? "unknown"})`,
     ];
   });
   return references.length
@@ -38,6 +36,7 @@ export function spokenAppointmentDescription(
     spokenAppointmentDate(appointment.date),
     appointment.time ? `at ${appointment.time}` : "",
     appointment.provider ? `with ${appointment.provider}` : "",
+    appointment.office ? `at ${appointment.office}` : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -73,21 +72,23 @@ function activeAppointmentById(
   );
 }
 
-export function recordBookedAppointmentInState(
-  state: CallState,
+export function bookedAppointmentFromReceipt(
   selectedSlot: StoredAvailabilitySlot,
   result: BookingSuccess,
-): string {
+): CallerAppointment {
   const appointmentId = result.appointmentId;
   const provider = result.providerName
     ? publicProviderName(result.providerName)
     : selectedSlot.provider;
-  const facility =
-    result.locationName ?? getOfficeProfile(activeOfficeKey(state)).displayName;
+  const facility = result.office ?? result.locationName ?? "";
   const type = result.appointmentTypeName ?? "Appointment";
   const appointmentTypeId = result.appointmentTypeId;
   const appointment: CallerAppointment = {
     id: appointmentId,
+    officeId: result.officeId,
+    office: result.office,
+    visitType: result.visitType,
+    cancellationToken: result.cancellationToken,
     date: selectedSlot.date,
     time: selectedSlot.time,
     provider,
@@ -99,6 +100,16 @@ export function recordBookedAppointmentInState(
     facility,
     confirmed: true,
   };
+  return appointment;
+}
+
+export function recordBookedAppointmentInState(
+  state: CallState,
+  selectedSlot: StoredAvailabilitySlot,
+  result: BookingSuccess,
+): string {
+  const appointment = bookedAppointmentFromReceipt(selectedSlot, result);
+  const appointmentId = appointment.id;
   const nextAppointments = [
     ...activeAppointments(state).filter((item) => item.id !== appointmentId),
     appointment,

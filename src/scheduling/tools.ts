@@ -191,7 +191,7 @@ export function createSchedulingTools(
     description:
       "Move a verified patient's loaded appointment to a caller-confirmed slot from list_available_appointments after learning who referred the caller or that no doctor referred them. " +
       "Require confirmation of the old appointment and a read-back of the new date, time, and provider; use only opaque call-scoped references. " +
-      "This tool books first, then cancels the old appointment; report partial success if cancellation fails, and never retry the booking.",
+      "Middleware performs the move in one request. Report partial or uncertain outcomes exactly; never repeat an ambiguous change.",
     parameters: rescheduleAppointmentParameters,
     execute: async (args, { ctx, toolCallId }): Promise<string> => {
       ctx.disallowInterruptions();
