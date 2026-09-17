@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.3.3](https://github.com/chasef07/abita_agent/compare/5.3.2...5.3.3) (2026-09-17)
+
+
+### Bug Fixes
+
+* **agent:** consume middleware insurance and scheduling decisions ([#491](https://github.com/chasef07/abita_agent/issues/491)) ([5aaa417](https://github.com/chasef07/abita_agent/commit/5aaa417c951d41e2ce7f74d4c772d3dea08785d1))
+
 ## [5.3.2](https://github.com/chasef07/abita_agent/compare/5.3.1...5.3.2) (2026-09-17)
 
 
