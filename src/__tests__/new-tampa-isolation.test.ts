@@ -46,7 +46,10 @@ describe("New Tampa isolation from other numbers", () => {
           registered
             .filter(isFunctionTool)
             .find((entry) => entry.id === "check_insurance"),
-        ).toBe(check_insurance);
+        ).toMatchObject({
+          id: check_insurance.id,
+          description: check_insurance.description,
+        });
         expect(
           registered
             .map((entry) => entry.id)

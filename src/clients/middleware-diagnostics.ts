@@ -120,9 +120,11 @@ const statuses = new Set([
   "incomplete",
 ]);
 export const middlewareOperationByPath: Record<string, string> = {
+  "/api/insurance/decision": "checkInsurance",
   "/api/patient/resolve": "resolvePatient",
   "/api/scheduler/slots": "getAvailability",
   "/api/add-patient": "createPatient",
+  "/api/appointment/reschedule": "rescheduleAppointment",
   "/api/appointment/book": "bookAppointment",
   "/api/appointment/cancel": "cancelAppointment",
   "/api/patient/update-insurance": "updateInsurance",

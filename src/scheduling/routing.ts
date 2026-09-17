@@ -56,13 +56,6 @@ export function routingForAvailability(state: CallState): string | null {
 
 export function visitTypeForAppointment(
   appointment: CallerAppointment,
-): "medical" | "routine_vision" {
-  return appointment.appointmentTypeId !== undefined &&
-    KNOWN_MEDICAL_APPOINTMENT_TYPE_IDS.has(appointment.appointmentTypeId)
-    ? "medical"
-    : "routine_vision";
+): "medical" | "routine_vision" | null {
+  return appointment.visitType ?? null;
 }
-
-const KNOWN_MEDICAL_APPOINTMENT_TYPE_IDS = new Set([
-  1004, 1005, 1006, 1007, 1008, 6167, 6168, 6169,
-]);

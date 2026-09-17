@@ -246,6 +246,8 @@ export function createNewTampaDemoTools(
               slots,
             };
           },
+          rescheduleAppointment: (input) =>
+            middleware.rescheduleAppointment(input),
           bookAppointment: (input) => middleware.bookAppointment(input),
           cancelAppointment: (input) => middleware.cancelAppointment(input),
         },

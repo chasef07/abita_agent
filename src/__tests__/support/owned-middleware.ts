@@ -1,4 +1,6 @@
+import type { InsuranceDecision } from "../../clients/insurance-decision.js";
 import type {
+  RescheduleAppointmentResult,
   AvailabilityResult,
   BookAppointmentResult,
   CancelAppointmentResult,
@@ -9,6 +11,12 @@ import type {
 } from "../../clients/owned-middleware.js";
 
 export type InMemoryOwnedMiddlewareResponses = {
+  checkInsurance?: Array<
+    InsuranceDecision | undefined | Promise<InsuranceDecision | undefined>
+  >;
+  rescheduleAppointment?: Array<
+    RescheduleAppointmentResult | Promise<RescheduleAppointmentResult>
+  >;
   resolvePatient?: Array<
     PatientResolveResult | Error | Promise<PatientResolveResult>
   >;
@@ -32,6 +40,9 @@ export class InMemoryOwnedMiddleware implements OwnedMiddleware {
     request: unknown;
   }> = [];
   readonly requests = {
+    rescheduleAppointment: [] as Array<
+      Parameters<OwnedMiddleware["rescheduleAppointment"]>[0]
+    >,
     resolvePatient: [] as Array<
       Parameters<OwnedMiddleware["resolvePatient"]>[0]
     >,
@@ -52,6 +63,13 @@ export class InMemoryOwnedMiddleware implements OwnedMiddleware {
 
   constructor(responses: InMemoryOwnedMiddlewareResponses = {}) {
     this.#responses = responses;
+  }
+
+  async checkInsurance(
+    request: Parameters<NonNullable<OwnedMiddleware["checkInsurance"]>>[0],
+  ): Promise<InsuranceDecision | undefined> {
+    this.operations.push({ name: "checkInsurance", request });
+    return this.#responses.checkInsurance?.shift();
   }
 
   async resolvePatient(
@@ -105,6 +123,18 @@ export class InMemoryOwnedMiddleware implements OwnedMiddleware {
       (await this.#responses.bookAppointment?.shift()) ?? {
         status: "error",
         reason: "invalid_response",
+      }
+    );
+  }
+
+  async rescheduleAppointment(
+    request: Parameters<OwnedMiddleware["rescheduleAppointment"]>[0],
+  ): Promise<RescheduleAppointmentResult> {
+    this.requests.rescheduleAppointment.push(request);
+    this.operations.push({ name: "rescheduleAppointment", request });
+    return (
+      (await this.#responses.rescheduleAppointment?.shift()) ?? {
+        status: "uncertain",
       }
     );
   }

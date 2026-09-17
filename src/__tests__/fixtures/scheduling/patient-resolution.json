@@ -1,0 +1,53 @@
+{
+  "incomplete": {
+    "reason": "incomplete_search",
+    "status": "unresolved",
+    "appointments": [],
+    "message": "Patient identity could not be verified. Ask office staff for help.",
+    "matches": []
+  },
+  "multiple_matches": {
+    "status": "multiple_matches",
+    "appointments": [],
+    "message": "More than one patient matches this first name and date of birth. Ask office staff to resolve the identity.",
+    "matches": [
+      {
+        "status": "candidate",
+        "patientId": "1",
+        "firstName": "Jane",
+        "lastName": "Meyer",
+        "dob": "01/01/1980"
+      },
+      {
+        "status": "candidate",
+        "patientId": "2",
+        "firstName": "Jane",
+        "lastName": "Other",
+        "dob": "01/01/1980"
+      }
+    ]
+  },
+  "not_found": {
+    "status": "not_found",
+    "appointments": [],
+    "message": "No patient matches this first name and date of birth.",
+    "matches": []
+  },
+  "provider_failure": {
+    "reason": "search_unavailable",
+    "status": "unresolved",
+    "appointments": [],
+    "message": "Patient identity could not be verified. Ask office staff for help.",
+    "matches": []
+  },
+  "unique": {
+    "status": "verified",
+    "patientId": "1",
+    "name": "MEYER,JANE",
+    "dob": "01/01/1980",
+    "appointmentsStatus": "none",
+    "appointments": [],
+    "message": "Patient verified, no appointments found",
+    "matches": []
+  }
+}

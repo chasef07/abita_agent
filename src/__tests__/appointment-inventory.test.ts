@@ -123,6 +123,8 @@ describe("conversational appointment inventory", () => {
         appointmentSlotRef: "S3",
         appointmentReason: "left eye pain since yesterday",
         referringDoctor: "none",
+        hospitalName: null,
+        hospitalDate: null,
         readBack: true,
       },
       options,

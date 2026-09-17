@@ -48,6 +48,8 @@ function loadedAppointment(
     provider: "Dr. Licht",
     type: "Follow-up",
     appointmentTypeId: 1005,
+    visitType: "medical",
+    rescheduleToken: "original-token",
     facility: "Spring Hill",
     confirmed: true,
     ...overrides,
@@ -143,6 +145,8 @@ describe("New Tampa provider guards at appointment mutation", () => {
         appointmentSlotRef: "S1",
         appointmentReason: "retina follow-up",
         referringDoctor: "none",
+        hospitalName: null,
+        hospitalDate: null,
         readBack: true,
       },
       { ctx: createToolContext(state), toolCallId: "new-tampa-book" } as never,
@@ -160,7 +164,7 @@ describe("New Tampa provider guards at appointment mutation", () => {
     ]);
   });
 
-  it("reschedules with a matched provider and keeps both mutations on the demo account", async () => {
+  it("reschedules with a matched provider and delegates the move to middleware on the demo account", async () => {
     const state = await newTampaState();
     prepareReschedule(state, {
       appointment: loadedAppointment({
@@ -171,13 +175,16 @@ describe("New Tampa provider guards at appointment mutation", () => {
       slot: availabilitySlot({ provider: "Scott Friedman" }),
     });
     const middleware = new InMemorySchedulingMiddleware({
-      bookings: [
-        bookingReceipt({
-          providerName: "Scott Friedman",
-          locationName: "Demo account",
-        }),
+      reschedules: [
+        {
+          status: "completed",
+          cancellation: { status: "cancelled", appointmentId: 123 },
+          booking: bookingReceipt({
+            providerName: "Scott Friedman",
+            locationName: "Demo account",
+          }),
+        },
       ],
-      cancellations: [{ status: "cancelled", message: null }],
     });
     const { reschedule_appointment } = createNewTampaDemoTools(middleware);
     const result = await reschedule_appointment.execute(
@@ -186,14 +193,15 @@ describe("New Tampa provider guards at appointment mutation", () => {
         appointmentSlotRef: "S1",
         appointmentReason: "retina follow-up",
         referringDoctor: "none",
+        hospitalName: null,
+        hospitalDate: null,
         readBack: true,
       },
       { ctx: createToolContext(state), toolCallId: "new-tampa-move" } as never,
     );
     expect(result).toContain("Rescheduled");
     expect(middleware.operations).toMatchObject([
-      { kind: "book", office: DEMO_BOOKING_OFFICE_PHONE },
-      { kind: "cancel", office: DEMO_BOOKING_OFFICE_PHONE },
+      { kind: "reschedule", office: DEMO_BOOKING_OFFICE_PHONE },
     ]);
   });
 
@@ -221,6 +229,8 @@ describe("New Tampa provider guards at appointment mutation", () => {
         appointmentSlotRef: "expired",
         appointmentReason: "follow-up",
         referringDoctor: "none",
+        hospitalName: null,
+        hospitalDate: null,
         readBack: true as const,
       };
       const expected = await createSchedulingTools(
@@ -257,6 +267,8 @@ describe("New Tampa provider guards at appointment mutation", () => {
         appointmentSlotRef: "expired",
         appointmentReason: "follow-up",
         referringDoctor: "none",
+        hospitalName: null,
+        hospitalDate: null,
         readBack: true,
       },
       { ctx: createToolContext(state), toolCallId: "replay" } as never,
@@ -279,6 +291,8 @@ describe("New Tampa provider guards at appointment mutation", () => {
         appointmentSlotRef: "S1",
         appointmentReason: "retina follow-up",
         referringDoctor: "none",
+        hospitalName: null,
+        hospitalDate: null,
         readBack: true as const,
       };
       const ctx = {

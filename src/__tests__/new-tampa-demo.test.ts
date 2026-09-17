@@ -242,6 +242,8 @@ describe("New Tampa 320 demo", () => {
           appointmentSlotRef: ref,
           appointmentReason: "urgent vision problem",
           referringDoctor: "none",
+          hospitalName: null,
+          hospitalDate: null,
           readBack: true,
         },
         context(state),

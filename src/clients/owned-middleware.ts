@@ -1,3 +1,7 @@
+import {
+  parseInsuranceDecision,
+  type InsuranceDecision,
+} from "./insurance-decision.js";
 import { randomUUID } from "node:crypto";
 import {
   middlewareOperationByPath,
@@ -10,6 +14,7 @@ import {
 import { getOfficeProfileByPhone } from "../customers/abita/profile.js";
 import type { OwnedMiddlewareFailureReason } from "../state/call-state.js";
 import {
+  appointmentMetadata,
   isRecord,
   normalizePatientResolveResponse,
   patientResolveReceiptIsComplete,
@@ -31,6 +36,7 @@ export type MiddlewareFailure = {
   status: "error";
   reason: MiddlewareFailureReason;
   detail?: "missing_appointment_id";
+  noWrite?: true;
 };
 
 export function middlewareFailureIsRetryable(
@@ -60,7 +66,7 @@ export type AvailabilitySlot = {
 
 export type AvailabilityResult =
   | {
-      status: "found" | "none" | "incomplete";
+      status: "found" | "none" | "incomplete" | "unsupported";
       slots: AvailabilitySlot[];
       requestedDate?: string;
       actualDate?: string;
@@ -93,6 +99,7 @@ export type CreatePatientInput = {
 };
 
 type PatientCreationEvidence = {
+  insuranceDecision?: InsuranceDecision;
   patientId: string;
   name: string | null;
   dob: string | null;
@@ -110,6 +117,9 @@ export type CreatePatientResult =
   | MiddlewareFailure;
 
 export type BookAppointmentInput = {
+  insurancePlan?: string;
+  hospitalName?: string;
+  hospitalDate?: string;
   bookingToken: string;
   rescheduleToken?: string;
   visitCategory: "medical" | "routine_vision";
@@ -138,6 +148,11 @@ export type BookAppointmentResult =
       appointmentId: number;
       appointmentTypeId?: number;
       rescheduleToken?: string;
+      cancellationToken?: string;
+      officeId?: string;
+      office?: string;
+      visitType?: "medical" | "routine_vision";
+      patientId?: string;
       providerName: string | null;
       locationName: string | null;
       appointmentTypeName: string | null;
@@ -160,6 +175,16 @@ export type BookAppointmentResult =
       missing: AppointmentTypeMissingFact[];
     }
   | MiddlewareFailure;
+
+export type RescheduleAppointmentResult =
+  | {
+      status: "completed" | "partial";
+      booking: Extract<BookAppointmentResult, { status: "booked" | "partial" }>;
+      cancellation?: { status: "cancelled"; appointmentId: number };
+      outcome?: string;
+    }
+  | { status: "failed"; outcome?: string }
+  | { status: "uncertain"; outcome?: string };
 
 export type CancelAppointmentResult =
   | { status: "cancelled"; message: string | null }
@@ -196,6 +221,7 @@ export type UpdateInsuranceInput = {
 export type UpdateInsuranceResult =
   | {
       status: "updated";
+      insuranceDecision?: InsuranceDecision;
       newInsurance: string | null;
       routing: string | null;
       preauthRequired: boolean;
@@ -203,6 +229,12 @@ export type UpdateInsuranceResult =
   | MiddlewareFailure;
 
 export interface OwnedMiddleware {
+  checkInsurance?(request: {
+    office: string;
+    plan: string;
+    coverageType: "medical";
+    dob?: string;
+  }): Promise<InsuranceDecision | undefined>;
   resolvePatient(request: {
     office: string;
     identity: PatientIdentity;
@@ -211,6 +243,10 @@ export interface OwnedMiddleware {
   }): Promise<PatientResolveResult>;
   getAvailability(request: {
     office: string;
+    patientId?: string;
+    insurancePlan?: string;
+    coverageType?: "medical" | "routine_vision";
+    visitType?: "medical" | "routine_vision";
     startDate?: string;
     rangeDays?: 14;
     dob?: string;
@@ -226,6 +262,10 @@ export interface OwnedMiddleware {
     office: string;
     booking: BookAppointmentInput;
   }): Promise<BookAppointmentResult>;
+  rescheduleAppointment(request: {
+    office: string;
+    booking: BookAppointmentInput & { rescheduleToken: string };
+  }): Promise<RescheduleAppointmentResult>;
   cancelAppointment(
     request: { office: string } & CancelAppointmentInput,
   ): Promise<CancelAppointmentResult>;
@@ -290,8 +330,26 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
     }
   }
 
+  async checkInsurance(request: {
+    office: string;
+    plan: string;
+    coverageType: "medical";
+    dob?: string;
+  }): Promise<InsuranceDecision | undefined> {
+    const result = await this.#post("/api/insurance/decision", request.office, {
+      plan: request.plan,
+      coverageType: request.coverageType,
+      dob: request.dob ?? "",
+    });
+    return result.ok ? parseInsuranceDecision(result.value) : undefined;
+  }
+
   async getAvailability(request: {
     office: string;
+    patientId?: string;
+    insurancePlan?: string;
+    coverageType?: "medical" | "routine_vision";
+    visitType?: "medical" | "routine_vision";
     startDate?: string;
     rangeDays?: 14;
     dob?: string;
@@ -301,6 +359,12 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
   }): Promise<AvailabilityResult> {
     const body = {
       rangeDays: request.rangeDays ?? 14,
+      ...(request.patientId ? { patientId: request.patientId } : {}),
+      ...(request.insurancePlan
+        ? { insurancePlan: request.insurancePlan }
+        : {}),
+      ...(request.coverageType ? { coverageType: request.coverageType } : {}),
+      ...(request.visitType ? { visitType: request.visitType } : {}),
       ...(request.startDate ? { startDate: request.startDate } : {}),
       ...(request.dob ? { dob: request.dob } : {}),
       ...(request.routing ? { routing: request.routing } : {}),
@@ -374,6 +438,29 @@ export class HttpOwnedMiddleware implements OwnedMiddleware {
       ? normalizeBookedAppointment(transport.value)
       : transport.failure;
     annotateMiddlewareResult(transport.diagnostic, result);
+    return result;
+  }
+
+  async rescheduleAppointment(request: {
+    office: string;
+    booking: BookAppointmentInput & { rescheduleToken: string };
+  }): Promise<RescheduleAppointmentResult> {
+    const transport = await this.#post(
+      "/api/appointment/reschedule",
+      request.office,
+      request.booking,
+      { includeOffice: false },
+    );
+    // A lost or malformed response cannot establish whether either write happened.
+    const result: RescheduleAppointmentResult = transport.ok
+      ? normalizeRescheduledAppointment(
+          transport.value,
+          request.booking.patientId,
+        )
+      : { status: "uncertain", outcome: transport.failure.reason };
+    transport.diagnostic.retryable = false;
+    if (result.status !== "completed")
+      transport.diagnostic.failureReason = result.outcome ?? result.status;
     return result;
   }
 
@@ -652,8 +739,9 @@ function availabilityStatus(outcome: string | null) {
     case "availability_found":
       return "found" as const;
     case "no_availability":
-    case "no_eligible_providers":
       return "none" as const;
+    case "no_eligible_providers":
+      return "unsupported" as const;
     case "availability_search_incomplete":
       return "incomplete" as const;
     default:
@@ -666,7 +754,16 @@ function normalizeCreatedPatient(
   fallback: { phone: string },
 ): CreatePatientResult {
   if (hasFailureStatus(raw)) {
-    return mutationFailure(raw, patientMutationCanRetry);
+    const failure = mutationFailure(raw, patientMutationCanRetry);
+    const outcome = isRecord(raw) ? stringValue(raw.outcome) : null;
+    return [
+      "validation_failed",
+      "rejected",
+      "unavailable",
+      "reconciled_failure",
+    ].includes(outcome ?? "")
+      ? { ...failure, noWrite: true }
+      : failure;
   }
   const status = isRecord(raw)
     ? (stringValue(raw.status)?.toLowerCase() ?? "")
@@ -690,6 +787,7 @@ function normalizeCreatedPatient(
     name: stringValue(raw.name),
     dob: stringValue(raw.dob),
     phone: stringValue(raw.phone) ?? fallback.phone,
+    insuranceDecision: parseInsuranceDecision(raw.insuranceDecision),
     insuranceCarrier: stringValue(raw.insuranceCarrier),
     insPlanId: stringValue(raw.insPlanId),
     respPartyId: stringValue(raw.respPartyId),
@@ -737,6 +835,10 @@ function normalizeBookedAppointment(raw: unknown): BookAppointmentResult {
     return {
       status: status === "partial" ? "partial" : "booked",
       appointmentId,
+      ...appointmentMetadata(raw),
+      ...(stringValue(raw.patientId)
+        ? { patientId: stringValue(raw.patientId)! }
+        : {}),
       ...(appointmentTypeId !== null ? { appointmentTypeId } : {}),
       ...(rescheduleToken ? { rescheduleToken } : {}),
       providerName: stringValue(raw.providerName),
@@ -755,6 +857,44 @@ function normalizeBookedAppointment(raw: unknown): BookAppointmentResult {
   return hasFailureStatus(raw)
     ? mutationFailure(raw, schedulingMutationCanRetry)
     : invalidBookingResult();
+}
+
+function normalizeRescheduledAppointment(
+  raw: unknown,
+  patientId: string,
+): RescheduleAppointmentResult {
+  if (!isRecord(raw)) return { status: "uncertain" };
+  const outcome = stringValue(raw.outcome) ?? undefined;
+  if (raw.status === "uncertain") return { status: "uncertain", outcome };
+  if (raw.status === "failed") {
+    if (raw.booking || raw.cancellation || outcome === "indeterminate_write")
+      return { status: "uncertain", outcome };
+    return { status: "failed", outcome };
+  }
+  if (raw.status !== "completed" && raw.status !== "partial")
+    return { status: "uncertain", outcome };
+  const booking = normalizeBookedAppointment(raw.booking);
+  if (
+    (booking.status !== "booked" && booking.status !== "partial") ||
+    booking.patientId !== patientId
+  )
+    return { status: "uncertain", outcome };
+  const cancellation =
+    isRecord(raw.cancellation) &&
+    raw.cancellation.status === "cancelled" &&
+    positiveInteger(raw.cancellation.appointmentId)
+      ? {
+          status: "cancelled" as const,
+          appointmentId: positiveInteger(raw.cancellation.appointmentId)!,
+        }
+      : undefined;
+  return {
+    status:
+      raw.status === "completed" && cancellation ? "completed" : "partial",
+    booking,
+    cancellation,
+    outcome,
+  };
 }
 
 function normalizeCancelledAppointment(raw: unknown): CancelAppointmentResult {
@@ -786,6 +926,7 @@ function normalizeUpdatedInsurance(raw: unknown): UpdateInsuranceResult {
   if (isRecord(raw) && stringValue(raw.status)?.toLowerCase() === "updated") {
     return {
       status: "updated",
+      insuranceDecision: parseInsuranceDecision(raw.insuranceDecision),
       newInsurance: stringValue(raw.newInsurance),
       routing: stringValue(raw.routing),
       preauthRequired: raw.preauthRequired === true,
@@ -806,6 +947,9 @@ function mutationFailure(
   return {
     status: "error",
     reason: canRetry(outcome) ? "middleware_error" : "request_rejected",
+    ...(outcome === "write_failed" || outcome === "validation_failed"
+      ? { noWrite: true as const }
+      : {}),
   };
 }
 

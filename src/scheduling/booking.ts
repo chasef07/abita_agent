@@ -6,7 +6,6 @@ import {
   activePatientDob,
   activePatientName,
   type CallState,
-  type CallerAppointment,
   type StoredAvailabilitySlot,
 } from "../state/call-state.js";
 import {
@@ -16,6 +15,10 @@ import {
   publicProviderName,
   selectedAvailabilitySlot,
 } from "./availability.js";
+import {
+  insuranceForScheduling,
+  medicalInsuranceSchedulingBlock,
+} from "./state.js";
 import { routingForAvailability } from "./routing.js";
 import { spokenAppointmentDate } from "./spoken-date.js";
 import { SchedulingInputRequired } from "./input-required.js";
@@ -32,18 +35,11 @@ type BookingRequestInput = {
   patientId: string;
   appointmentReason: string;
   referringDoctor?: string;
+  hospitalName?: string | null;
+  hospitalDate?: string | null;
   now: Date;
-  appointmentTypeIdOverride?: number | null;
-  patientStatusOverride?: AppointmentPatientStatus | null;
   rescheduleToken?: string;
 };
-
-const NEW_PATIENT_APPOINTMENT_TYPE_IDS = new Set([
-  1004, 1006, 1010, 4244, 6167,
-]);
-const ESTABLISHED_PATIENT_APPOINTMENT_TYPE_IDS = new Set([
-  1005, 1007, 3364, 4245, 6169,
-]);
 
 export function selectedSlotForBooking(
   state: CallState,
@@ -63,11 +59,25 @@ export function bookingRequestBodyForSlot(
   input: BookingRequestInput,
 ): BookAppointmentInput {
   const normalizedReason = normalizeAppointmentReason(input.appointmentReason);
+  const insuranceBlock = medicalInsuranceSchedulingBlock(state);
+  if (insuranceBlock) throw new SchedulingInputRequired(insuranceBlock);
+  if (
+    state.workflow.visitType === "medical" &&
+    !state.office.activeKey.endsWith("-demo") &&
+    /hospital/i.test(normalizedReason) &&
+    (!input.hospitalName?.trim() || !input.hospitalDate?.trim())
+  )
+    throw new SchedulingInputRequired(
+      "Ask which hospital and when the hospital visit occurred before scheduling the follow-up.",
+    );
   const normalizedReferrer = normalizeReferringDoctor(input.referringDoctor);
+  const decision = insuranceForScheduling(state)?.decision;
   const routing =
-    input.selectedSlot.routing ??
-    latestAvailabilityRouting(state) ??
-    routingForAvailability(state);
+    state.workflow.visitType === "medical" && decision
+      ? decision.routing
+      : (input.selectedSlot.routing ??
+        latestAvailabilityRouting(state) ??
+        routingForAvailability(state));
 
   const bookingToken = availabilityBookingToken(
     state,
@@ -87,7 +97,6 @@ export function bookingRequestBodyForSlot(
     state,
     routing,
     normalizedReason,
-    input.patientStatusOverride,
   );
   const patientName = activePatientName(state);
   const dob = activePatientDob(state);
@@ -95,13 +104,21 @@ export function bookingRequestBodyForSlot(
     bookingToken,
     ...appointmentIntent,
     patientId: input.patientId,
+    ...(appointmentIntent.visitCategory === "medical" &&
+    !state.office.activeKey.endsWith("-demo")
+      ? {
+          insurancePlan:
+            insuranceForScheduling(state)?.canonicalPlan ??
+            insuranceForScheduling(state)?.plan ??
+            undefined,
+        }
+      : {}),
+    ...(input.hospitalName ? { hospitalName: input.hospitalName.trim() } : {}),
+    ...(input.hospitalDate ? { hospitalDate: input.hospitalDate.trim() } : {}),
     appointmentReason: normalizedReason,
     referringDoctor: normalizedReferrer,
     ...(input.rescheduleToken
       ? { rescheduleToken: input.rescheduleToken }
-      : {}),
-    ...(input.appointmentTypeIdOverride != null
-      ? { appointmentTypeId: input.appointmentTypeIdOverride }
       : {}),
     ...(patientName ? { patientName } : {}),
     ...(dob ? { dob } : {}),
@@ -109,46 +126,10 @@ export function bookingRequestBodyForSlot(
   };
 }
 
-export function appointmentPatientStatusForLoadedAppointment(
-  appointment: CallerAppointment,
-): AppointmentPatientStatus | null {
-  if (
-    appointment.appointmentTypeId !== undefined &&
-    NEW_PATIENT_APPOINTMENT_TYPE_IDS.has(appointment.appointmentTypeId)
-  ) {
-    return "new";
-  }
-  if (
-    appointment.appointmentTypeId !== undefined &&
-    ESTABLISHED_PATIENT_APPOINTMENT_TYPE_IDS.has(appointment.appointmentTypeId)
-  ) {
-    return "established";
-  }
-
-  const normalizedType = normalizeAppointmentTypeName(appointment.type);
-  if (!normalizedType) return null;
-  if (/\bnew\b/.test(normalizedType)) return "new";
-  if (
-    /\bestablished\b/.test(normalizedType) ||
-    /\bfollow\s*up\b/.test(normalizedType)
-  ) {
-    return "established";
-  }
-  return null;
-}
-
 export function bookingSucceeded(
   result: BookAppointmentResult,
 ): result is BookingSuccess {
   return result.status === "booked" || result.status === "partial";
-}
-
-export function bookingHadPositiveStatusWithoutAppointmentId(
-  result: BookAppointmentResult,
-): boolean {
-  return (
-    result.status === "error" && result.detail === "missing_appointment_id"
-  );
 }
 
 export function bookedAppointmentMessage(
@@ -235,15 +216,13 @@ function appointmentIntentForBooking(
   state: CallState,
   routing: string | null,
   appointmentReason: string,
-  patientStatusOverride?: AppointmentPatientStatus | null,
 ): Pick<
   BookAppointmentInput,
   "visitCategory" | "patientStatus" | "visitReason"
 > {
   return {
     visitCategory: visitCategoryForBooking(state, routing),
-    patientStatus:
-      patientStatusOverride ?? patientStatusForAppointmentIntent(state),
+    patientStatus: patientStatusForAppointmentIntent(state),
     visitReason: appointmentReason,
   };
 }
@@ -273,12 +252,5 @@ function patientStatusForAppointmentIntent(
 function isGenericBookingReason(value: string): boolean {
   return /^(appointment|appt|visit|office visit|booking|(?:my )?eyes?|(?:my )?eye (?:exam|issues?|problems?|concerns?))$/i.test(
     value.trim(),
-  );
-}
-
-function normalizeAppointmentTypeName(value: string | undefined): string {
-  return (
-    value?.trim().toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ") ??
-    ""
   );
 }

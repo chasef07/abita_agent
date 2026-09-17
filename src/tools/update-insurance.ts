@@ -1,8 +1,11 @@
+import { decisionMatches } from "../clients/insurance-decision.js";
+import { activeOfficeKey } from "../state/call-lifecycle.js";
 import { tool } from "@livekit/agents";
 import { z } from "zod";
 import type {
   OwnedMiddleware,
   UpdateInsuranceInput,
+  UpdateInsuranceResult,
 } from "../clients/owned-middleware.js";
 import { normalizeInsuranceText } from "../insurance-rules.js";
 import {
@@ -13,6 +16,7 @@ import {
 } from "../state/call-state.js";
 import { domainOutcomesForTool } from "../state/observability.js";
 import {
+  blockPatientWrites,
   insuranceOnFile,
   insuranceSnapshot,
   setInsuranceOnFile,
@@ -58,6 +62,10 @@ export function createUpdateInsuranceTool(middleware: OwnedMiddleware) {
         return "I need to verify the patient before updating insurance.";
       }
 
+      const blocked = state.identity.schedulingWriteBlocks?.[patientId];
+      if (blocked) return blocked;
+      if (state.identity.schedulingWritePending)
+        return "A patient change is still in progress. Wait for its result before making another change.";
       const checkedInsurance = state.insurance.lastEligibilityCheck;
       if (!checkedInsurance?.accepted) {
         return "I need to confirm that we accept the new coverage before updating it.";
@@ -71,6 +79,19 @@ export function createUpdateInsuranceTool(middleware: OwnedMiddleware) {
       if (!insurance || !coverageType) {
         return "I need to confirm that we accept the new coverage before updating it.";
       }
+
+      if (
+        coverageType === "medical" &&
+        !activeOfficeKey(state).endsWith("-demo") &&
+        (!checkedInsurance.decision?.canRegister ||
+          !decisionMatches(
+            checkedInsurance.decision,
+            activeOfficeKey(state),
+            coverageType,
+            insurance,
+          ))
+      )
+        return "Check insurance again for this office before updating it.";
 
       const selfPay =
         normalizeInsuranceText(insurance) === "self pay" ||
@@ -98,12 +119,32 @@ export function createUpdateInsuranceTool(middleware: OwnedMiddleware) {
         coverageType,
         subscriberNum: memberId,
       };
-      const result = await middleware.updateInsurance({
-        office: getAmdOfficeForToolCall(state),
-        update: payload,
-      });
-
+      clearAvailabilitySelection(state, { invalidateReads: true });
+      const pending = { ...checkedInsurance, accepted: false };
+      const office = activeOfficeKey(state);
+      setLastInsuranceEligibilityCheck(state, pending);
+      const revision = state.identity.transitionVersion;
+      const uncertainMessage =
+        "The insurance update could not be verified. Ask staff to check the chart before any further changes; do not repeat the update.";
+      let result: UpdateInsuranceResult;
+      state.identity.schedulingWritePending = true;
+      try {
+        result = await middleware.updateInsurance({
+          office: getAmdOfficeForToolCall(state),
+          update: payload,
+        });
+      } catch (error) {
+        if (!checkedInsurance.decision) throw error;
+        blockPatientWrites(state, patientId, uncertainMessage);
+        return uncertainMessage;
+      } finally {
+        state.identity.schedulingWritePending = false;
+      }
       if (result.status !== "updated") {
+        if (checkedInsurance.decision && !result.noWrite) {
+          blockPatientWrites(state, patientId, uncertainMessage);
+          return uncertainMessage;
+        }
         outcomes.record({
           outcome: "insurance_update_failed",
           status: "failed",
@@ -114,6 +155,25 @@ export function createUpdateInsuranceTool(middleware: OwnedMiddleware) {
         );
       }
 
+      if (
+        checkedInsurance.decision &&
+        !decisionMatches(
+          result.insuranceDecision,
+          office,
+          coverageType,
+          insurance,
+        )
+      ) {
+        blockPatientWrites(state, patientId, uncertainMessage);
+        return uncertainMessage;
+      }
+      if (
+        revision !== state.identity.transitionVersion ||
+        activePatientId(state) !== patientId ||
+        activeOfficeKey(state) !== office ||
+        state.insurance.lastEligibilityCheck !== pending
+      )
+        return "The patient changed while insurance was updated. Verify the current patient before continuing.";
       const newInsurance = result.newInsurance?.trim() || insurance;
       setActivePatientBackendRefs(state, {
         insPlanId: null,
@@ -124,7 +184,11 @@ export function createUpdateInsuranceTool(middleware: OwnedMiddleware) {
         insuranceSnapshot({
           plan: newInsurance,
           coverageType,
-          canonicalPlan: canonicalInsurance ?? newInsurance,
+          canonicalPlan:
+            result.insuranceDecision?.canonicalPlan ??
+            canonicalInsurance ??
+            newInsurance,
+          decision: result.insuranceDecision,
           currentCarrier: newInsurance,
         }),
       );

@@ -898,7 +898,7 @@ describe("HTTP owned middleware transport", () => {
     });
   });
 
-  it("normalizes no eligible providers as no availability", async () => {
+  it("distinguishes no eligible providers from no availability", async () => {
     const middleware = new HttpOwnedMiddleware({
       fetch: vi.fn(async () =>
         Response.json({
@@ -918,7 +918,7 @@ describe("HTTP owned middleware transport", () => {
     });
 
     expect(result).toMatchObject({
-      status: "none",
+      status: "unsupported",
       slots: [],
       requestedDate: "2026-08-01",
       shouldRetrySameSearch: false,
@@ -1988,10 +1988,15 @@ const semanticContractCases: SemanticContractCase[] = [
       message: "private detail",
     }),
     memory: memoryResult({
-      createPatient: [semanticFailure("middleware_error")],
+      createPatient: [
+        { ...semanticFailure("middleware_error"), noWrite: true as const },
+      ],
     }),
     invoke: createPatient,
-    expected: semanticFailure("middleware_error"),
+    expected: {
+      ...semanticFailure("middleware_error"),
+      noWrite: true as const,
+    },
   },
   {
     name: "unclassified chart creation failure",
@@ -2076,10 +2081,15 @@ const semanticContractCases: SemanticContractCase[] = [
       message: "private detail",
     }),
     memory: memoryResult({
-      bookAppointment: [semanticFailure("middleware_error")],
+      bookAppointment: [
+        { ...semanticFailure("middleware_error"), noWrite: true as const },
+      ],
     }),
     invoke: bookAppointment,
-    expected: semanticFailure("middleware_error"),
+    expected: {
+      ...semanticFailure("middleware_error"),
+      noWrite: true as const,
+    },
   },
   {
     name: "indeterminate booking failure",
@@ -2111,10 +2121,15 @@ const semanticContractCases: SemanticContractCase[] = [
       message: "private detail",
     }),
     memory: memoryResult({
-      cancelAppointment: [semanticFailure("middleware_error")],
+      cancelAppointment: [
+        { ...semanticFailure("middleware_error"), noWrite: true as const },
+      ],
     }),
     invoke: cancelAppointment,
-    expected: semanticFailure("middleware_error"),
+    expected: {
+      ...semanticFailure("middleware_error"),
+      noWrite: true as const,
+    },
   },
   {
     name: "invalid cancellation response",

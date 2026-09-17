@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createSchedulingTools } from "../scheduling/tools.js";
-import { replaceActiveAppointments } from "../state/appointments.js";
+import {
+  activeAppointments,
+  replaceActiveAppointments,
+} from "../state/appointments.js";
 import { createConfirmedPatientState } from "./support/call-state.js";
 import { createToolContext } from "./support/tool-context.js";
 import { InMemorySchedulingMiddleware } from "./support/scheduling-middleware.js";
@@ -18,6 +21,8 @@ function setup() {
         provider: "Dr. Bach",
         type: "Medical",
         appointmentTypeId: 1007,
+        visitType: "medical",
+        rescheduleToken: "medical-reschedule",
         facility: "Spring Hill",
         confirmed: true,
         cancellationToken: "medical-cancel",
@@ -29,6 +34,8 @@ function setup() {
         provider: "Dr. Calero",
         type: "Vision",
         appointmentTypeId: 4245,
+        visitType: "routine_vision",
+        rescheduleToken: "vision-reschedule",
         facility: "Spring Hill",
         confirmed: true,
         cancellationToken: "vision-cancel",
@@ -101,6 +108,8 @@ describe("generic inventory for rescheduling", () => {
       appointmentSlotRef: "S1",
       appointmentReason: "move",
       referringDoctor: "none",
+      hospitalName: null,
+      hospitalDate: null,
       readBack: true,
     };
     expect(mutation.safeParse(args).success).toBe(false);
@@ -157,6 +166,8 @@ describe("generic inventory for rescheduling", () => {
           appointmentSlotRef: "S1",
           appointmentReason: "move",
           referringDoctor: "none",
+          hospitalName: null,
+          hospitalDate: null,
           readBack: true,
         } as never,
         options,
@@ -194,11 +205,13 @@ describe("generic inventory for rescheduling", () => {
           appointmentSlotRef: "S1",
           appointmentReason: "move",
           referringDoctor: "none",
+          hospitalName: null,
+          hospitalDate: null,
           readBack: true,
         },
         options,
       );
-      expect(result).toContain("Load matching availability");
+      expect(result).toContain("Load availability matching");
       expect(middleware.operations.map((op) => op.kind)).toEqual([
         "availability",
       ]);
@@ -217,29 +230,33 @@ describe("generic inventory for rescheduling", () => {
         };
       const middleware = new InMemorySchedulingMiddleware({
         availability: [inventory(), later],
-        bookings: [
+        reschedules: [
           {
-            status: "booked",
-            appointmentId: 901,
-            appointmentTypeId: 1007,
-            providerName: "Dr. Bach",
-            locationName: "Spring Hill",
-            appointmentTypeName: "Medical",
-            message: null,
+            status: "completed",
+            booking: {
+              status: "booked",
+              appointmentId: 901,
+              appointmentTypeId: 1007,
+              providerName: "Dr. Bach",
+              locationName: "Spring Hill",
+              appointmentTypeName: "Medical",
+              message: null,
+            },
+            cancellation: { status: "cancelled", appointmentId: 101 },
           },
           {
-            status: "booked",
-            appointmentId: 902,
-            appointmentTypeId: 4245,
-            providerName: "Dr. Calero",
-            locationName: "Spring Hill",
-            appointmentTypeName: "Vision",
-            message: null,
+            status: "completed",
+            booking: {
+              status: "booked",
+              appointmentId: 902,
+              appointmentTypeId: 4245,
+              providerName: "Dr. Calero",
+              locationName: "Spring Hill",
+              appointmentTypeName: "Vision",
+              message: null,
+            },
+            cancellation: { status: "cancelled", appointmentId: 102 },
           },
-        ],
-        cancellations: [
-          { status: "cancelled", message: null },
-          { status: "cancelled", message: null },
         ],
       });
       const tools = createSchedulingTools(middleware);
@@ -264,6 +281,8 @@ describe("generic inventory for rescheduling", () => {
             appointmentSlotRef,
             appointmentReason: "move my appointment",
             referringDoctor: "none",
+            hospitalName: null,
+            hospitalDate: null,
             readBack: true,
           },
           options,
@@ -271,22 +290,24 @@ describe("generic inventory for rescheduling", () => {
       }
       expect(middleware.operations.map((op) => op.kind)).toEqual([
         "availability",
-        "book",
-        "cancel",
+        "reschedule",
         "availability",
-        "book",
-        "cancel",
+        "reschedule",
       ]);
-      expect(middleware.operations[4]).toMatchObject({
-        request: { appointmentTypeId: 4245 },
-      });
-      expect(middleware.operations[5]).toMatchObject({
-        request: { cancellationToken: "vision-cancel" },
+      expect(middleware.operations[3]).toMatchObject({
+        request: {
+          rescheduleToken: "vision-reschedule",
+          visitCategory: "routine_vision",
+        },
       });
       expect(
         state.identity.activePatient!.appointments.map(
           (appointment) => appointment.id,
         ),
+      ).toEqual([901, 902]);
+      replaceActiveAppointments(state, [], "none");
+      expect(
+        activeAppointments(state).map((appointment) => appointment.id),
       ).toEqual([901, 902]);
     },
   );

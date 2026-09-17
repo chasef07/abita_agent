@@ -1,4 +1,5 @@
 import type {
+  RescheduleAppointmentResult,
   AvailabilityResult,
   BookAppointmentResult,
   CancelAppointmentResult,
@@ -10,6 +11,13 @@ type SchedulingResult<T> = T | Error | Promise<T>;
 
 // Normalize recorded operations for assertions; method inputs use the owned API contract.
 export type SchedulingOperation =
+  | {
+      kind: "reschedule";
+      office: string;
+      request: Parameters<
+        SchedulingMiddleware["rescheduleAppointment"]
+      >[0]["booking"];
+    }
   | {
       kind: "availability";
       signal?: AbortSignal;
@@ -35,17 +43,20 @@ export type SchedulingOperation =
 export class InMemorySchedulingMiddleware implements SchedulingMiddleware {
   readonly operations: SchedulingOperation[] = [];
 
+  readonly #reschedules: Array<SchedulingResult<RescheduleAppointmentResult>>;
   readonly #availability: Array<SchedulingResult<AvailabilityResult>>;
   readonly #bookings: Array<SchedulingResult<BookAppointmentResult>>;
   readonly #cancellations: Array<SchedulingResult<CancelAppointmentResult>>;
 
   constructor(
     outcomes: {
+      reschedules?: Array<SchedulingResult<RescheduleAppointmentResult>>;
       availability?: Array<SchedulingResult<AvailabilityResult>>;
       bookings?: Array<SchedulingResult<BookAppointmentResult>>;
       cancellations?: Array<SchedulingResult<CancelAppointmentResult>>;
     } = {},
   ) {
+    this.#reschedules = [...(outcomes.reschedules ?? [])];
     this.#availability = [...(outcomes.availability ?? [])];
     this.#bookings = [...(outcomes.bookings ?? [])];
     this.#cancellations = [...(outcomes.cancellations ?? [])];
@@ -73,6 +84,17 @@ export class InMemorySchedulingMiddleware implements SchedulingMiddleware {
       request: input.booking,
     });
     return nextResult(this.#bookings, "booking");
+  }
+
+  async rescheduleAppointment(
+    input: Parameters<SchedulingMiddleware["rescheduleAppointment"]>[0],
+  ): Promise<RescheduleAppointmentResult> {
+    this.operations.push({
+      kind: "reschedule",
+      office: input.office,
+      request: input.booking,
+    });
+    return nextResult(this.#reschedules, "reschedule");
   }
 
   async cancelAppointment(

@@ -1,3 +1,4 @@
+import { medicalDecision } from "./support/insurance-decision.js";
 import type { PatientResolveVerified } from "../clients/owned-middleware.js";
 import {
   AgentSession,
@@ -321,7 +322,10 @@ describe("stable tool catalog", () => {
   it("returns the add_patient identity guard before middleware mutation", async () => {
     const middleware = new InMemoryOwnedMiddleware({
       resolvePatient: [candidateSearchResult()],
-      createPatient: [createdPatient()],
+      checkInsurance: [medicalDecision()],
+      createPatient: [
+        { ...createdPatient(), insuranceDecision: medicalDecision() },
+      ],
     });
     const state = createTestCallState({
       activePatient: confirmedActivePatient({
@@ -454,6 +458,7 @@ describe("stable tool catalog", () => {
 
     expect(middleware.operations.map(({ name }) => name)).toEqual([
       "resolvePatient",
+      "checkInsurance",
       "createPatient",
     ]);
     expect(session.userData.identity.activePatient).toMatchObject({
@@ -729,10 +734,11 @@ function toolOutputs(session: AgentSession<CallState>) {
 function acceptedInsurance() {
   return {
     accepted: true,
-    canonicalPlan: "VSP",
+    canonicalPlan: "Self Pay",
+    decision: medicalDecision(),
     coverageType: "medical" as const,
-    currentCarrier: "VSP",
-    plan: "VSP",
+    currentCarrier: "Self Pay",
+    plan: "Self Pay",
   };
 }
 
@@ -763,6 +769,8 @@ function currentBooking() {
     appointmentSlotRef: "S1",
     appointmentReason: "left eye pain since yesterday",
     referringDoctor: "none",
+    hospitalName: null,
+    hospitalDate: null,
     readBack: true,
   };
 }
@@ -774,7 +782,8 @@ function createdPatient() {
     name: "Jane Doe",
     dob: "01/01/1980",
     phone: "+17275551212",
-    insuranceCarrier: "VSP",
+    insuranceCarrier: "Self Pay",
+    insuranceDecision: medicalDecision(),
     insPlanId: null,
     respPartyId: null,
     routing: "all_three",

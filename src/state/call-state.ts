@@ -1,3 +1,4 @@
+import type { InsuranceDecision } from "../clients/insurance-decision.js";
 import type { MiddlewareRequestDiagnostic } from "../clients/middleware-diagnostics.js";
 import type { OfficeKey } from "../customers/abita/profile.js";
 import type { InsuranceCoverageType } from "../insurance-rules.js";
@@ -12,6 +13,9 @@ export type AppointmentLoadStatus = "found" | "none" | "error";
 export interface CallerAppointment {
   id: number;
   appointmentRef?: string;
+  officeId?: string;
+  office?: string;
+  visitType?: VisitType;
   cancellationToken?: string;
   rescheduleToken?: string;
   date: string;
@@ -123,6 +127,7 @@ type SchedulingRouting =
 export type VisitType = "medical" | "routine_vision";
 
 export interface CompletedRescheduleState {
+  appointments?: CallerAppointment[];
   originalAppointmentRef?: string;
   replacementAppointmentRef?: string;
   status: "rescheduled" | "needs_human_cancellation";
@@ -131,6 +136,7 @@ export interface CompletedRescheduleState {
 
 export interface CompletedBookingState {
   appointmentId: number;
+  appointment?: CallerAppointment;
   appointmentDescription: string;
 }
 
@@ -294,6 +300,7 @@ interface OfficeSessionState {
 }
 
 export interface InsuranceSnapshot {
+  decision?: InsuranceDecision;
   plan: string | null;
   canonicalPlan: string | null;
   coverageType: InsuranceCoverageType | null;
@@ -322,6 +329,9 @@ interface IdentitySessionState {
   unregisteredPatientReceipt: UnregisteredPatientReceipt | null;
   // Caller-reported task context; never an Identity Promotion or verified chart.
   unresolvedTaskPatient: { name?: string; dob?: string } | null;
+  registrationWriteBlock?: string;
+  schedulingWritePending?: boolean;
+  schedulingWriteBlocks?: Record<string, string>;
   operationVersion: number;
   transitionVersion: number;
   completedBookingsByPatientId: Record<string, CompletedBookingState>;

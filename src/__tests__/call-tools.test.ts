@@ -1,3 +1,4 @@
+import { medicalDecision } from "./support/insurance-decision.js";
 import { objectSchema } from "./support/tool-schema.js";
 import { candidateSearchResult } from "./support/owned-middleware.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -16,6 +17,7 @@ import { storeAvailabilityBookingToken } from "../scheduling/availability.js";
 import { domainOutcomeReceipts } from "../state/observability.js";
 import {
   check_insurance,
+  createCheckInsuranceTool,
   createAddPatientTool,
   createUpdateInsuranceTool,
 } from "../tools/index.js";
@@ -87,6 +89,14 @@ function markAcceptedInsurance(
     ...input,
     currentCarrier: input.currentCarrier ?? input.canonicalPlan,
     accepted: true,
+    ...(input.coverageType === "medical"
+      ? {
+          decision: medicalDecision({
+            canonicalPlan: input.canonicalPlan,
+            officeId: state.office.activeKey.replaceAll("-", "_"),
+          }),
+        }
+      : {}),
   };
 }
 
@@ -193,6 +203,9 @@ function updatedInsuranceResult(
 ): UpdateInsuranceResult {
   return {
     status: "updated",
+    insuranceDecision: medicalDecision({
+      canonicalPlan: overrides.newInsurance ?? "Aetna",
+    }),
     newInsurance: "Aetna",
     routing: "all_three",
     preauthRequired: false,
@@ -205,6 +218,9 @@ function createdPatientResult(
 ): Extract<CreatePatientResult, { status: "created" }> {
   return {
     status: "created",
+    insuranceDecision: medicalDecision({
+      canonicalPlan: overrides.insuranceCarrier ?? "self pay",
+    }),
     patientId: "patient-new",
     name: "Jane Doe",
     dob: "01/01/1980",
@@ -280,7 +296,7 @@ describe("stateful call tools", () => {
     expect(state.identity.activePatient!.kind).toBe("created");
     expect(state.identity.activePatient!.dob).toBe("01/01/1980");
     expect(state.identity.activePatient!.phone).toBe("+17275551212");
-    expect(state.insurance.onFile).toEqual({
+    expect(state.insurance.onFile).toMatchObject({
       plan: "self pay",
       canonicalPlan: "self pay",
       coverageType: "medical",
@@ -313,7 +329,11 @@ describe("stateful call tools", () => {
     setPatientUnknown(state);
     markSchedulingTriaged(state);
     markAcceptedInsurance(state);
-    stubCreatePatient({ status: "error", reason: "middleware_error" });
+    stubCreatePatient({
+      status: "error",
+      reason: "middleware_error",
+      noWrite: true,
+    });
 
     await expect(
       add_patient.execute(
@@ -346,7 +366,7 @@ describe("stateful call tools", () => {
     );
   });
 
-  it("leaves a malformed chart-creation response as an internal error", async () => {
+  it("blocks registration after a malformed chart-creation response", async () => {
     const state = createState();
     setPatientUnknown(state);
     markSchedulingTriaged(state);
@@ -379,10 +399,8 @@ describe("stateful call tools", () => {
       } as never,
     );
 
-    await expect(failure).rejects.toThrow(
-      "Owned Middleware returned a non-retryable failure.",
-    );
-    await expect(failure).rejects.not.toBeInstanceOf(ToolError);
+    await expect(failure).resolves.toContain("do not create another chart");
+    expect(state.identity.registrationWriteBlock).toBeTruthy();
   });
 
   it("does not activate a chart creation receipt for a different patient", async () => {
@@ -425,7 +443,7 @@ describe("stateful call tools", () => {
     );
 
     await expect(failure).resolves.toBe(
-      "I created a patient chart, but I couldn't verify the registration details. Office staff needs to check it.",
+      "Chart creation could not be verified. Ask staff to check whether the chart exists before any further registration; do not create another chart.",
     );
     expect(state.identity.activePatient).toBeNull();
     expect(state.identity.registration).toEqual({
@@ -474,7 +492,7 @@ describe("stateful call tools", () => {
         } as never,
       ),
     ).resolves.toBe(
-      "I created a patient chart, but I couldn't verify the registration details. Office staff needs to check it.",
+      "Chart creation could not be verified. Ask staff to check whether the chart exists before any further registration; do not create another chart.",
     );
     expect(state.identity.activePatient).toBeNull();
   });
@@ -703,7 +721,7 @@ describe("stateful call tools", () => {
     creation.resolve(createdPatientResult());
 
     expect(newPatient).toBe(
-      "I need to check whether this patient already has a chart before creating a new one.",
+      "A patient change is still in progress. Wait for its result before creating a chart.",
     );
     await expect(pendingCreation).resolves.toBe(
       "I created a patient chart for Jane Doe. We can continue with scheduling.",
@@ -859,7 +877,7 @@ describe("stateful call tools", () => {
     );
 
     expect(state.identity.activePatient!.kind).toBe("created");
-    expect(state.insurance.onFile).toEqual({
+    expect(state.insurance.onFile).toMatchObject({
       plan: "self pay",
       canonicalPlan: "self pay",
       coverageType: "medical",
@@ -1572,6 +1590,7 @@ describe("stateful call tools", () => {
       canonicalPlan: "Aetna",
       coverageType: "routine_vision",
       currentCarrier: "Aetna",
+      decision: medicalDecision({ canonicalPlan: "Aetna" }),
       accepted: true,
     };
     const middleware = stubPatientSearch(
@@ -2004,6 +2023,7 @@ describe("stateful call tools", () => {
       canonicalPlan: "Aetna",
       coverageType: "medical",
       currentCarrier: "Aetna",
+      decision: medicalDecision({ canonicalPlan: "Aetna" }),
       accepted: true,
     };
 
@@ -2031,6 +2051,7 @@ describe("stateful call tools", () => {
       canonicalPlan: "Aetna",
       coverageType: "medical",
       currentCarrier: "Aetna",
+      decision: medicalDecision({ canonicalPlan: "Aetna" }),
       accepted: true,
     });
   });
@@ -2358,6 +2379,7 @@ describe("stateful call tools", () => {
       canonicalPlan: "Aetna",
       coverageType: "medical",
       currentCarrier: "Aetna",
+      decision: medicalDecision({ canonicalPlan: "Aetna" }),
       accepted: true,
     };
 
@@ -2399,6 +2421,7 @@ describe("stateful call tools", () => {
       canonicalPlan: "Aetna",
       coverageType: "medical",
       currentCarrier: "Aetna",
+      decision: medicalDecision({ canonicalPlan: "Aetna" }),
       accepted: true,
     });
     expect(state.insurance.onFile).toBeNull();
@@ -2441,7 +2464,7 @@ describe("stateful call tools", () => {
       name: "Jane Doe",
       dob: "01/01/1980",
     });
-    expect(state.insurance.onFile).toEqual({
+    expect(state.insurance.onFile).toMatchObject({
       plan: "self pay",
       canonicalPlan: "self pay",
       coverageType: "medical",
@@ -2689,11 +2712,21 @@ describe("stateful call tools", () => {
     markSchedulingTriaged(state);
     const middleware = stubCreatePatient(
       createdPatientResult({
+        insuranceDecision: medicalDecision({
+          canonicalPlan: "Florida Blue",
+          officeId: "spring_hill",
+        }),
         insuranceCarrier: "Florida Blue",
       }),
     );
 
-    await check_insurance.execute(
+    middleware.checkInsurance = vi.fn(async () =>
+      medicalDecision({
+        canonicalPlan: "Florida Blue",
+        officeId: "spring_hill",
+      }),
+    );
+    await createCheckInsuranceTool(middleware).execute(
       {
         plan: "I have Blue Cross",
         coverageType: "medical",
@@ -2731,7 +2764,7 @@ describe("stateful call tools", () => {
     expect(middleware.requests.createPatient[0]?.patient).not.toHaveProperty(
       "ssn",
     );
-    expect(state.insurance.onFile).toEqual({
+    expect(state.insurance.onFile).toMatchObject({
       plan: "Florida Blue",
       canonicalPlan: "Florida Blue",
       coverageType: "medical",
@@ -2790,7 +2823,7 @@ describe("stateful call tools", () => {
       coverageType: "routine_vision",
       ssn: "1234",
     });
-    expect(state.insurance.onFile).toEqual({
+    expect(state.insurance.onFile).toMatchObject({
       plan: "VSP",
       canonicalPlan: "VSP",
       coverageType: "routine_vision",
@@ -2808,6 +2841,10 @@ describe("stateful call tools", () => {
     markSchedulingTriaged(state);
     const middleware = stubCreatePatient(
       createdPatientResult({
+        insuranceDecision: medicalDecision({
+          canonicalPlan: "United Healthcare",
+          officeId: "hollywood",
+        }),
         name: "Maria Santos",
         insuranceCarrier: "United Healthcare",
       }),
@@ -2832,7 +2869,13 @@ describe("stateful call tools", () => {
       readBack: true as const,
     };
 
-    await check_insurance.execute(
+    middleware.checkInsurance = vi.fn(async () =>
+      medicalDecision({
+        canonicalPlan: "United Healthcare",
+        officeId: "hollywood",
+      }),
+    );
+    await createCheckInsuranceTool(middleware).execute(
       {
         plan: "United Healthcare",
         coverageType: "medical",
@@ -2853,7 +2896,7 @@ describe("stateful call tools", () => {
       insurance: "United Healthcare",
       subscriberNum: "ABC123",
     });
-    expect(state.insurance.onFile).toEqual({
+    expect(state.insurance.onFile).toMatchObject({
       plan: "United Healthcare",
       canonicalPlan: "United Healthcare",
       coverageType: "medical",
@@ -3049,6 +3092,7 @@ describe("stateful call tools", () => {
       canonicalPlan: "United Healthcare",
       coverageType: "medical",
       currentCarrier: "UnitedHealthcare",
+      decision: medicalDecision({ canonicalPlan: "United Healthcare" }),
       accepted: true,
     };
     state.identity.activePatient!.backend = {
@@ -3086,7 +3130,7 @@ describe("stateful call tools", () => {
     expect(middleware.requests.updateInsurance[0]?.update).not.toHaveProperty(
       "subscriberName",
     );
-    expect(state.insurance.onFile).toEqual({
+    expect(state.insurance.onFile).toMatchObject({
       plan: "United Healthcare",
       canonicalPlan: "United Healthcare",
       coverageType: "medical",
@@ -3174,7 +3218,7 @@ describe("stateful call tools", () => {
       coverageType: "routine_vision",
       subscriberNum: "946-327-2674",
     });
-    expect(state.insurance.onFile).toEqual({
+    expect(state.insurance.onFile).toMatchObject({
       plan: "Envolve",
       canonicalPlan: "Envolve",
       coverageType: "routine_vision",
@@ -3253,6 +3297,7 @@ describe("stateful call tools", () => {
       canonicalPlan: "Self Pay",
       coverageType: "medical",
       currentCarrier: "Self Pay",
+      decision: medicalDecision(),
       accepted: true,
     };
     const middleware = stubInsuranceUpdate(
