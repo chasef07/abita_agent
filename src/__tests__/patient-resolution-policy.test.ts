@@ -26,12 +26,7 @@ const receipt = {
   appointments: [],
   message: null,
 };
-const search = {
-  status: "candidates" as const,
-  source: "first_name" as const,
-  complete: true,
-  matches: [candidate],
-};
+const search = receipt;
 
 describe("phone-first and spelled-first-name/DOB policy", () => {
   it.each([
@@ -70,12 +65,11 @@ describe("phone-first and spelled-first-name/DOB policy", () => {
         expect(result.outcome).toBe("verified");
         expect(state.identity.activePatient?.patientId).toBe("1");
         expect(lookup).toHaveBeenCalledTimes(
-          phoneStatus === "verified" ? 0 : phoneStatus === "candidate" ? 1 : 2,
+          phoneStatus === "verified" ? 0 : 1,
         );
         if (phoneStatus === "absent")
           expect(lookup.mock.calls.map((call) => call[1])).toEqual([
             { firstName: "Jane", dob: identity.dob },
-            { patientId: "1" },
           ]);
       }
     },
@@ -149,7 +143,7 @@ describe("phone-first and spelled-first-name/DOB policy", () => {
         ],
       });
       const lookup = vi.fn<Parameters<typeof resolveExistingPatient>[2]>(
-        async () => search,
+        async () => ({ status: "not_found" }),
       );
       expect(
         (await resolveExistingPatient(state, supplied, lookup)).outcome,
@@ -211,7 +205,6 @@ describe("phone-first and spelled-first-name/DOB policy", () => {
     ).toBe("verified");
     expect(lookup.mock.calls.map((call) => call[1])).toEqual([
       { firstName: "Jane", dob: identity.dob },
-      { patientId: "1" },
     ]);
   });
   it("asks for DOB before fallback, preserving the first name", async () => {
@@ -234,40 +227,25 @@ describe("phone-first and spelled-first-name/DOB policy", () => {
       dob: identity.dob,
     });
   });
-  it("keeps first-name/DOB collisions ambiguous and reuses search candidates for surname disambiguation", async () => {
+  it("leaves first-name/DOB collisions to middleware and staff", async () => {
     const state = createTestCallState();
-    const lookup = vi
-      .fn()
-      .mockResolvedValueOnce({
-        ...search,
-        matches: [
-          candidate,
-          { ...candidate, patientId: "2", lastName: "Smith" },
-        ],
-      })
-      .mockResolvedValueOnce(receipt);
-    const result = await resolveExistingPatient(
-      state,
-      { firstName: "Jane", dob: identity.dob },
-      lookup,
-    );
+    const lookup = vi.fn(async () => ({
+      status: "multiple_matches" as const,
+      matches: [candidate, { ...candidate, patientId: "2" }],
+    }));
+    const result = await resolveExistingPatient(state, identity, lookup);
     expect(result.outcome).toBe("multiple_matches");
-    expect(result.reply).toContain("more than one matching patient");
     expect(state.identity.activePatient).toBeNull();
-    expect(
-      (await resolveExistingPatient(state, { lastName: "Meyer" }, lookup))
-        .outcome,
-    ).toBe("verified");
-    expect(lookup).toHaveBeenCalledTimes(2);
+    expect(state.identity.unregisteredPatientReceipt).toBeNull();
+    expect(lookup).toHaveBeenCalledOnce();
   });
   it.each([{ matches: [] }, { matches: [candidate] }])(
     "refuses incomplete candidate sets %#",
-    async ({ matches }) => {
+    async () => {
       const state = createTestCallState();
       const lookup = vi.fn(async () => ({
-        ...search,
-        complete: false,
-        matches,
+        status: "unresolved" as const,
+        reason: "incomplete_identity",
       }));
       for (let i = 0; i < 2; i++)
         expect(
@@ -278,15 +256,15 @@ describe("phone-first and spelled-first-name/DOB policy", () => {
       expect(lookup).toHaveBeenCalledOnce();
     },
   );
-  it("does not fuzzy-match a practice-wide prefix result", async () => {
+  it("rejects a mismatched middleware receipt", async () => {
     const state = createTestCallState();
     const lookup = vi.fn(async () => ({
-      ...search,
-      matches: [{ ...candidate, firstName: "Janet" }],
+      ...receipt,
+      name: "Meyer,Janet",
     }));
     expect(
       (await resolveExistingPatient(state, identity, lookup)).outcome,
-    ).toBe("not_found");
+    ).toBe("lookup_failed");
     expect(lookup).toHaveBeenCalledOnce();
   });
 });

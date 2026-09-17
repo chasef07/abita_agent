@@ -562,7 +562,12 @@ function annotateMiddlewareResult(
     | CancelAppointmentResult
     | UpdateInsuranceResult,
 ): void {
-  if (result.status !== "error" && result.status !== "rejected") return;
+  if (
+    result.status !== "error" &&
+    result.status !== "rejected" &&
+    result.status !== "unresolved"
+  )
+    return;
   diagnostic.failureReason = result.reason;
   diagnostic.retryable =
     result.status === "error" && middlewareFailureIsRetryable(result);

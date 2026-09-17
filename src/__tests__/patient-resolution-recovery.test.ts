@@ -255,7 +255,7 @@ describe("audited patient recovery", () => {
         )
       ).outcome,
     ).toBe("verified");
-    expect(fetch).toHaveBeenCalledTimes(3);
+    expect(fetch).toHaveBeenCalledTimes(2);
   });
 
   it("cannot reactivate the previous chart for a caller-declared different person with the same first name", async () => {
@@ -312,7 +312,7 @@ describe("audited patient recovery", () => {
       firstName: "Jane",
       dob: "01/01/2000",
     });
-    expect(lookup).toHaveBeenCalledTimes(2);
+    expect(lookup).toHaveBeenCalledTimes(1);
   });
 
   it("keeps repeated unchanged switch requests idempotent while unresolved", async () => {

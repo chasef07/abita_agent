@@ -51,10 +51,7 @@ describe("patient resolution conversation contract", () => {
     const middleware = new InMemoryOwnedMiddleware({
       resolvePatient: [
         {
-          status: "candidates",
-          source: "first_name",
-          complete: true,
-          matches: [],
+          status: "not_found",
         },
       ],
     });
@@ -87,10 +84,7 @@ describe("patient resolution conversation contract", () => {
     const middleware = new InMemoryOwnedMiddleware({
       resolvePatient: [
         {
-          status: "candidates",
-          source: "first_name",
-          complete: true,
-          matches: [],
+          status: "not_found",
         },
       ],
     });
@@ -121,9 +115,7 @@ describe("patient resolution conversation contract", () => {
     const middleware = new InMemoryOwnedMiddleware({
       resolvePatient: [
         {
-          status: "candidates",
-          source: "first_name",
-          complete: true,
+          status: "multiple_matches",
           matches: [
             { ...candidate, status: "candidate" },
             { ...candidate, status: "candidate", patientId: "synthetic-2" },
@@ -140,7 +132,7 @@ describe("patient resolution conversation contract", () => {
         toolCallId: "fallback-collision",
       } as never,
     );
-    expect(reply).toBe("I found more than one matching patient.");
+    expect(reply).toContain("More than one patient matches");
     expect(tool.description).toContain(
       "clarify DOB and first-name spelling and retry before offering staff",
     );

@@ -98,7 +98,7 @@ export async function lookupByPhone(
       message: "No patient match found.",
     };
   }
-  if (result.status === "candidates")
+  if (result.status === "unresolved")
     return lookupFailure(phone, "invalid_response");
   return lookupFailure(
     phone,

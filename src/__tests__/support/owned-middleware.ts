@@ -139,27 +139,8 @@ export class InMemoryOwnedMiddleware implements OwnedMiddleware {
 // Explicit candidate-only response for tests of first-name/DOB search + ID load.
 export function candidateSearchResult(
   ...patients: Array<Extract<PatientResolveResult, { status: "verified" }>>
-): Extract<PatientResolveResult, { status: "candidates" }> {
-  return {
-    status: "candidates",
-    source: "first_name",
-    complete: true,
-    matches: patients.map((patient) => {
-      const name = patient.name ?? "";
-      const comma = name.split(",");
-      const firstName =
-        comma.length > 1 ? comma[1]!.trim() : name.split(" ")[0]!;
-      const lastName =
-        comma.length > 1
-          ? comma[0]!.trim()
-          : name.split(" ").slice(1).join(" ");
-      return {
-        status: "candidate",
-        patientId: patient.patientId,
-        firstName,
-        lastName,
-        dob: patient.dob ?? "",
-      };
-    }),
-  };
+): PatientResolveResult {
+  if (patients.length === 0) return { status: "not_found" };
+  if (patients.length === 1) return patients[0]!;
+  return { status: "multiple_matches", matches: patients };
 }

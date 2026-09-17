@@ -2,10 +2,7 @@ import type {
   AppointmentLoadStatus,
   StoredCallerAppointment,
 } from "../state/call-state.js";
-import type {
-  LightweightPatientCandidate,
-  PatientCandidateSet,
-} from "../identity/candidate.js";
+import type { LightweightPatientCandidate } from "../identity/candidate.js";
 
 export type PatientResolveCandidate = LightweightPatientCandidate;
 
@@ -48,17 +45,22 @@ interface PatientResolveNotFound {
   status: "not_found";
 }
 
+interface PatientResolveUnresolved {
+  status: "unresolved";
+  reason: string;
+}
+
 interface PatientResolveError {
   status: "error";
   reason: "invalid_response" | "middleware_error" | "request_rejected";
 }
 
 export type PatientResolveResult =
-  | PatientCandidateSet
   | PatientResolveVerified
   | PatientResolveMultipleMatches
   | PatientResolveNotFound
-  | PatientResolveError;
+  | PatientResolveError
+  | PatientResolveUnresolved;
 
 export function normalizePatientResolveResponse(
   raw: unknown,
@@ -72,29 +74,16 @@ export function normalizePatientResolveResponse(
   }
 
   const status = stringValue(raw.status)?.toLowerCase() ?? "";
+  if (status === "unresolved") {
+    return {
+      status: "unresolved",
+      reason: stringValue(raw.reason) ?? "identity_not_verified",
+    };
+  }
   if (status === "error" || status === "failed" || status === "failure") {
     return {
       status: "error",
       reason: "middleware_error",
-    };
-  }
-
-  if (status === "candidates") {
-    if (
-      raw.source !== "first_name" ||
-      typeof raw.complete !== "boolean" ||
-      !Array.isArray(raw.matches)
-    ) {
-      return { status: "error", reason: "invalid_response" };
-    }
-    const matches = raw.matches.map(normalizePatientCandidate);
-    if (matches.some((match) => match === null))
-      return { status: "error", reason: "invalid_response" };
-    return {
-      status: "candidates",
-      source: "first_name",
-      complete: raw.complete,
-      matches: matches as PatientResolveCandidate[],
     };
   }
 
