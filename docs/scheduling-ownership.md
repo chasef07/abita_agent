@@ -39,8 +39,13 @@ path already accepts a hydrated `verified` result, leaves `multiple_matches`
 unselected, treats `not_found` separately, and refuses to promote `unresolved`
 results. It performs no selection from a returned search candidate list. Existing
 phone-candidate privacy and caller verification remain unchanged. Patient replies
-reconcile confirmed scheduling receipts before describing upcoming appointments. Real handler
-fixtures exercise unique selection with a missing-DOB neighbor, only missing-DOB
+reconcile confirmed scheduling receipts before describing upcoming appointments. Receipt reconciliation and new
+booking/reschedule receipts preserve a failed inventory-read status: a proven
+appointment does not prove the rest of the calendar loaded. Patient replies still
+report the failed read and reload it, while confirmed receipts remain in call state.
+Missing cancellation authority also marks the inventory for reload before another
+attempt. Regression tests reproduce both failures before checking recovery.
+Real handler fixtures exercise unique selection with a missing-DOB neighbor, only missing-DOB
 records, ambiguity, incomplete search, and provider failure.
 
 ## Before and after evidence

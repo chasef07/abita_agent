@@ -56,7 +56,6 @@ import { getAmdOfficeForToolCall, visitTypeForAppointment } from "./routing.js";
 import { SchedulingInputRequired } from "./input-required.js";
 import type {
   BookAppointmentResult,
-  CancelAppointmentInput,
   CancelAppointmentResult,
   RescheduleAppointmentResult,
 } from "../clients/owned-middleware.js";
@@ -340,11 +339,17 @@ export class SchedulingWorkflow {
     }
     const patientName = activePatientName(state);
 
-    const cancellationRequest = cancellationRequestForAppointment(appointment);
+    const cancellationToken = appointment.cancellationToken?.trim();
+    if (!cancellationToken) {
+      replaceActiveAppointments(state, [], "error");
+      throw new SchedulingInputRequired(
+        "Reload the appointments and confirm the exact appointment before cancelling; its authorization is missing.",
+      );
+    }
     let result: CancelAppointmentResult;
     try {
       result = await this.middleware.cancelAppointment({
-        ...cancellationRequest,
+        cancellationToken,
         office: getAmdOfficeForToolCall(state),
       });
     } catch {
@@ -633,17 +638,6 @@ function blockPatientWrites(
   message: string,
 ): void {
   (state.identity.schedulingWriteBlocks ??= {})[patientId] = message;
-}
-
-function cancellationRequestForAppointment(
-  appointment: CallerAppointment,
-): CancelAppointmentInput {
-  const cancellationToken = appointment.cancellationToken?.trim();
-  if (!cancellationToken)
-    throw new SchedulingInputRequired(
-      "Reload the appointments and confirm the exact appointment before cancelling; its authorization is missing.",
-    );
-  return { cancellationToken };
 }
 
 function ensureNewAppointmentBookingContext(state: CallState): void {

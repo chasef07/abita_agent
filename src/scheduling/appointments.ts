@@ -114,7 +114,14 @@ export function recordBookedAppointmentInState(
     ...activeAppointments(state).filter((item) => item.id !== appointmentId),
     appointment,
   ];
-  replaceActiveAppointments(state, nextAppointments, "found");
+  // A write receipt proves this appointment, not a complete inventory read.
+  replaceActiveAppointments(
+    state,
+    nextAppointments,
+    state.identity.activePatient?.appointmentsStatus === "error"
+      ? "error"
+      : "found",
+  );
   const appointmentRef = activeAppointmentById(
     state,
     appointmentId,

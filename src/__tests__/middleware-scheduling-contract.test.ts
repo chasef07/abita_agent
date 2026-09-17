@@ -351,6 +351,22 @@ describe("middleware scheduling HTTP contracts", () => {
       ),
     ).rejects.toThrow(/Reload/);
     expect(c.writes()).toEqual([]);
+    expect(c.state.identity.activePatient!.appointmentsStatus).toBe("error");
+    const { resolveExistingPatient } =
+      await import("../identity/patient-identity.js");
+    const readCount = c.requests.filter(
+      (r) => r.path === "/api/patient/resolve",
+    ).length;
+    await resolveExistingPatient(
+      c.state,
+      { firstName: "Jane", dob: "01/15/1980" },
+      (office, identity) => c.client.resolvePatient({ office, identity }),
+    );
+    expect(
+      c.requests.filter((r) => r.path === "/api/patient/resolve"),
+    ).toHaveLength(readCount + 1);
+    expect(activeAppointments(c.state)[0]!.cancellationToken).toBeTruthy();
+    expect(c.writes()).toEqual([]);
   });
 
   it("keeps unsupported office/visit combinations distinct from a full calendar", async () => {
@@ -473,6 +489,50 @@ describe("single-shot booking and cancellation", () => {
 });
 
 describe("receipt reconciliation before patient acknowledgment", () => {
+  it.each(["booking", "reschedule"])(
+    "keeps failed inventory reads visible after a confirmed %s receipt",
+    async (operation) => {
+      const { resolveExistingPatient } =
+        await import("../identity/patient-identity.js");
+      const c = await setup();
+      c.state.identity.activePatient!.appointmentsStatus = "error";
+      if (operation === "booking") {
+        c.data["/api/appointment/book"] =
+          c.data["/api/appointment/reschedule"].booking;
+        expect(
+          await c.workflow.bookAppointment(c.state, c.args, "book"),
+        ).toContain("Booked");
+      } else {
+        expect(
+          await c.workflow.rescheduleAppointment(c.state, c.args, "move"),
+        ).toContain("Rescheduled");
+      }
+      expect(c.state.identity.activePatient!.appointmentsStatus).toBe("error");
+      expect(activeAppointments(c.state).map((a) => a.id)).toContain(98765);
+
+      c.data["/api/patient/resolve"].appointments = [];
+      c.data["/api/patient/resolve"].appointmentsStatus = "error";
+      const readsBefore = c.requests.filter(
+        (r) => r.path === "/api/patient/resolve",
+      ).length;
+      const result = await resolveExistingPatient(
+        c.state,
+        { firstName: "Jane", dob: "01/15/1980" },
+        (office, identity) => c.client.resolvePatient({ office, identity }),
+      );
+      expect(
+        c.requests.filter((r) => r.path === "/api/patient/resolve"),
+      ).toHaveLength(readsBefore + 1);
+      expect(result.outcome).toBe("verified");
+      expect(result.reply).toContain("couldn't load the upcoming appointments");
+      expect(result.reply).not.toContain("one upcoming appointment");
+      expect(result.reply).not.toContain("don't see any upcoming appointments");
+      expect(c.state.identity.activePatient!.appointmentsStatus).toBe("error");
+      expect(activeAppointments(c.state).map((a) => a.id)).toEqual([98765]);
+      expect(c.writes()).toHaveLength(1);
+    },
+  );
+
   it("preserves required reloads when a confirmed receipt restores an appointment", async () => {
     const c = await setup();
     await c.workflow.rescheduleAppointment(c.state, c.args, "move");
