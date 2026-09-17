@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.3.2](https://github.com/chasef07/abita_agent/compare/5.3.1...5.3.2) (2026-09-17)
+
+
+### Bug Fixes
+
+* **identity:** consume middleware-owned patient resolution ([#489](https://github.com/chasef07/abita_agent/issues/489)) ([5ef22a4](https://github.com/chasef07/abita_agent/commit/5ef22a46f3d85c8fbc59d391c9c6463bf1332643))
+
 ## [5.3.1](https://github.com/chasef07/abita_agent/compare/5.3.0...5.3.1) (2026-09-15)
 
 
