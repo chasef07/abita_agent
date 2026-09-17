@@ -133,7 +133,6 @@ describe("stable tool catalog", () => {
     expect(middleware.operations.map(({ name }) => name)).toEqual([
       "resolvePatient",
       "resolvePatient",
-      "resolvePatient",
       "getAvailability",
     ]);
     expect(middleware.requests.getAvailability).toEqual([

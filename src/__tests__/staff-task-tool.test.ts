@@ -129,16 +129,10 @@ describe("create_staff_task", () => {
       new InMemoryOwnedMiddleware({
         resolvePatient: [
           {
-            status: "candidates",
-            source: "first_name",
-            complete: true,
-            matches: [],
+            status: "not_found",
           },
           {
-            status: "candidates",
-            source: "first_name",
-            complete: true,
-            matches: [],
+            status: "not_found",
           },
         ],
       }),

@@ -100,6 +100,7 @@ const outcomes = new Set([
   "no_eligible_providers",
 ]);
 const statuses = new Set([
+  "unresolved",
   "error",
   "failed",
   "failure",

@@ -346,7 +346,7 @@ async function resolvePatientEvidence(
       reply: missingIdentityReply(identity),
     };
   }
-  return resolveNameCandidates(
+  return resolveFirstNameDOB(
     state,
     {
       firstName: identity.firstName,
@@ -358,7 +358,7 @@ async function resolvePatientEvidence(
   );
 }
 
-async function resolveNameCandidates(
+async function resolveFirstNameDOB(
   state: CallState,
   identity: { firstName: string; dob: string; lastName?: string },
   lookup: PatientResolveLookup,
@@ -373,62 +373,17 @@ async function resolveNameCandidates(
     })
       ? getOfficeProfileByPhone(state.runtime.trunkPhone).amdOfficePhone
       : getAmdOfficeForToolCall(state);
-  let search = state.identity.nameSearch;
-  if (
-    !search ||
-    search.officePhone !== officePhone ||
-    !exactNamesMatch(search.firstName, identity.firstName) ||
-    !dobMatches(search.dob, identity.dob)
-  ) {
-    const result = await lookup(officePhone, {
-      firstName: identity.firstName,
-      dob: identity.dob,
-    });
-    if (!patientIdentityOperationIsCurrent(state, operationVersion))
-      return {
-        outcome: "superseded",
-        reply: "The patient changed while I was looking up the record.",
-      };
-    if (result.status !== "candidates")
-      return {
-        outcome: "lookup_failed",
-        reply:
-          "The first-name search could not be verified. Connect the caller to office staff; this does not mean the patient is new.",
-        failure:
-          result.status === "error"
-            ? result
-            : { status: "error", reason: "invalid_response" },
-      };
-    search = {
-      officePhone,
-      firstName: identity.firstName,
-      dob: identity.dob,
-      result,
+  const result = await lookup(officePhone, {
+    firstName: identity.firstName,
+    dob: identity.dob,
+  });
+  if (!patientIdentityOperationIsCurrent(state, operationVersion)) {
+    return {
+      outcome: "superseded",
+      reply: "The patient changed while I was looking up the record.",
     };
-    state.identity.nameSearch = search;
   }
-  if (!search.result.complete)
-    return {
-      outcome: "lookup_failed",
-      reply:
-        "The patient search is incomplete. Connect the caller to office staff; a partial result cannot identify a unique patient.",
-      failure: { status: "error", reason: "invalid_response" },
-    };
-  const matches = search.result.matches.filter(
-    (candidate) =>
-      exactNamesMatch(identity.firstName, candidate.firstName) &&
-      dobMatches(identity.dob, candidate.dob),
-  );
-  const uniqueIds = new Set(matches.map((candidate) => candidate.patientId));
-  if (uniqueIds.size !== matches.length)
-    return {
-      outcome: "lookup_failed",
-      reply:
-        "The patient search returned duplicate chart entries. Connect the caller to office staff.",
-      failure: { status: "error", reason: "invalid_response" },
-    };
-  if (matches.length === 0) {
-    // A complete first-name/DOB search establishes absence for registration.
+  if (result.status === "not_found") {
     state.identity.unregisteredPatientReceipt = {
       identity,
       lookupOperationVersion: operationVersion,
@@ -439,39 +394,54 @@ async function resolveNameCandidates(
       reply: "I couldn't find a matching patient.",
     };
   }
-  const lastName = identity.lastName;
-  const selected =
-    matches.length > 1 && lastName
-      ? matches.filter((candidate) =>
-          exactNamesMatch(lastName, candidate.lastName),
-        )
-      : matches;
-  if (selected.length !== 1)
+  if (result.status === "multiple_matches") {
     return {
       outcome: "multiple_matches",
-      reply: !identity.lastName
-        ? "I found more than one matching patient."
-        : "I found more than one matching patient.",
+      reply:
+        "More than one patient matches that first name and date of birth. Connect the caller to office staff.",
     };
-  const candidate = selected[0]!;
+  }
+  if (
+    result.status !== "verified" ||
+    !patientResolveReceiptIsComplete(result) ||
+    !hydratedPatientMatchesIdentity(
+      result,
+      { ...identity, lastName: undefined },
+      "first_name",
+    )
+  ) {
+    return {
+      outcome: "lookup_failed",
+      reply:
+        "The patient lookup could not be verified. Connect the caller to office staff; this does not mean the patient is new.",
+      failure:
+        result.status === "error"
+          ? result
+          : { status: "error", reason: "invalid_response" },
+    };
+  }
   if (
     state.identity.pendingIdentity?.excludePreviousPatient &&
-    candidate.patientId === state.identity.pendingIdentity.previousPatientId
-  )
+    result.patientId === state.identity.pendingIdentity.previousPatientId
+  ) {
     return {
       outcome: "multiple_matches",
       reply:
         "These details identify the previous patient's chart. Connect the caller to staff to identify the different patient.",
     };
-  return hydratePatient(
+  }
+  const hadActivePatient =
+    state.identity.activePatient !== null ||
+    state.identity.pendingIdentity?.previousPatientId != null;
+  const changed = promotePatient(
     state,
-    candidate.patientId,
-    matches.length === 1 ? { ...identity, lastName: undefined } : identity,
-    lookup,
-    operationVersion,
-    "first_name",
-    officePhone,
+    activationFromResolvedPatient(result, "existing"),
+    "operation",
   );
+  return {
+    outcome: hadActivePatient && changed ? "switched" : "verified",
+    reply: confirmedPatientReply(state),
+  };
 }
 
 export function beginNewPatientRegistration(
@@ -1011,7 +981,6 @@ function advanceTransition(
   }
   state.identity.transitionVersion += 1;
   state.identity.pendingIdentity = null;
-  state.identity.nameSearch = null;
 }
 
 function resetPatientScopedWork(

@@ -147,15 +147,7 @@ function stubPatient(
 function stubPatientSearch(
   ...responses: PatientResolveResult[]
 ): InMemoryOwnedMiddleware {
-  return stubPatient(
-    ...responses.flatMap<PatientResolveResult>((result) =>
-      result.status === "verified"
-        ? [candidateSearchResult(result), result]
-        : result.status === "not_found"
-          ? [candidateSearchResult()]
-          : [result],
-    ),
-  );
+  return stubPatient(...responses);
 }
 
 function verifiedPatientResult(
@@ -578,7 +570,6 @@ describe("stateful call tools", () => {
       expect(middleware.operations.map(({ name }) => name)).toEqual([
         "createPatient",
         "resolvePatient",
-        "resolvePatient",
       ]);
     },
   );
@@ -627,7 +618,7 @@ describe("stateful call tools", () => {
     deferred.resolve(createdPatientResult());
 
     await expect(resolution).rejects.toThrow(
-      "The first-name search could not be verified.",
+      "The patient lookup could not be verified.",
     );
     await expect(pendingCreation).resolves.toBe(
       "I created a patient chart for Jane Doe. We can continue with scheduling.",
@@ -1534,7 +1525,7 @@ describe("stateful call tools", () => {
         rescheduleToken: "private-reschedule-token-two",
       }),
     ]);
-    expect(middleware.requests.resolvePatient).toHaveLength(2);
+    expect(middleware.requests.resolvePatient).toHaveLength(1);
   });
 
   it("returns every loaded appointment reference for subsequent appointment tools", async () => {
@@ -1681,12 +1672,6 @@ describe("stateful call tools", () => {
     const state = createState();
     setPatientUnknown(state);
     stubPatient(
-      candidateSearchResult(
-        verifiedPatientResult({
-          name: `${identity.lastName},${identity.firstName}`,
-          dob: identity.dob,
-        }),
-      ),
       verifiedPatientResult({ name: "GARCIA LOPEZ,ANA", dob: "01/01/1980" }),
     );
 
@@ -1695,7 +1680,7 @@ describe("stateful call tools", () => {
         ctx: createToolContext(state) as never,
         toolCallId: "tool-1",
       } as never),
-    ).rejects.toThrow("I couldn't verify the chart receipt.");
+    ).rejects.toThrow("The patient lookup could not be verified.");
     expect(state.identity.activePatient).toBeNull();
   });
 
@@ -1703,9 +1688,6 @@ describe("stateful call tools", () => {
     const state = createState();
     setPatientUnknown(state);
     stubPatient(
-      candidateSearchResult(
-        verifiedPatientResult({ name: "Doe,Ana", dob: "01/01/1980" }),
-      ),
       verifiedPatientResult({
         patientId: "patient-wrong",
         name: "ANNA,DOE",
@@ -1722,7 +1704,7 @@ describe("stateful call tools", () => {
     );
 
     await expect(result).rejects.toThrow(
-      "I couldn't verify the chart receipt.",
+      "The patient lookup could not be verified.",
     );
     expect(state.identity.activePatient).toBeNull();
     expect(domainOutcomeReceipts(state)).toMatchObject([
@@ -1776,7 +1758,7 @@ describe("stateful call tools", () => {
           toolCallId: "tool-1",
         } as never,
       ),
-    ).rejects.toThrow("The first-name search could not be verified.");
+    ).rejects.toThrow("The patient lookup could not be verified.");
     expect(state.identity.privateCandidates).toHaveLength(1);
     expect(state.identity.activePatient).toBeNull();
   });
@@ -1798,7 +1780,7 @@ describe("stateful call tools", () => {
     );
 
     await expect(failure).rejects.toThrow(
-      "The first-name search could not be verified.",
+      "The patient lookup could not be verified.",
     );
     await expect(failure).rejects.toBeInstanceOf(ToolError);
   });
@@ -1857,10 +1839,7 @@ describe("stateful call tools", () => {
     ).resolves.toContain("I found you in our system, Jane Doe.");
     expect(
       middleware.requests.resolvePatient.map((request) => request.identity),
-    ).toEqual([
-      { firstName: "Jane", dob: "01/01/1980" },
-      { patientId: "patient-1" },
-    ]);
+    ).toEqual([{ firstName: "Jane", dob: "01/01/1980" }]);
   });
 
   it("contains a rejected private-candidate hydration within resolve_patient", async () => {
