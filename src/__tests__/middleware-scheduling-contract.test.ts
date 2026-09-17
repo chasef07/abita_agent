@@ -473,6 +473,15 @@ describe("single-shot booking and cancellation", () => {
 });
 
 describe("receipt reconciliation before patient acknowledgment", () => {
+  it("preserves required reloads when a confirmed receipt restores an appointment", async () => {
+    const c = await setup();
+    await c.workflow.rescheduleAppointment(c.state, c.args, "move");
+    replaceActiveAppointments(c.state, [], "error");
+    expect(currentAppointmentReferences(c.state)).toContain("appointmentRef");
+    expect(activeAppointments(c.state).map((a) => a.id)).toEqual([98765]);
+    expect(c.state.identity.activePatient!.appointmentsStatus).toBe("error");
+  });
+
   it.each(["missing replacement", "stale original"])(
     "reconciles a reload with %s before speaking",
     async (scenario) => {

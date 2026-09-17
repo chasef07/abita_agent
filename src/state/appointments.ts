@@ -85,9 +85,13 @@ export function activeAppointments(state: CallState): CallerAppointment[] {
     appointments.filter((item) => !cancelled.has(item.id)),
     patientId,
   );
-  if (patient.appointments.length) patient.appointmentsStatus = "found";
-  else if (cancelled.size && patient.appointmentsStatus === "found")
-    patient.appointmentsStatus = "none";
+  // Receipt reconciliation must not erase a reload required by expired authority
+  // or a failed read; identity resolution uses this marker to refresh tokens.
+  if (patient.appointmentsStatus !== "error") {
+    if (patient.appointments.length) patient.appointmentsStatus = "found";
+    else if (cancelled.size && patient.appointmentsStatus === "found")
+      patient.appointmentsStatus = "none";
+  }
   return patient.appointments;
 }
 
