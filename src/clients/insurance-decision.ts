@@ -23,20 +23,15 @@ const insuranceDecisionSchema = z
       }),
     ),
     eligibility: z.literal("not_checked"),
-    canRegister: z.boolean(),
     canSchedule: z.boolean(),
     selfPay: z.boolean(),
     answer: z.string(),
   })
-  .refine(
-    (d) =>
-      !(d.canRegister || d.canSchedule) ||
-      (d.participation === "accepted" && !!d.canonicalPlan),
-  )
+  .refine((d) => d.participation !== "accepted" || !!d.canonicalPlan)
   .refine(
     (d) =>
       !d.canSchedule ||
-      (d.canRegister &&
+      (d.participation === "accepted" &&
         d.requirements.length === 0 &&
         d.allowedProviders.length > 0),
   );
@@ -68,4 +63,11 @@ function normalizePlan(plan: string): string {
     .replaceAll("&", " and ")
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+}
+
+export function schedulingBlockedAnswer(decision: InsuranceDecision): string {
+  return decision.outcome === "accepted"
+    ? "This plan is accepted, but staff must verify the insurance setup before scheduling."
+    : decision.answer ||
+        "Resolve medical insurance requirements before scheduling.";
 }

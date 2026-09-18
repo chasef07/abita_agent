@@ -96,7 +96,7 @@ export function createCheckInsuranceTool(middleware: OwnedMiddleware) {
         canonicalPlan: decision!.canonicalPlan || null,
         coverageType: "medical",
         currentCarrier: decision!.canonicalPlan || null,
-        accepted: decision!.canRegister,
+        accepted: decision!.participation === "accepted",
         decision,
       });
       setRoutingContext(state, {

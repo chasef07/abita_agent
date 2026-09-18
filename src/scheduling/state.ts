@@ -1,5 +1,8 @@
 import type { InsuranceDecision } from "../clients/insurance-decision.js";
-import { decisionMatches } from "../clients/insurance-decision.js";
+import {
+  decisionMatches,
+  schedulingBlockedAnswer,
+} from "../clients/insurance-decision.js";
 import { activeOfficeKey } from "../state/call-lifecycle.js";
 import type { InsuranceCoverageType } from "../insurance-rules.js";
 import type {
@@ -186,7 +189,7 @@ export function medicalInsuranceSchedulingBlock(
     !state.insurance.lastEligibilityCheck.accepted
   )
     return (
-      (current?.decision && !current.decision.canRegister
+      (current?.decision && current.decision.participation !== "accepted"
         ? current.decision.answer
         : null) ?? "Check the exact medical insurance plan before scheduling."
     );
@@ -194,10 +197,7 @@ export function medicalInsuranceSchedulingBlock(
   if (decision && !decisionMatches(decision, activeOfficeKey(state), "medical"))
     return "Check medical insurance for the selected office before scheduling.";
   if (decision && !decision.canSchedule)
-    return (
-      decision.answer ||
-      "Resolve medical insurance requirements before scheduling."
-    );
+    return schedulingBlockedAnswer(decision);
   return null; // Existing chart insurance is checked by patient-scoped middleware.
 }
 

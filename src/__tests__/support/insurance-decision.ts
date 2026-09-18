@@ -13,7 +13,6 @@ export function medicalDecision(
     allowedProviders: ["Dr. Bach"],
     requirements: [],
     eligibility: "not_checked",
-    canRegister: true,
     canSchedule: true,
     selfPay: true,
     answer: "success: This office participates with Self Pay.",

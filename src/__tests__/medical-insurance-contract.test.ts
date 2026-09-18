@@ -156,7 +156,10 @@ describe("middleware medical insurance contract", () => {
 
   it("rejects malformed permissions and preserves write and lookup decisions", async () => {
     expect(
-      parseInsuranceDecision({ ...medicalDecision(), canRegister: false }),
+      parseInsuranceDecision({
+        ...medicalDecision(),
+        participation: "unknown",
+      }),
     ).toBeUndefined();
     const decision = medicalDecision();
     const client = new HttpOwnedMiddleware({
@@ -231,6 +234,60 @@ describe("middleware medical insurance contract", () => {
 });
 
 describe("medical insurance write boundaries", () => {
+  it.each(["registration", "update"])(
+    "allows %s for accepted coverage while prior authorization holds scheduling",
+    async (operation) => {
+      const decision = medicalDecision({
+        canonicalPlan: "Aetna",
+        selfPay: false,
+        outcome: "needs_staff_task",
+        requirements: [
+          { kind: "prior_authorization", verification: "unverified" },
+        ],
+        canSchedule: false,
+        allowedProviders: [],
+        answer:
+          "blocked: This plan requires prior authorization before scheduling.",
+      });
+      const client = new InMemoryOwnedMiddleware({
+        checkInsurance: [decision],
+      });
+      const state = createConfirmedPatientState();
+      state.workflow.visitType = "medical";
+      if (operation === "registration") {
+        state.identity.activePatient = null;
+        state.identity.registration = null;
+      }
+      expect(
+        await createCheckInsuranceTool(client).execute(
+          { plan: "Aetna", coverageType: "medical" },
+          options(state),
+        ),
+      ).toBe(decision.answer);
+      expect(state.insurance.lastEligibilityCheck?.accepted).toBe(true);
+      expect(medicalInsuranceSchedulingBlock(state)).toContain(
+        "before scheduling",
+      );
+      const answer =
+        operation === "registration"
+          ? await createAddPatientTool(client).execute(
+              registrationArgs(),
+              options(state),
+            )
+          : await createUpdateInsuranceTool(client).execute(
+              { insuranceMemberId: "TEST123" },
+              options(state),
+            );
+      expect(answer).not.toContain("billing setup");
+      expect(answer).not.toContain("Check insurance again");
+      expect(client.requests.createPatient).toHaveLength(
+        operation === "registration" ? 1 : 0,
+      );
+      expect(client.requests.updateInsurance).toHaveLength(
+        operation === "update" ? 1 : 0,
+      );
+    },
+  );
   it("does not start another update when a recheck completes during the first write", async () => {
     const decision = medicalDecision();
     const pending =

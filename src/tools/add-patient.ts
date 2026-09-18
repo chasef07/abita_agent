@@ -1,4 +1,7 @@
-import { decisionMatches } from "../clients/insurance-decision.js";
+import {
+  decisionMatches,
+  schedulingBlockedAnswer,
+} from "../clients/insurance-decision.js";
 import { activeOfficeKey, activateOffice } from "../state/call-lifecycle.js";
 import { tool } from "@livekit/agents";
 import { z } from "zod";
@@ -131,7 +134,7 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
           return `The patient chart for ${patientName} already exists, but insurance is not attached. Office staff needs to finish the registration.`;
         }
         recordPatientCreationOutcome(outcomes, "success");
-        return `The patient chart for ${patientName} already exists. ${state.insurance.onFile.decision && !state.insurance.onFile.decision.canSchedule ? state.insurance.onFile.decision.answer : "We can continue with scheduling."}`;
+        return `The patient chart for ${patientName} already exists. ${state.insurance.onFile.decision && !state.insurance.onFile.decision.canSchedule ? schedulingBlockedAnswer(state.insurance.onFile.decision) : "We can continue with scheduling."}`;
       }
 
       if (registrationStatus === "active_patient") {
@@ -163,16 +166,21 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
 
       if (
         coverageType === "medical" &&
-        !activeOfficeKey(state).endsWith("-demo") &&
-        (!checkedInsurance.decision?.canRegister ||
+        !activeOfficeKey(state).endsWith("-demo")
+      ) {
+        const decision = checkedInsurance.decision;
+        if (
+          !decision ||
           !decisionMatches(
-            checkedInsurance.decision,
+            decision,
             activeOfficeKey(state),
             coverageType,
             insurance,
-          ))
-      )
-        return "Check insurance again for this office before registration.";
+          )
+        )
+          return "Check insurance again for this office before registration.";
+        if (decision.participation !== "accepted") return decision.answer;
+      }
 
       const confirmedUnregisteredPatient =
         registrationStatus === "confirmed_new_patient" &&
@@ -350,7 +358,7 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
         return `I created a patient chart for ${patientName}, but insurance was not attached. Office staff needs to finish the registration.`;
       }
       recordPatientCreationOutcome(outcomes, "success");
-      return `I created a patient chart for ${patientName}. ${receipt.insuranceDecision && !receipt.insuranceDecision.canSchedule ? receipt.insuranceDecision.answer : "We can continue with scheduling."}`;
+      return `I created a patient chart for ${patientName}. ${receipt.insuranceDecision && !receipt.insuranceDecision.canSchedule ? schedulingBlockedAnswer(receipt.insuranceDecision) : "We can continue with scheduling."}`;
     },
   });
 }

@@ -38,7 +38,7 @@ correction or staff help instead of suggesting more dates.
 Production medical `check_insurance` calls middleware's decision endpoint and
 relays its clarification or participation answer. The current patient-owned
 insurance snapshot retains the canonical product and scoped decision. Medical
-registration requires `canRegister`; required referrals/authorizations can allow
+registration requires accepted participation; required referrals/authorizations can allow
 registration while holding scheduling. Created-patient messages preserve that hold.
 Routine-vision matching and isolated demo policies remain on their existing path.
 

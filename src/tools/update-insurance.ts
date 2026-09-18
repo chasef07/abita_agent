@@ -82,16 +82,21 @@ export function createUpdateInsuranceTool(middleware: OwnedMiddleware) {
 
       if (
         coverageType === "medical" &&
-        !activeOfficeKey(state).endsWith("-demo") &&
-        (!checkedInsurance.decision?.canRegister ||
+        !activeOfficeKey(state).endsWith("-demo")
+      ) {
+        const decision = checkedInsurance.decision;
+        if (
+          !decision ||
           !decisionMatches(
-            checkedInsurance.decision,
+            decision,
             activeOfficeKey(state),
             coverageType,
             insurance,
-          ))
-      )
-        return "Check insurance again for this office before updating it.";
+          )
+        )
+          return "Check insurance again for this office before updating it.";
+        if (decision.participation !== "accepted") return decision.answer;
+      }
 
       const selfPay =
         normalizeInsuranceText(insurance) === "self pay" ||
