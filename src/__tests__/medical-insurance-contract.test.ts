@@ -156,7 +156,10 @@ describe("middleware medical insurance contract", () => {
 
   it("rejects malformed permissions and preserves write and lookup decisions", async () => {
     expect(
-      parseInsuranceDecision({ ...medicalDecision(), canRegister: false }),
+      parseInsuranceDecision({
+        ...medicalDecision(),
+        participation: "unknown",
+      }),
     ).toBeUndefined();
     const decision = medicalDecision();
     const client = new HttpOwnedMiddleware({
@@ -232,15 +235,19 @@ describe("middleware medical insurance contract", () => {
 
 describe("medical insurance write boundaries", () => {
   it.each(["registration", "update"])(
-    "keeps acceptance while blocking %s and scheduling when billing setup is missing",
+    "allows %s for accepted coverage while prior authorization holds scheduling",
     async (operation) => {
       const decision = medicalDecision({
         canonicalPlan: "Aetna",
         selfPay: false,
-        canRegister: false,
+        outcome: "needs_staff_task",
+        requirements: [
+          { kind: "prior_authorization", verification: "unverified" },
+        ],
         canSchedule: false,
         allowedProviders: [],
-        answer: "success: Yes, we accept Aetna.",
+        answer:
+          "blocked: This plan requires prior authorization before scheduling.",
       });
       const client = new InMemoryOwnedMiddleware({
         checkInsurance: [decision],
@@ -271,10 +278,14 @@ describe("medical insurance write boundaries", () => {
               { insuranceMemberId: "TEST123" },
               options(state),
             );
-      expect(answer).toContain("billing setup");
+      expect(answer).not.toContain("billing setup");
       expect(answer).not.toContain("Check insurance again");
-      expect(client.requests.createPatient).toHaveLength(0);
-      expect(client.requests.updateInsurance).toHaveLength(0);
+      expect(client.requests.createPatient).toHaveLength(
+        operation === "registration" ? 1 : 0,
+      );
+      expect(client.requests.updateInsurance).toHaveLength(
+        operation === "update" ? 1 : 0,
+      );
     },
   );
   it("does not start another update when a recheck completes during the first write", async () => {

@@ -1,6 +1,5 @@
 import {
   decisionMatches,
-  registrationBlockedAnswer,
   schedulingBlockedAnswer,
 } from "../clients/insurance-decision.js";
 import { activeOfficeKey, activateOffice } from "../state/call-lifecycle.js";
@@ -180,7 +179,7 @@ export function createAddPatientTool(middleware: OwnedMiddleware) {
           )
         )
           return "Check insurance again for this office before registration.";
-        if (!decision.canRegister) return registrationBlockedAnswer(decision);
+        if (decision.participation !== "accepted") return decision.answer;
       }
 
       const confirmedUnregisteredPatient =

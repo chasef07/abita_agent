@@ -1,7 +1,4 @@
-import {
-  decisionMatches,
-  registrationBlockedAnswer,
-} from "../clients/insurance-decision.js";
+import { decisionMatches } from "../clients/insurance-decision.js";
 import { activeOfficeKey } from "../state/call-lifecycle.js";
 import { tool } from "@livekit/agents";
 import { z } from "zod";
@@ -98,7 +95,7 @@ export function createUpdateInsuranceTool(middleware: OwnedMiddleware) {
           )
         )
           return "Check insurance again for this office before updating it.";
-        if (!decision.canRegister) return registrationBlockedAnswer(decision);
+        if (decision.participation !== "accepted") return decision.answer;
       }
 
       const selfPay =

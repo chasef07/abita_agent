@@ -8,7 +8,6 @@
       "allowedProviders": [],
       "requirements": [],
       "eligibility": "not_checked",
-      "canRegister": false,
       "canSchedule": false,
       "selfPay": false,
       "answer": "needs_input: Ask for whether Aetna is commercial/employer coverage, Medicare, or Medicaid, and the full product name on the card"
@@ -49,7 +48,6 @@
     "allowedProviders": ["Dr. Bach", "Dr. Licht", "Dr. Noel"],
     "requirements": [],
     "eligibility": "not_checked",
-    "canRegister": true,
     "canSchedule": true,
     "selfPay": false,
     "answer": "success: This office participates with Aetna Commercial for this visit type. This does not verify active coverage or benefits."

@@ -189,7 +189,7 @@ export function medicalInsuranceSchedulingBlock(
     !state.insurance.lastEligibilityCheck.accepted
   )
     return (
-      (current?.decision && !current.decision.canRegister
+      (current?.decision && current.decision.participation !== "accepted"
         ? current.decision.answer
         : null) ?? "Check the exact medical insurance plan before scheduling."
     );
