@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.3.4](https://github.com/chasef07/abita_agent/compare/5.3.3...5.3.4) (2026-09-18)
+
+
+### Bug Fixes
+
+* **insurance:** use acceptance as registration permission ([#493](https://github.com/chasef07/abita_agent/issues/493)) ([76d1d1a](https://github.com/chasef07/abita_agent/commit/76d1d1a8134045bde6db77f7315100f83ec55ffe))
+
 ## [5.3.3](https://github.com/chasef07/abita_agent/compare/5.3.2...5.3.3) (2026-09-17)
 
 
