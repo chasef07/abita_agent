@@ -231,6 +231,52 @@ describe("middleware medical insurance contract", () => {
 });
 
 describe("medical insurance write boundaries", () => {
+  it.each(["registration", "update"])(
+    "keeps acceptance while blocking %s and scheduling when billing setup is missing",
+    async (operation) => {
+      const decision = medicalDecision({
+        canonicalPlan: "Aetna",
+        selfPay: false,
+        canRegister: false,
+        canSchedule: false,
+        allowedProviders: [],
+        answer: "success: Yes, we accept Aetna.",
+      });
+      const client = new InMemoryOwnedMiddleware({
+        checkInsurance: [decision],
+      });
+      const state = createConfirmedPatientState();
+      state.workflow.visitType = "medical";
+      if (operation === "registration") {
+        state.identity.activePatient = null;
+        state.identity.registration = null;
+      }
+      expect(
+        await createCheckInsuranceTool(client).execute(
+          { plan: "Aetna", coverageType: "medical" },
+          options(state),
+        ),
+      ).toBe(decision.answer);
+      expect(state.insurance.lastEligibilityCheck?.accepted).toBe(true);
+      expect(medicalInsuranceSchedulingBlock(state)).toContain(
+        "before scheduling",
+      );
+      const answer =
+        operation === "registration"
+          ? await createAddPatientTool(client).execute(
+              registrationArgs(),
+              options(state),
+            )
+          : await createUpdateInsuranceTool(client).execute(
+              { insuranceMemberId: "TEST123" },
+              options(state),
+            );
+      expect(answer).toContain("billing setup");
+      expect(answer).not.toContain("Check insurance again");
+      expect(client.requests.createPatient).toHaveLength(0);
+      expect(client.requests.updateInsurance).toHaveLength(0);
+    },
+  );
   it("does not start another update when a recheck completes during the first write", async () => {
     const decision = medicalDecision();
     const pending =

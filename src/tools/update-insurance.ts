@@ -1,4 +1,7 @@
-import { decisionMatches } from "../clients/insurance-decision.js";
+import {
+  decisionMatches,
+  registrationBlockedAnswer,
+} from "../clients/insurance-decision.js";
 import { activeOfficeKey } from "../state/call-lifecycle.js";
 import { tool } from "@livekit/agents";
 import { z } from "zod";
@@ -82,16 +85,21 @@ export function createUpdateInsuranceTool(middleware: OwnedMiddleware) {
 
       if (
         coverageType === "medical" &&
-        !activeOfficeKey(state).endsWith("-demo") &&
-        (!checkedInsurance.decision?.canRegister ||
+        !activeOfficeKey(state).endsWith("-demo")
+      ) {
+        const decision = checkedInsurance.decision;
+        if (
+          !decision ||
           !decisionMatches(
-            checkedInsurance.decision,
+            decision,
             activeOfficeKey(state),
             coverageType,
             insurance,
-          ))
-      )
-        return "Check insurance again for this office before updating it.";
+          )
+        )
+          return "Check insurance again for this office before updating it.";
+        if (!decision.canRegister) return registrationBlockedAnswer(decision);
+      }
 
       const selfPay =
         normalizeInsuranceText(insurance) === "self pay" ||

@@ -69,3 +69,17 @@ function normalizePlan(plan: string): string {
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 }
+
+// Participation answers cannot describe a refused write or booking as success.
+export function registrationBlockedAnswer(decision: InsuranceDecision): string {
+  return decision.outcome === "accepted"
+    ? "This plan is accepted, but staff must verify its billing setup before creating or updating the chart."
+    : decision.answer;
+}
+
+export function schedulingBlockedAnswer(decision: InsuranceDecision): string {
+  return decision.outcome === "accepted"
+    ? "This plan is accepted, but staff must verify the insurance setup before scheduling."
+    : decision.answer ||
+        "Resolve medical insurance requirements before scheduling.";
+}
