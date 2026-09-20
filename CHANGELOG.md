@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.4.0](https://github.com/chasef07/abita_agent/compare/5.3.4...5.4.0) (2026-09-20)
+
+
+### Features
+
+* **demo:** tailor receptionist to Isla Community Health ([#495](https://github.com/chasef07/abita_agent/issues/495)) ([7f806eb](https://github.com/chasef07/abita_agent/commit/7f806eb09b022d631bbe6326415eff62856ff40c))
+
 ## [5.3.4](https://github.com/chasef07/abita_agent/compare/5.3.3...5.3.4) (2026-09-18)
 
 
