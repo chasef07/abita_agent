@@ -399,7 +399,9 @@ describe("Isla Community Health demo", () => {
     const prompt = buildPrompt(RHEUMATOLOGY_DEMO_TRUNK_PHONE);
 
     expect(prompt).toContain("You are Julia");
-    expect(prompt).toContain("front-desk AI assistant at Isla Community Health");
+    expect(prompt).toContain(
+      "front-desk AI assistant at Isla Community Health",
+    );
     expect(prompt).not.toContain("Juniper Ridge");
     expect(prompt).toContain("Kagman");
     expect(prompt).toContain("Southern");
