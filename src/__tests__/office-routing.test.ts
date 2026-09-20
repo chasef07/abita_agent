@@ -394,16 +394,19 @@ describe("tool-first prompt gating", () => {
   });
 });
 
-describe("rheumatology demo", () => {
-  it("uses a fictional rheumatology identity and medication prompt", () => {
+describe("Isla Community Health demo", () => {
+  it("uses the Isla identity, office knowledge, and medication routing", () => {
     const prompt = buildPrompt(RHEUMATOLOGY_DEMO_TRUNK_PHONE);
 
     expect(prompt).toContain("You are Julia");
-    expect(prompt).toContain("fictional rheumatology practice");
-    expect(prompt).toContain("Rheumatology includes");
+    expect(prompt).toContain("front-desk AI assistant at Isla Community Health");
+    expect(prompt).not.toContain("Juniper Ridge");
+    expect(prompt).toContain("Kagman");
+    expect(prompt).toContain("Southern");
+    expect(prompt).toContain("Tinian");
     expect(prompt).toContain("visitType medical");
     expect(prompt).toContain(
-      "Answer general medication education only from the current office knowledge",
+      "Do not provide clinical or medication education from general model knowledge.",
     );
     expect(prompt).toContain(
       "For a routine refill, pharmacy change, medication prior authorization, or prescription-status request",

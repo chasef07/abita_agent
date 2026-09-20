@@ -322,10 +322,10 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
   }),
   "rheumatology-demo": defineOffice({
     key: "rheumatology-demo",
-    displayName: "Juniper Ridge Rheumatology & Arthritis Care",
+    displayName: "Isla Community Health",
     trunkPhones: [RHEUMATOLOGY_DEMO_TRUNK_PHONE],
     greeting:
-      "Hi, this is Julia, the virtual assistant at Juniper Ridge Rheumatology and Arthritis Care. How can I help you today?",
+      "Hi this is Julia with Isla Community Health. How can I help you today.",
     roleFile: "SOUL_RHEUM_DEMO.md",
     care: {
       medical: {
@@ -335,7 +335,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
       routine_vision: {
         supported: false,
         message:
-          "Juniper Ridge Rheumatology & Arthritis Care schedules rheumatology care. Route routine eye exams, glasses prescriptions, and contact lens prescriptions through an eye-care practice.",
+          "Isla Community Health schedules medical care. Route routine eye exams, glasses prescriptions, and contact lens prescriptions through an eye-care practice.",
       },
     },
     amdOfficePhone: DEMO_BOOKING_OFFICE_PHONE,
