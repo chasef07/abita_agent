@@ -309,10 +309,10 @@ const officeBehaviors: OfficeBehavior[] = [
     trunks: [NEW_TAMPA_DEMO_TRUNK_PHONE],
   },
   {
-    displayName: "Juniper Ridge Rheumatology & Arthritis Care",
+    displayName: "Isla Community Health",
     englishSpeaker: "wawona",
     greeting:
-      "Hi, this is Julia, the virtual assistant at Juniper Ridge Rheumatology and Arthritis Care. How can I help you today?",
+      "Hi this is Julia with Isla Community Health. How can I help you today.",
     handoff: {
       mode: "phone",
       target: `tel:${DEMO_TRANSFER_NUMBER}`,
@@ -328,13 +328,13 @@ const officeBehaviors: OfficeBehavior[] = [
       },
     },
     key: "rheumatology-demo",
-    promptMarker: "a fictional rheumatology practice",
+    promptMarker: "front-desk AI assistant at Isla Community Health",
     scheduling: {
       medical: { supported: true },
       routineVision: {
         supported: false,
         message:
-          "Juniper Ridge Rheumatology & Arthritis Care schedules rheumatology care. Route routine eye exams, glasses prescriptions, and contact lens prescriptions through an eye-care practice.",
+          "Isla Community Health schedules medical care. Route routine eye exams, glasses prescriptions, and contact lens prescriptions through an eye-care practice.",
       },
     },
     staffTaskEnabled: true,

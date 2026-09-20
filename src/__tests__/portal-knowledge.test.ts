@@ -405,6 +405,10 @@ describe("Portal authority at the agent boundary", () => {
         expect(agent.instructions).toContain(
           "call search_office_knowledge. Do not guess order readiness or office policies.",
         );
+      } else if (office.key === "rheumatology-demo") {
+        expect(agent.instructions).toContain(
+          "Call search_office_knowledge before answering office-specific questions.",
+        );
       } else {
         expect(agent.instructions).not.toContain("search_office_knowledge");
       }
