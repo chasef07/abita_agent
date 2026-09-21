@@ -41,7 +41,7 @@
     "tsx": "^4.23.13",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "typescript-eslint": "^8.69.0",
-    "vitest": "^5.0.0",
+    "vitest": "^5.0.1",
     "yaml": "2.9.0"
   },
   "pnpm": {
