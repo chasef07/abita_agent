@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.4.1](https://github.com/chasef07/abita_agent/compare/5.4.0...5.4.1) (2026-09-21)
+
+
+### Bug Fixes
+
+* **demo:** recover Isla registration without unavailable handoffs ([#497](https://github.com/chasef07/abita_agent/issues/497)) ([b5dea0f](https://github.com/chasef07/abita_agent/commit/b5dea0f19a9e601ef35dc7248b4b6b3a9c72a31b))
+
 ## [5.4.0](https://github.com/chasef07/abita_agent/compare/5.3.4...5.4.0) (2026-09-20)
 
 
