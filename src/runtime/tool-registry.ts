@@ -41,19 +41,19 @@ function buildUnobservedToolsForTrunk(
     availabilityOfficeMode,
   });
   const coreTools = [
-    createResolvePatientTool(middleware),
+    createResolvePatientTool(middleware, office.key),
     createAddPatientTool(middleware),
     createUpdateInsuranceTool(middleware),
     list_available_appointments,
     cancel_appointment,
     book_appointment,
     reschedule_appointment,
-    createCheckInsuranceTool(middleware),
+    createCheckInsuranceTool(middleware, office.key),
   ] as const satisfies readonly ToolContextEntry<CallState>[];
   const commonTools = [
     ...coreTools,
     createSearchOfficeKnowledgeTool(),
-    transfer_call,
+    ...(office.key === "rheumatology-demo" ? [] : [transfer_call]),
     end_call,
   ] as const;
   if (office.key === "new-tampa-demo") {

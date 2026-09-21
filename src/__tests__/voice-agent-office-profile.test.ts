@@ -337,7 +337,7 @@ const officeBehaviors: OfficeBehavior[] = [
           "Isla Community Health schedules medical care. Route routine eye exams, glasses prescriptions, and contact lens prescriptions through an eye-care practice.",
       },
     },
-    staffTaskEnabled: true,
+    staffTaskEnabled: false,
     trunks: [RHEUMATOLOGY_DEMO_TRUNK_PHONE],
   },
 ];
@@ -525,7 +525,11 @@ describe("Voice Agent office profile", () => {
           },
           staffTaskEnabled: expected.staffTaskEnabled,
           tools: [
-            ...COMMON_TOOL_NAMES,
+            ...COMMON_TOOL_NAMES.filter(
+              (name) =>
+                expected.key !== "rheumatology-demo" ||
+                name !== "transfer_call",
+            ),
             ...(expected.key === "new-tampa-demo"
               ? ["triage_eye_care", "notify_after_hours_physician"]
               : []),

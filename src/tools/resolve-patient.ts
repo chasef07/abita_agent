@@ -6,6 +6,8 @@ import {
   type PatientIdentityResolution,
   type PatientResolveLookup,
 } from "../identity/patient-identity.js";
+import type { OfficeKey } from "../customers/abita/profile.js";
+import { activeOfficeKey } from "../state/call-lifecycle.js";
 import { domainOutcomesForTool } from "../state/observability.js";
 import { getState } from "./session.js";
 
@@ -29,17 +31,22 @@ const resolvePatientParameters = z
 
 type ResolvePatientArgs = z.infer<typeof resolvePatientParameters>;
 
-export function createResolvePatientTool(middleware: OwnedMiddleware) {
+export function createResolvePatientTool(
+  middleware: OwnedMiddleware,
+  officeKey?: OfficeKey,
+) {
   const lookup: PatientResolveLookup = (office, identity) =>
     middleware.resolvePatient({ office, identity });
   return tool({
     name: "resolve_patient",
     onDuplicate: "reject",
     description:
-      "Call immediately with the patient's supplied firstName. Include supplied DOB without confirmation; otherwise pass dob:null and follow the returned next step. " +
-      "Require DOB for same-name patient switches. " +
-      "If unresolved, add DOB and retry; if still unresolved, clarify DOB and first-name spelling and retry before offering staff. " +
-      "After success, say the acknowledgment, never internal appointment references. Use caller-provided identity only. Use add_patient for registration.",
+      officeKey === "rheumatology-demo"
+        ? "For existing/unsure patients, use supplied firstName and DOB (otherwise dob:null). Require DOB for same-name patient switches. If unresolved, clarify DOB and first-name spelling and follow the result. Use caller-provided identity only. Acknowledge success without appointment references. Confirmed first registrations use add_patient prerequisites directly; lookup failure never confirms new-patient status."
+        : "Call immediately with the patient's supplied firstName. Include supplied DOB without confirmation; otherwise pass dob:null and follow the returned next step. " +
+          "Require DOB for same-name patient switches. " +
+          "If unresolved, add DOB and retry; if still unresolved, clarify DOB and first-name spelling and retry before offering staff. " +
+          "After success, say the acknowledgment, never internal appointment references. Use caller-provided identity only. Use add_patient for registration.",
     parameters: resolvePatientParameters,
     execute: async (
       identity: ResolvePatientArgs,
@@ -72,6 +79,9 @@ export function createResolvePatientTool(middleware: OwnedMiddleware) {
       }
       outcomes.record(patientResolutionDomainOutcome(resolution.outcome));
       if (resolution.outcome === "lookup_failed") {
+        if (activeOfficeKey(state) === "rheumatology-demo") {
+          return "The patient lookup could not be verified; this does not mean the patient is new. Ask whether this is their first registration unless they already explicitly confirmed it. Only after that confirmation, follow the existing check_insurance and add_patient prerequisites, including callback confirmation and full read-back. Do not create a chart for an existing or unsure patient. If identity remains unresolved, explain that you cannot complete the appointment right now; do not promise a transfer or staff follow-up.";
+        }
         throw new ToolError(resolution.reply);
       }
       if (

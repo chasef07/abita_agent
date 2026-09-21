@@ -339,7 +339,7 @@ const OFFICE_PROFILES: Record<OfficeKey, OfficeProfile> = {
       },
     },
     amdOfficePhone: DEMO_BOOKING_OFFICE_PHONE,
-    staffTaskEnabled: true,
+    staffTaskEnabled: false,
     handoff: demoHandoff,
   }),
 };

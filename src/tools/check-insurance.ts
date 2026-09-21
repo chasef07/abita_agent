@@ -1,3 +1,4 @@
+import type { OfficeKey } from "../customers/abita/profile.js";
 import type { OwnedMiddleware } from "../clients/owned-middleware.js";
 import { decisionMatches } from "../clients/insurance-decision.js";
 import { activePatientDob } from "../state/call-state.js";
@@ -40,7 +41,6 @@ export const check_insurance = tool({
     ctx.disallowInterruptions();
     const office = activeOfficeKey(state);
     const result = matchInsurancePlanForOffice(office, plan, coverageType);
-    const response = buildInsuranceToolResponse(result);
     const checkedInsurancePlan = canonicalInsurancePlan(result);
     const checkedInsuranceCoverageType = checkedInsurancePlan
       ? coverageType
@@ -54,13 +54,25 @@ export const check_insurance = tool({
       accepted: Boolean(checkedInsurancePlan && result.status === "accepted"),
     });
     recordUnregisteredPatientInsuranceCheck(state);
-    return response;
+    if (office === "rheumatology-demo") {
+      return checkedInsurancePlan && result.status === "accepted"
+        ? "Registration can continue with the supplied plan on this line. This sandbox registration check is not evidence of Isla participation, benefits, eligibility, or cost. Continue the confirmed registration without claiming insurance coverage."
+        : "Registration is not supported with the supplied plan on this line. This is not an Isla coverage or participation decision. Ask for the exact plan name if unclear, or use another actual plan or self-pay only if the caller supplies or chooses it. Never invent coverage to continue.";
+    }
+    return buildInsuranceToolResponse(result);
   },
 });
 
-export function createCheckInsuranceTool(middleware: OwnedMiddleware) {
+export function createCheckInsuranceTool(
+  middleware: OwnedMiddleware,
+  officeKey?: OfficeKey,
+) {
   return tool({
     ...check_insurance,
+    description:
+      officeKey === "rheumatology-demo"
+        ? "Check the caller-supplied plan for sandbox registration after medical visit triage. Use before add_patient; this is not evidence of Isla participation, benefits, eligibility, or cost. Use office knowledge for insurance FAQs. Never invent a plan or change to self-pay without the caller choosing it."
+        : check_insurance.description,
     execute: async (args, options): Promise<string> => {
       const state = getState(options.ctx);
       const office = activeOfficeKey(state);
