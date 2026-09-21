@@ -133,11 +133,11 @@ describe("office routing helpers", () => {
       expect(toolNamesForTrunk(phone)).toContain("create_staff_task");
     }
 
-    expect(toolNamesForTrunk(RHEUMATOLOGY_DEMO_TRUNK_PHONE)).toContain(
+    expect(toolNamesForTrunk(RHEUMATOLOGY_DEMO_TRUNK_PHONE)).not.toContain(
       "create_staff_task",
     );
     expect(getOfficeProfile("spring-hill").staffTaskEnabled).toBe(true);
-    expect(getOfficeProfile("rheumatology-demo").staffTaskEnabled).toBe(true);
+    expect(getOfficeProfile("rheumatology-demo").staffTaskEnabled).toBe(false);
   });
 
   it("keeps Crystal River transfer-only", () => {
@@ -275,7 +275,7 @@ describe("tool-first prompt gating", () => {
     const devPrompt = buildPrompt(RHEUMATOLOGY_DEMO_TRUNK_PHONE);
 
     expect(crystalRiverPrompt).toContain("# Tool Use");
-    expect(devPrompt).not.toContain("book_appointment");
+    expect(devPrompt).toContain("book_appointment succeeds");
 
     for (const phone of [
       SPRING_HILL_OFFICE_PHONE,
@@ -411,14 +411,14 @@ describe("Isla Community Health demo", () => {
       "Do not provide clinical or medication education from general model knowledge.",
     );
     expect(prompt).toContain(
-      "For a routine refill, pharmacy change, medication prior authorization, or prescription-status request",
+      "Transfers and staff-message delivery are unavailable on this line.",
     );
     expect(prompt).toContain(
-      "Immediately call transfer_call for clinical medication guidance",
+      "Never say you are connecting, transferring, sending a message, or arranging a callback.",
     );
-    expect(prompt).toContain("# Human Transfer");
+    expect(prompt).toContain("# Unavailable Staff Actions");
     expect(prompt).toContain(
-      "Describe a transfer only from the transfer_call result.",
+      "Do not call list_available_appointments until the patient is verified or successfully created.",
     );
     expect(prompt).toContain(
       "For calls involving more than one patient, finish one patient's task at a time.",
@@ -434,15 +434,15 @@ describe("Isla Community Health demo", () => {
     expect(prompt).not.toContain("contact lenses");
   });
 
-  it("exposes the demo transfer and staff-task tools", () => {
+  it("keeps booking tools but omits unavailable sandbox handoffs", () => {
     const names = toolNamesForTrunk(RHEUMATOLOGY_DEMO_TRUNK_PHONE);
 
     expect(names).toContain("check_insurance");
     expect(names).toContain("list_available_appointments");
     expect(names).toContain("book_appointment");
     expect(names).toContain("end_call");
-    expect(names).toContain("transfer_call");
-    expect(names).toContain("create_staff_task");
+    expect(names).not.toContain("transfer_call");
+    expect(names).not.toContain("create_staff_task");
   });
 
   it("honors the isolated demo handoff override", () => {
@@ -605,7 +605,7 @@ describe("Crystal River prompt guidance", () => {
       expect(prompt).not.toContain("<office_policy>");
     }
 
-    expect(buildPrompt(RHEUMATOLOGY_DEMO_TRUNK_PHONE)).toContain(
+    expect(buildPrompt(RHEUMATOLOGY_DEMO_TRUNK_PHONE)).not.toContain(
       "create_staff_task",
     );
   });
