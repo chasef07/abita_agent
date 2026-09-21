@@ -8,7 +8,7 @@ import { createConfirmedPatientState } from "./support/call-state.js";
 import { createToolContext } from "./support/tool-context.js";
 import { InMemoryOwnedMiddleware } from "./support/owned-middleware.js";
 
-// Every real office and both other demos must retain the original tools.
+// Other offices must not inherit New Tampa tools or scheduling behavior.
 const unchangedOffices = getOfficeProfiles().filter(
   (office) => office.key !== "new-tampa-demo",
 );
@@ -42,14 +42,16 @@ describe("New Tampa isolation from other numbers", () => {
         const registered = buildToolsForTrunk(middleware, trunkPhone).flatMap(
           (entry) => (isToolset(entry) ? entry.tools : [entry]),
         );
-        expect(
-          registered
-            .filter(isFunctionTool)
-            .find((entry) => entry.id === "check_insurance"),
-        ).toMatchObject({
-          id: check_insurance.id,
-          description: check_insurance.description,
-        });
+        const insuranceTool = registered
+          .filter(isFunctionTool)
+          .find((entry) => entry.id === "check_insurance");
+        expect(insuranceTool?.id).toBe(check_insurance.id);
+        if (office.key === "rheumatology-demo") {
+          expect(insuranceTool?.description).toContain("sandbox registration");
+          expect(insuranceTool?.description).not.toContain("Transfer only");
+        } else {
+          expect(insuranceTool?.description).toBe(check_insurance.description);
+        }
         expect(
           registered
             .map((entry) => entry.id)
