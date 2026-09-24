@@ -21,9 +21,6 @@ importers:
       '@livekit/agents-plugin-krisp':
         specifier: 1.8.0
         version: 1.8.0(@livekit/agents@1.8.0(@livekit/rtc-node@0.13.34)(@types/node@26.4.1)(@typescript/typescript6@6.0.2)(zod@4.5.4))(@livekit/rtc-node@0.13.34)
-      '@livekit/agents-plugin-rime':
-        specifier: 1.8.0
-        version: 1.8.0(@livekit/agents@1.8.0(@livekit/rtc-node@0.13.34)(@types/node@26.4.1)(@typescript/typescript6@6.0.2)(zod@4.5.4))(@livekit/rtc-node@0.13.34)
       '@livekit/rtc-node':
         specifier: ^0.13.34
         version: 0.13.34
@@ -574,12 +571,6 @@ packages:
 
   '@livekit/agents-plugin-krisp@1.8.0':
     resolution: {integrity: sha512-Cz9X9I2kOMoDl/7IaP7u5ikGI9hGQZ5fppZYy8NtWJEqLTZLeV4/2y/wvZHGvgIZ9dqZqz5AZ28YgfW4CbAFOA==}
-    peerDependencies:
-      '@livekit/agents': 1.8.0
-      '@livekit/rtc-node': ^0.13.34
-
-  '@livekit/agents-plugin-rime@1.8.0':
-    resolution: {integrity: sha512-v7IR1RR6218p6iN/o/mv220v15Jgy2uytlkn5yj9QEDxXXno2mA9uv/yPIfEKdmJPPmBfYhGIRwJd96SOyJwew==}
     peerDependencies:
       '@livekit/agents': 1.8.0
       '@livekit/rtc-node': ^0.13.34
@@ -2646,15 +2637,6 @@ snapshots:
       '@livekit/agents': 1.8.0(@livekit/rtc-node@0.13.34)(@types/node@26.4.1)(@typescript/typescript6@6.0.2)(zod@4.5.4)
       '@livekit/plugins-krisp-viva-internal': 0.2.0(@livekit/agents@1.8.0(@livekit/rtc-node@0.13.34)(@types/node@26.4.1)(@typescript/typescript6@6.0.2)(zod@4.5.4))(@livekit/rtc-node@0.13.34)
       '@livekit/rtc-node': 0.13.34
-
-  '@livekit/agents-plugin-rime@1.8.0(@livekit/agents@1.8.0(@livekit/rtc-node@0.13.34)(@types/node@26.4.1)(@typescript/typescript6@6.0.2)(zod@4.5.4))(@livekit/rtc-node@0.13.34)':
-    dependencies:
-      '@livekit/agents': 1.8.0(@livekit/rtc-node@0.13.34)(@types/node@26.4.1)(@typescript/typescript6@6.0.2)(zod@4.5.4)
-      '@livekit/rtc-node': 0.13.34
-      ws: 8.21.3
-    transitivePeerDependencies:
-      - bufferutil
-      - utf-8-validate
 
   '@livekit/agents@1.8.0(@livekit/rtc-node@0.13.34)(@types/node@26.4.1)(@typescript/typescript6@6.0.2)(zod@4.5.4)':
     dependencies:

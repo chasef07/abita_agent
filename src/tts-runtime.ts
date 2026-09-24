@@ -1,5 +1,4 @@
-import { tts as ttsModule } from "@livekit/agents";
-import * as rime from "@livekit/agents-plugin-rime";
+import { inference, tts as ttsModule } from "@livekit/agents";
 import type {
   VoiceLanguage,
   VoiceLanguageStateOptions,
@@ -19,7 +18,9 @@ export type TtsRuntime = {
 
 export function createTtsRuntime(trunkPhone: string): TtsRuntime {
   const optionsByLanguage = getRimeTtsOptionsByLanguage(trunkPhone);
-  const tts = new rime.TTS(getRimeTtsOptions({ language: "en", trunkPhone }));
+  const tts = new inference.TTS(
+    getRimeTtsOptions({ language: "en", trunkPhone }),
+  );
   return {
     optionsByLanguage: {
       en: rimeLanguageState(optionsByLanguage.en),
@@ -34,8 +35,8 @@ export function createTtsRuntime(trunkPhone: string): TtsRuntime {
 }
 
 function rimeLanguageState(options: {
-  lang: string;
-  speaker: string;
+  language: string;
+  voice: string;
 }): VoiceLanguageStateOptions {
-  return { speaker: options.speaker, ttsLanguage: options.lang };
+  return { speaker: options.voice, ttsLanguage: options.language };
 }

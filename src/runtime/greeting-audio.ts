@@ -20,7 +20,7 @@ export function greetingAudioPath(trunkPhone: string): string {
 
 export async function greetingAudio(trunkPhone: string) {
   const wav = await readFile(greetingAudioPath(trunkPhone));
-  return decodeGreetingWav(wav, getRimeTtsOptions({ trunkPhone }).samplingRate);
+  return decodeGreetingWav(wav, getRimeTtsOptions({ trunkPhone }).sampleRate);
 }
 
 export function decodeGreetingWav(wav: Buffer, sampleRate: number) {

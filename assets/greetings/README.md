@@ -5,14 +5,14 @@ The opening is non-interruptible; LiveKit's default drops caller audio during
 playback. All later speech is synthesized live with normal interruption behavior.
 Packaging does not establish a fix for SIP dropouts.
 
-Generate with Node 22 and `RIME_API_KEY` in the environment or `.env.local`:
+Generate with Node 22 and `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` in the environment or `.env.local`:
 
 ```sh
 pnpm greetings:generate
 ```
 
-The script uses the same WebSocket model, voice, language, and sample rate as live
-speech. Files are keyed by greeting text and TTS options; identical combinations
+The script uses LiveKit Inference (`rime/coda`) with the same voice, language,
+and sample rate as live speech. No separate Rime API key is required. Files are keyed by greeting text and TTS options; identical combinations
 share an asset. A profile/config change requires regeneration. Listen to each new
 clip before shipping, include its WAV in the change, and remove obsolete WAVs.
 The normal Docker build includes this directory without a synthesis request.

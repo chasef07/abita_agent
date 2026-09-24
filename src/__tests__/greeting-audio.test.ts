@@ -39,7 +39,7 @@ describe("packaged greetings", () => {
     async (office) => {
       const trunk = office.trunkPhones[0]!;
       const wav = await readFile(greetingAudioPath(trunk));
-      const sampleRate = getRimeTtsOptions({ trunkPhone: trunk }).samplingRate;
+      const sampleRate = getRimeTtsOptions({ trunkPhone: trunk }).sampleRate;
       expect(wav.toString("ascii", 0, 4)).toBe("RIFF");
       expect(wav.readUInt32LE(24)).toBe(sampleRate);
       expect(wav.readUInt16LE(22)).toBe(1);

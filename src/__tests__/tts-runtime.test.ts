@@ -1,4 +1,4 @@
-import { initializeLogger } from "@livekit/agents";
+import { inference, initializeLogger } from "@livekit/agents";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   CRYSTAL_RIVER_OFFICE_PHONE,
@@ -19,30 +19,29 @@ describe("TTS runtime", () => {
     ["demo", RHEUMATOLOGY_DEMO_TRUNK_PHONE, "wawona"],
     ["production", CRYSTAL_RIVER_OFFICE_PHONE, "wawona"],
   ])(
-    "constructs direct Rime for the %s trunk",
+    "constructs LiveKit Inference Rime for the %s trunk",
     async (_, trunkPhone, speaker) => {
-      vi.stubEnv("RIME_API_KEY", "test-key");
-      const [{ createTtsRuntime }, rime] = await Promise.all([
-        import("../tts-runtime.js"),
-        import("@livekit/agents-plugin-rime"),
-      ]);
+      vi.stubEnv("RIME_API_KEY", "");
+      vi.stubEnv("LIVEKIT_API_KEY", "test-key");
+      vi.stubEnv("LIVEKIT_API_SECRET", "test-secret");
+      const { createTtsRuntime } = await import("../tts-runtime.js");
 
       const runtime = createTtsRuntime(trunkPhone);
 
       expect(runtime.provider).toBe("rime");
-      expect(runtime.tts).toBeInstanceOf(rime.TTS);
+      expect(runtime.tts).toBeInstanceOf(inference.TTS);
       expect(runtime.optionsByLanguage.en).toEqual({
         speaker,
-        ttsLanguage: "eng",
+        ttsLanguage: "en",
       });
       const updateOptions = vi.spyOn(
-        runtime.tts as InstanceType<typeof rime.TTS>,
+        runtime.tts as InstanceType<typeof inference.TTS>,
         "updateOptions",
       );
       runtime.updateLanguage("es");
       expect(updateOptions).toHaveBeenCalledWith({
-        lang: "spa",
-        speaker: "luz",
+        language: "es",
+        voice: "luz",
       });
     },
   );
