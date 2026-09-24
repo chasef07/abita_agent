@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.4.2](https://github.com/chasef07/abita_agent/compare/5.4.1...5.4.2) (2026-09-24)
+
+
+### Miscellaneous Chores
+
+* **release:** prepare 5.4.2 ([25017af](https://github.com/chasef07/abita_agent/commit/25017affc007c57aab7f06af221b80cb0a79406a))
+
 ## [5.4.1](https://github.com/chasef07/abita_agent/compare/5.4.0...5.4.1) (2026-09-21)
 
 
