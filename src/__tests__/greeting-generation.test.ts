@@ -15,36 +15,44 @@ vi.mock("node:fs/promises", async (original) => ({
   writeFile: vi.fn(),
 }));
 
-vi.mock("@livekit/agents-plugin-rime", () => ({
-  TTS: class {
-    on(_event: string, callback: () => void) {
-      state.onError = callback;
-    }
-    async close() {}
-    stream(options: unknown) {
-      state.streamOptions(options);
-      return {
-        pushText() {},
-        endInput() {},
-        close() {},
-        async *[Symbol.asyncIterator]() {
-          // Enough audio to pass a duration-only check, followed by provider failure.
-          yield {
-            frame: new AudioFrame(new Int16Array(32000), 16000, 1, 32000),
-            final: state.final,
+vi.mock("@livekit/agents", async (original) => {
+  const actual = await original<typeof import("@livekit/agents")>();
+  return {
+    ...actual,
+    inference: {
+      ...actual.inference,
+      TTS: class {
+        on(_event: string, callback: () => void) {
+          state.onError = callback;
+        }
+        async close() {}
+        stream(options: unknown) {
+          state.streamOptions(options);
+          return {
+            pushText() {},
+            endInput() {},
+            close() {},
+            async *[Symbol.asyncIterator]() {
+              // Enough audio to pass a duration-only check, followed by provider failure.
+              yield {
+                frame: new AudioFrame(new Int16Array(32000), 16000, 1, 32000),
+                final: state.final,
+              };
+              yield tts.SynthesizeStream.END_OF_STREAM;
+              if (state.failure) state.onError();
+            },
           };
-          yield tts.SynthesizeStream.END_OF_STREAM;
-          if (state.failure) state.onError();
-        },
-      };
-    }
-  },
-}));
+        }
+      },
+    },
+  };
+});
 
 beforeEach(() => {
   vi.resetModules();
   vi.clearAllMocks();
-  vi.stubEnv("RIME_API_KEY", "test-key");
+  vi.stubEnv("LIVEKIT_API_KEY", "test-key");
+  vi.stubEnv("LIVEKIT_API_SECRET", "test-secret");
 });
 afterEach(() => vi.unstubAllEnvs());
 

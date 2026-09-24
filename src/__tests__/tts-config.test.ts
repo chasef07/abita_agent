@@ -15,7 +15,7 @@ import {
 } from "../customers/abita/profile.js";
 
 describe("TTS config", () => {
-  it("uses Rime segment never for every office", () => {
+  it("uses LiveKit Inference Rime for every office", () => {
     const trunkPhones = [
       SPRING_HILL_OFFICE_PHONE,
       CRYSTAL_RIVER_OFFICE_PHONE,
@@ -28,24 +28,21 @@ describe("TTS config", () => {
     ];
 
     for (const trunkPhone of trunkPhones) {
-      expect(getRimeTtsOptions({ trunkPhone }).segment).toBe("never");
+      expect(getRimeTtsOptions({ trunkPhone }).model).toBe("rime/coda");
     }
   });
 
-  it("builds the Rime websocket config with documented language option names", () => {
+  it("builds the LiveKit Inference config with two-letter language codes", () => {
     expect(
       getRimeTtsOptions({
         language: "en",
         trunkPhone: CRYSTAL_RIVER_OFFICE_PHONE,
       }),
     ).toEqual({
-      modelId: "coda",
-      speaker: "wawona",
-      lang: "eng",
-      useWebsocket: true,
-      segment: "never",
-      baseURL: "wss://users-east-ws.rime.ai",
-      samplingRate: 16000,
+      model: "rime/coda",
+      voice: "wawona",
+      language: "en",
+      sampleRate: 16000,
     });
 
     expect(
@@ -53,39 +50,36 @@ describe("TTS config", () => {
         language: "es",
         trunkPhone: CRYSTAL_RIVER_OFFICE_PHONE,
       }),
-    ).not.toHaveProperty("language");
+    ).toHaveProperty("language", "es");
   });
 
-  it("returns only mutable Rime language options for switch edges", () => {
+  it("returns mutable Inference language and voice options for switch edges", () => {
     expect(getRimeTtsOptionsByLanguage(SWEETWATER_OFFICE_PHONE)).toEqual({
       en: {
-        lang: "eng",
-        speaker: "luz",
+        language: "en",
+        voice: "luz",
       },
       es: {
-        lang: "spa",
-        speaker: "luz",
+        language: "es",
+        voice: "luz",
       },
     });
   });
 
-  it("uses the production Rime websocket configuration for the demo office", () => {
+  it("uses the production Inference configuration for the demo office", () => {
     expect(
       getRimeTtsOptions({ trunkPhone: RHEUMATOLOGY_DEMO_TRUNK_PHONE }),
     ).toEqual({
-      modelId: "coda",
-      speaker: "wawona",
-      lang: "eng",
-      useWebsocket: true,
-      segment: "never",
-      baseURL: "wss://users-east-ws.rime.ai",
-      samplingRate: 16000,
+      model: "rime/coda",
+      voice: "wawona",
+      language: "en",
+      sampleRate: 16000,
     });
     expect(
       getRimeTtsOptions({
         language: "es",
         trunkPhone: RHEUMATOLOGY_DEMO_TRUNK_PHONE,
       }),
-    ).toMatchObject({ lang: "spa", speaker: "luz" });
+    ).toMatchObject({ language: "es", voice: "luz" });
   });
 });

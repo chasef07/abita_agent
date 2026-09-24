@@ -1,9 +1,9 @@
 import {
   DEFAULT_API_CONNECT_OPTIONS,
   initializeLogger,
+  inference,
   tts as livekitTts,
 } from "@livekit/agents";
-import * as rime from "@livekit/agents-plugin-rime";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { getOfficeProfiles } from "../src/customers/abita/profile.js";
@@ -11,7 +11,6 @@ import { greetingAudioPath } from "../src/runtime/greeting-audio.js";
 import { getRimeTtsOptions } from "../src/tts-config.js";
 
 initializeLogger({ level: "silent", pretty: false });
-if (!process.env.RIME_API_KEY) throw new Error("RIME_API_KEY is required");
 
 const generated = new Set<string>();
 for (const office of getOfficeProfiles()) {
@@ -19,7 +18,7 @@ for (const office of getOfficeProfiles()) {
   const path = greetingAudioPath(trunkPhone);
   if (generated.has(path)) continue;
   const options = getRimeTtsOptions({ trunkPhone });
-  const tts = new rime.TTS(options);
+  const tts = new inference.TTS(options);
   let failed = false;
   let complete = false;
   tts.on("error", () => {
@@ -37,7 +36,7 @@ for (const office of getOfficeProfiles()) {
       if (event === livekitTts.SynthesizeStream.END_OF_STREAM) continue;
       const { frame } = event;
       complete = event.final;
-      if (frame.sampleRate !== options.samplingRate || frame.channels !== 1) {
+      if (frame.sampleRate !== options.sampleRate || frame.channels !== 1) {
         throw new Error(`Unexpected greeting audio format: ${office.key}`);
       }
       chunks.push(
@@ -56,7 +55,7 @@ for (const office of getOfficeProfiles()) {
   if (
     failed ||
     !complete ||
-    pcm.length < options.samplingRate * 2 ||
+    pcm.length < options.sampleRate * 2 ||
     pcm.length % 2 !== 0
   ) {
     throw new Error(`Incomplete greeting audio: ${office.key}`);
@@ -69,8 +68,8 @@ for (const office of getOfficeProfiles()) {
   header.writeUInt32LE(16, 16);
   header.writeUInt16LE(1, 20);
   header.writeUInt16LE(1, 22);
-  header.writeUInt32LE(options.samplingRate, 24);
-  header.writeUInt32LE(options.samplingRate * 2, 28);
+  header.writeUInt32LE(options.sampleRate, 24);
+  header.writeUInt32LE(options.sampleRate * 2, 28);
   header.writeUInt16LE(2, 32);
   header.writeUInt16LE(16, 34);
   header.write("data", 36);
@@ -79,6 +78,6 @@ for (const office of getOfficeProfiles()) {
   await writeFile(path, Buffer.concat([header, pcm]));
   generated.add(path);
   console.log(
-    `${office.key}: ${(pcm.length / (options.samplingRate * 2)).toFixed(2)}s -> ${path}`,
+    `${office.key}: ${(pcm.length / (options.sampleRate * 2)).toFixed(2)}s -> ${path}`,
   );
 }
